@@ -66,6 +66,7 @@ srun python -u `which torchrun` \
     --rdzv_backend=c10d \
     --rdzv_endpoint=$SLURMD_NODENAME:29500 \
         train.py distribution=ddp server=leonardo data=Leonardo_smallest8_2_3d \
+            hydra.run.dir=outputs/\${now:%Y-%m-%d}/$SLURM_JOB_ID \
             ++experiment_dir=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs \
             name=anchor_hidden768_depth12_mlp2048_multinode trainer.grad_acc_steps=4 optimizer=adam optimizer.lr=0.0002 \
             logger.wandb_project_name="walrus_leonardo_scaling_multinode" \

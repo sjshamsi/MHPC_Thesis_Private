@@ -34,10 +34,17 @@
 #     script's name is itself another script's name + "-" + suffix (e.g. "run" and
 #     "run-large"), this boundary stops being sufficient to tell them apart. That's
 #     exactly what the dry-run listing below is for - read it before passing --delete.
-#   - WandB offline-run dir(s): found via each matched experiment folder's
-#     wandb_run_id.txt (see walrus/train.py::get_or_create_wandb_run_id), matched by the
-#     *entire* run id as the glob suffix - wandb run ids are generated to be unique, so
-#     there's no meaningful collision risk here.
+#   - WandB offline-run dir(s): found two ways, and the union is deleted:
+#     (a) via each matched experiment folder's wandb_run_id.txt (see
+#         walrus/train.py::get_or_create_wandb_run_id), matched by the *entire* run id as
+#         the glob suffix - wandb run ids are unique, so no collision risk.
+#     (b) by scanning the SLURM log dir for wandb's "Run data is saved locally in
+#         <...>/wandb/offline-run-<ts>-<id>" startup line. This is the ONLY link for
+#         validation_mode runs (val_pretrained_*, etc.): train.py writes wandb_run_id.txt
+#         only for training launches - get_or_create_wandb_run_id is skipped when
+#         cfg.validation_mode - so (a) finds nothing for them. (b) needs the SLURM logs to
+#         still be present; they're removed in this same cleanup, so a validation run's
+#         offline-run dir is only findable until then.
 
 set -euo pipefail
 shopt -s nullglob
@@ -68,7 +75,7 @@ for arg in "$@"; do
     esac
 done
 
-LOGS_DIR="/leonardo_scratch/fast/ICT26_MHPC_0/sshamsi/logs"
+LOGS_DIR="/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs"
 
 SBATCH_JOB_NAME="$(grep -m1 -oP '(?<=#SBATCH --job-name=).+' "$SCRIPT_PATH" || true)"
 if [ -z "$SBATCH_JOB_NAME" ]; then
@@ -107,6 +114,7 @@ slurm_dir="$LOGS_DIR/slurm/$SBATCH_JOB_NAME"
 experiment_dirs=("$LOGS_DIR/${HYDRA_NAME}-"*/)
 
 wandb_dirs=()
+# (a) via wandb_run_id.txt persisted in the experiment folder - training launches only
 for exp_dir in "${experiment_dirs[@]}"; do
     while IFS= read -r id_file; do
         run_id="$(cat "$id_file")"
@@ -116,6 +124,18 @@ for exp_dir in "${experiment_dirs[@]}"; do
         done
     done < <(find "$exp_dir" -maxdepth 2 -name wandb_run_id.txt 2>/dev/null)
 done
+# (b) via wandb's "Run data is saved locally in <dir>" startup line in the SLURM logs -
+# the only link for validation_mode runs, which never write wandb_run_id.txt.
+if [ -d "$slurm_dir" ]; then
+    while IFS= read -r wandb_dir; do
+        case "$wandb_dir" in */wandb/offline-run-*) ;; *) continue ;; esac
+        [ -d "$wandb_dir" ] && wandb_dirs+=("$wandb_dir")
+    done < <(grep -rhoP '(?<=Run data is saved locally in )\S+' "$slurm_dir" 2>/dev/null | sort -u)
+fi
+# De-duplicate - a training run is found by both (a) and (b)
+if [ "${#wandb_dirs[@]}" -gt 0 ]; then
+    mapfile -t wandb_dirs < <(printf '%s\n' "${wandb_dirs[@]}" | sort -u)
+fi
 
 echo "=== Paths that will be targeted ==="
 echo "--- SLURM log dir ---"

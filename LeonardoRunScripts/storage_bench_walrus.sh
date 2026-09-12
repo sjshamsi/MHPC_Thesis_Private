@@ -79,6 +79,7 @@ for i in "${!PATHS[@]}"; do
         --rdzv_backend=c10d \
         --rdzv_endpoint=$SLURMD_NODENAME:$port \
             train.py distribution=ddp server=leonardo data=debug model=debug trainer=debug \
+                hydra.run.dir=outputs/\${now:%Y-%m-%d}/${SLURM_JOB_ID}_${i} \
                 ++data.well_base_path="$p/" \
                 ++experiment_dir=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs \
                 name=storage_bench_walrus_path${i} \

@@ -40,6 +40,7 @@ srun python -u `which torchrun` \
     --rdzv_backend=c10d \
     --rdzv_endpoint=$SLURMD_NODENAME:29500 \
         train.py distribution=ddp server=leonardo data=debug model=debug trainer=debug \
+            hydra.run.dir=outputs/\${now:%Y-%m-%d}/$SLURM_JOB_ID \
             ++experiment_dir=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs \
             name=smoke_test logger.wandb_project_name=walrus_leonardo \
             data_workers=2 auto_resume=False

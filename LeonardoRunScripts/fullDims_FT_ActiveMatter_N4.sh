@@ -83,6 +83,7 @@ srun python -u `which torchrun` \
     --rdzv_backend=c10d \
     --rdzv_endpoint=$SLURMD_NODENAME:29500 \
         train.py \
+            hydra.run.dir=outputs/\${now:%Y-%m-%d}/$SLURM_JOB_ID \
             distribution=fsdp \
             model=isotropic_model \
             name=fullDims_FT_ActiveMatter_N4 \

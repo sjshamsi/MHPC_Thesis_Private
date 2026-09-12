@@ -62,6 +62,7 @@ srun python -u `which torchrun` \
     --rdzv_backend=c10d \
     --rdzv_endpoint=$SLURMD_NODENAME:29500 \
         train.py \
+            hydra.run.dir=outputs/\${now:%Y-%m-%d}/$SLURM_JOB_ID \
             distribution=hsdp \
             distribution.local_size=4 \
             server=leonardo \

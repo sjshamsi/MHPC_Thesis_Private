@@ -89,6 +89,7 @@ srun python -u `which torchrun` \\
     --rdzv_backend=c10d \\
     --rdzv_endpoint=$SLURMD_NODENAME:29500 \\
         train.py distribution=ddp server=leonardo data=Leonardo_smallest8_2_3d \\
+            hydra.run.dir=outputs/\${{now:%Y-%m-%d}}/$SLURM_JOB_ID \\
             ++experiment_dir={experiment_dir} \\
             name={job_name} trainer.grad_acc_steps=4 optimizer=adam optimizer.lr={lr} \\
             logger.wandb_project_name="{wandb_project}" \\

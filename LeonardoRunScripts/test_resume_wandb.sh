@@ -106,6 +106,7 @@ for i in "${!MAX_EPOCHS[@]}"; do
         --rdzv_backend=c10d \
         --rdzv_endpoint=$SLURMD_NODENAME:29500 \
             train.py "${COMMON_ARGS[@]}" auto_resume=$auto_resume trainer.max_epoch=$max_epoch \
+            hydra.run.dir=outputs/\${now:%Y-%m-%d}/${SLURM_JOB_ID}_phase${phase_num} \
         2>&1 | tee "$phase_log"
     phase_status=${PIPESTATUS[0]}
     if [[ $phase_status -ne 0 ]]; then

@@ -1,35 +1,120 @@
-## Walrus architecture-scaling runs on Leonardo
+# WALRUS architecture-scaling
+How does the WALRUS FPM work when certain dimensions in its architecture are varied? The runs are written as SLURM scripts formatted with various Hydra parameters. These parameters contain architectural dimension parameters and much more. On CINECA's Leonardo, we tun it on the Boost partition (4x A100 64GB/node).
 
-Mirrors the pattern in `../ExampleRunScripts` (Hydra CLI overrides templated into SLURM
-scripts), retargeted at CINECA Leonardo (`boost_usr_prod`, account `ICT26_MHPC_0`, 4x A100/node)
-and the `env1` Python environment.
+## Environment
+We'd want to try multiple environments in case that affects performance. We store environments in $PYENVDIR (`/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs`).
 
-### Environment
+When we install the `walrus` package, it is installed editable (`pip install -e /leonardo/home/userexternal/sshamsi0/MHPC_Thesis`) so we can mess around with the source code in our repo live.
 
-`env1` (`/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1`) is a plain venv (no
-`--system-site-packages`) built from a pyenv-managed Python 3.11.9, with `torch==2.5.1+cu121`,
-`torchvision==0.20.1+cu121`, `torchaudio==2.5.1+cu121`, and the rest of `pyproject.toml`'s
-dependencies, plus `walrus` installed editable (`pip install -e /leonardo/home/userexternal/sshamsi0/MHPC_Thesis`)
-so source edits under this repo's `walrus/` take effect immediately. (This editable install used
-to point at a since-removed `~/Walrus` checkout — if `import walrus` ever fails again with
-`ModuleNotFoundError`, re-run that `pip install -e` from the repo root.) Every script here does
-`module purge; module load python; module load cuda/12.2`
-before activating it — `module purge` is required because the login/compute node's default
-profile auto-loads `cineca-ai/4.3.0`, which injects an older `torch` (2.2.0a0) onto `PYTHONPATH`
-ahead of the venv and silently shadows it otherwise.
+WALRUS's `pyproject.toml` suggests that we need `torch==2.5.1`, `torchvision==0.20.1`, `torchaudio==2.5.1`, `torchinfo>=1.8.0,<2`. `torch 2.5.1` ships with the CUDA wheels CUDA 11.8, 12.1, and 12.4.
 
-### Three tiers
+Leonardo's `python/3.11.7` module uses the Python at `/leonardo/prod/spack/06/install/0.22/linux-rhel8-icelake/gcc-8.5.0/python-3.11.7-ziwh63aulhhzxksf42k5u3gnim2rbpmp/bin/python3.11`. Since is is a Cineca installation, it might be optimised in some way. Laonardo alsao has CUDA modules for versions 11.8, 12.1, 12.2, 12.3, 12.6.
 
-1. **`smoke_test.sh`** — hand-written, not generated. Tiny model + tiny data
-   (`data=debug model=debug`, `active_matter`, `max_samples=8`), `boost_qos_dbg` (max 30 min).
-   Run this first to confirm the whole chain works: modules → venv → torchrun → data loading from
-   our downloaded dataset path → training → checkpoint → logging.
+Leonardo's `cineca-ai/4.3.0` is the latest version under the `deeplrn` profile. It boasts `torch 2.2.0a0+git6c8c5ad+cu121`.
+
+`env1` (`/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1`) uses Leonardo's `python/3.11.7` module as the base Python. We then install `torch==2.5.1+cu121`, `torchvision==0.20.1+cu121`, `torchaudio==2.5.1+cu121` manually, and allow `pip` to install the rest from `pyproject.toml`'s
+dependencies.
+
+## Storage placement benchmark
+Where do we place The Well's data and our checkpoints? Checkpoint reading and writing is infrequent enough to probbaly not matter, but we should still care about our data. We have two active Cineca projects, one associated with the Boost partition and one with the DCGP partition. Each project has a `$WORK` and a `$FAST` partition for large poersistent storage, each of size 1 TB by default. This gives us four possible locations to put data in. `storage_bench.sh` and `storage_bench_walrus.sh` empirically compare the four.
+
+1. **`storage_bench.sh`** (+ `storage_bench_io.py`) measures raw sequential and parallel random-window write/read throughput out of a real Well HDF5 file. This hopefully mirrors how `MixedWellDataModule`'s multi-worker `DataLoader` actually samples. We run this from a compute node. We find no difference between the four.
+
+2. **`storage_bench_walrus.sh`** stages a small `active_matter` subset (~1.5GB) under each of the four candidate paths and runs `train.py` + `model=debug` (so GPU compute is negligible and any timing gap is due to storage) for a few hundred steps each, back to back on the same GPU/node. We compare the per-batch timing that `Trainer.run_epoch` in `walrus/trainer/training.py` logs. The script removes the staged files at the end of each path's block.
+
+We saw no different so we put things whereever we pleased.
+
+
+## Logs, checkpoints, W&B
+**Where do run artifacts go?** Every run script sets `++experiment_dir=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs`, so each run's `extended_config.yaml` and `checkpoints/` land under `logs/<name>/<auto-incrementing-run-idx>/`. `<name>` is auto-decorated by WALRUS (`/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/configs/config.yaml` has a switch `automatic_setup: True` which enables this behaviour and we never change it) with model/optimizer descriptors, so `name=smoke_test` in a run file would result in a folder like `smoke_test-debug-delta-Isotr[Space-Adapt-]-AdamW-0.0002/`.
+
+We always export `WANDB_MODE=offline` in our run scripts because Leonardo's compute nodes have no outbound internet. We also export `WANDB_DIR=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs` which redirects wandb's local run
+logs there (its default is `cwd`).
+
+SLURM stdout/stderr go to `logs/slurm/<job_name>/<job_id>.out`/`.err` under a subdirectory with the same name as `--job-name`, which keep sthings a little neater. The `./submit.sh` is there to create the subdirectory named `--job-name` before forwarding to `sbatch`. We do not do this for generated scripts, or scripts generated from our `.py` files like `gen_star_search_runs.py` because they create the dir from the `.py` file.
+
+
+**Resuming vs. starting fresh under the same job name** when a job is run and `auto_resume=True`, `configure_experiment` in `walrus/utils/experiment_utils.py` picks up the latest existing `<run-idx>` folder in the auto-decorated dir WALRUS generates from that run. This is nice when a run job times out and we want to resume it from it left off to continue the training. Since the Boost QOS available to us has a max time of 24 hours, this happens a lot.
+
+W&B logs also piggybacks on the same folder. The first time an experiment folder is created `walrus/train.py::get_or_create_wandb_run_id` generates a W&B run id and writes it to `<run-idx>/wandb_run_id.txt`. Every later launch that resolves to that same folder (which will happen if you resubmit the same run file) reads the ID back and passes it to `wandb.in (id=..., resume="allow")`. Thus W&B logs for runs from identical run files (when `auto_resume=True`) will share a W&B ID. BUT to make sure the history from various W&B runs with the same ID line up correctly, we need to pass in a `step=` on every `wandb.log()` for its internal step counter, or else it will start from step 0 internally and clobber the previous history. `Trainer.train()` in `walrus/trainer/training.py` passes `step=epoch` to every `wandb.log()` call so this does not happen. This way, W&B offline logs from the same run file are joined together instead of bing completely new runs unto themselves. W&B still writes a fresh local `offline-run-<timestamp>-<id>/` directory per launch though, but that is okay. They all join together when we sync them.
+
+To recap,
+```
+./submit.sh anchor_dimension_run.sh                                   # resume latest run (default)
+./submit.sh --export=ALL,AUTO_RESUME=False anchor_dimension_run.sh    # force a brand-new run_idx + W&B run
+```
+
+**Resubmitting to continue a run after a timeout** After a run is done, you can just use `./submit.sh` as shown above to continue that run. But we need not wait till one particular run is over. We can use the SLURM `--dependency=singleton` option to line up a bunch of jobs from the same run file, waiting to run sequentially as soon as their predecessor is done. `--dependency=singleton` makes SLURM hold the new submission until no job with that script's
+`--job-name` is still pending/running so we can't accidentally double-submit while the
+timed-out job is still draining.
+
+```
+./submit.sh --dependency=singleton anchor_dimension_run.sh`
+```
+
+If you line up too many jobs from a single run, and it is done training through the specified number of epochs, the subsequent jobs will still execute, not train, and just do the final validation/test.
+
+## Job submission and W&B cheat sheet
+
+**One-time W&B setup**
+On the login node:
+```
+module purge
+source /leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/bin/activate
+wandb login   # paste an API key from https://wandb.ai/authorize, or: wandb login <KEY>
+```
+This writes credentials to `~/.netrc` used by `wandb sync`.
+
+
+**Job Submission**
+
+- To resume a run that timed out or crashed, resubmit the same script with the same CLI overrides `./submit.sh <script>.sh` (add `--dependency=singleton` to line up a bunch of jobs). You can increase `trainer.max_epoch` between submissions is fine as that doesn't affect model details, just how much things run.
+- To start a new, independent run, do `./submit.sh --export=ALL,AUTO_RESUME=False <script>.sh`. It'll have the same `name=`, but a brand-new `<run-idx>` folder, fresh weights, and a fresh W&B run. Still it is better to give the run a new name, even if it is to add a little number at the end of the name, indicating a repeat.
+- Be sure to change the name, even for slightly different runs. `get_experiment_name` in `walrus/utils/experiment_utils.py` builds the on-disk folder name as
+`{name}-{data}-{prediction_type}-{model}[{encoder}-{decoder}-{processor}]-{optimizer}-{lr}`. It does not create a forlder name for properties like `model.hidden_dim`, `processor_blocks`, `mlp_dim`, `num_heads`, `batch_size`, `trainer.max_epoch`, or basically anything else. So if we simply copy a run and change, say, `trainer.max_epoch`, and nothing else, then the problems might happen:
+   - Two runs that differ in un-encoded values (e.g. `hidden_dim` sweep) but
+  share the same `name=`/data/model-class/optimizer/lr will resolve to the same folder and
+  silently resume into each other's checkpoint instead of running independently.
+   - On the flip side, if you're trying to resume a run but tweak something that is part of the decorated name (e.g. nudge `optimizer.lr`), you will silently land in a brand-new `<run-idx>` folder with fresh weights instead of continuing.
+
+
+**Syncing W&B**
+
+Syncing a single specific job run (not autoresumed):
+```
+wandb sync /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/wandb/offline-run-<timestamp>-<id>
+```
+
+Sync all the single job runs (not autoresumed) you have what aren't yet synced:
+```
+cd /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs && wandb sync --sync-all
+```
+
+If we need to sync all, including previously synced runs:
+```
+cd /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs && wandb sync --sync-all --include-synced
+```
+
+If a run was ever resumed (`auto_resume=True`) add `--append` so the later offline directories attach to the same online run instead of each creating a separate one:
+```
+cd /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs && wandb sync --sync-all --append --include-offline --include-globs="run-<run-id>.wandb"
+```
+
+Just sync everyhting in the `wandb` dir, single or continuous runs, whether partially or fully synced:
+```
+cd /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs && wandb sync --sync-all --append --include-offline
+```
+
+## Notes on some run files we have
+- **`smoke_test.sh`** Tiny model + tiny data
+   (`data=debug model=debug`, `active_matter`, `max_samples=8`). Can run on `boost_qos_dbg` (under 30 min). This can help confirm the run chain `modules → venv → torchrun → data loading from downloaded dataset path → training → checkpoint → logging` works. Run with:
+
    ```
    ./submit.sh smoke_test.sh
    ```
-   A checkpoint should appear under `/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/smoke_test/0/checkpoints/`.
+   and a checkpoint should appear under `/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/smoke_test/0/checkpoints/` (double check this because we tend to chnage paths a lot.)
 
-2. **`gen_star_search_runs.py`** — generator for the real architecture star search. Vary one axis
+- **`gen_star_search_runs.py`** — generator for the real architecture star search. Vary one axis
    (`model.hidden_dim`, `model.processor_blocks`, `model.processor.space_mixing.mlp_dim`) at a
    time around a base anchor (edit the `base`/`options` dicts at the top of the file to change
    the sweep), using `data=Leonardo_smallest4_2d` (3 of the datasets actually downloaded under this
@@ -90,163 +175,8 @@ ahead of the venv and silently shadows it otherwise.
    ./submit.sh anchor_dimension_run.sh
    ```
 
-### Storage placement benchmark
 
-Before committing to a `well_base_path` for the real dataset copy, `storage_bench.sh` +
-`storage_bench_walrus.sh` empirically compare the four Leonardo storage candidates
-(`leonardo_work` vs. `leonardo_scratch/fast`, under either the `ICT26_MHPC_0` or `ICT26_MHPC`
-project) rather than guessing from filesystem specs alone.
 
-1. **`storage_bench.sh`** (+ `storage_bench_io.py`) - raw sequential write/read throughput plus
-   parallel random-window reads out of a real Well HDF5 file (mirroring how
-   `MixedWellDataModule`'s multi-worker `DataLoader` actually samples), run from a compute node
-   (not the login node) so the numbers reflect what a training job sees. Cheap: 1 GPU/8 CPUs,
-   `boost_qos_dbg`, no `--exclusive`. Bench files are deleted immediately after each phase.
-   ```
-   ./submit.sh storage_bench.sh
-   ```
-2. **`storage_bench_walrus.sh`** - the authoritative check: stages a small `active_matter` subset
-   (~1.5GB) under each of the four candidate paths in turn and runs the real `train.py` +
-   `model=debug` (hidden_dim=8, so GPU compute is negligible and any timing gap is attributable to
-   storage) for a few hundred steps each, back to back on the same GPU/node. Compare the per-batch
-   `data <x>s` timing that `Trainer.run_epoch` (`walrus/trainer/training.py`) logs per path - see
-   the script's header comment for the exact `grep`/`awk` to average it. Staged files are removed
-   at the end of each path's block.
-   ```
-   ./submit.sh storage_bench_walrus.sh
-   ```
-
-Both scripts hardcode `PATHS` arrays at the top - edit those (or comment one out) rather than
-templating a generator, since this is a one-off comparison, not a sweep. **As of 2026-08-24,
-`cinQuota` shows `/leonardo_scratch/fast/ICT26_MHPC_0` already over its 1T quota** (grace period) -
-check `cinQuota` before including that path, since these scripts still write (small, transient)
-files there.
-
-### Logs, checkpoints, W&B
-
-Every script sets `++experiment_dir=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs`, so each
-run's `extended_config.yaml` snapshot and `checkpoints/` land under
-`logs/<name>/<auto-incrementing-run-idx>/`. Note `<name>` is auto-decorated by Walrus
-(`automatic_setup: True`) with model/optimizer descriptors, e.g. `name=smoke_test` becomes a
-folder like `smoke_test-debug-delta-Isotr[Space-Adapt-]-AdamW-0.0002/`.
-
-`WANDB_MODE=offline` is set everywhere since Leonardo's compute nodes have no outbound internet,
-and `WANDB_DIR=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs` redirects wandb's local run
-storage there too (its default is the current working directory, which would otherwise dump
-`wandb/offline-run-*/` folders into the repo checkout under your home directory).
-
-**SLURM stdout/stderr** go to `logs/slurm/<job_name>/<job_id>.out`/`.err` — grouped in a
-subdirectory per `--job-name` rather than one flat pile, so all the SLURM output for a given
-named experiment (e.g. every resubmission of `walrus_full_dimension` across its 24h chunks) sorts
-together. SLURM does **not** create that `<job_name>` subdirectory itself, so submit hand-written
-scripts through the `./submit.sh` wrapper (e.g. `./submit.sh anchor_dimension_run.sh`) instead of
-calling `sbatch` directly — it `mkdir -p`s the log directory first, then forwards to `sbatch`.
-Generated scripts (`star_search_run_N.sh`, `tuning_run_N.sh`) don't need this: their generators
-(`gen_star_search_runs.py`, `gen_tuning_scripts.py`) already create the directory when they write
-each script, so plain `sbatch star_search_run_3.sh` / `bash run_star_search_all.sh` is fine.
-
-**Resuming vs. starting fresh under the same job name**: `configure_experiment`
-(`walrus/utils/experiment_utils.py`) picks up the *latest* existing `<run-idx>` folder whenever
-`auto_resume=True` and a previous run already exists under that experiment name — this is exactly
-what you want when a job times out and you resubmit the same script to continue it. Training
-resume follows the checkpoint in that folder as usual. W&B resume piggybacks on the same folder:
-the first time an experiment folder is created, `walrus/train.py::get_or_create_wandb_run_id`
-generates a W&B run id and writes it to `<run-idx>/wandb_run_id.txt`; every later launch that
-resolves to that same folder reads the id back and passes it to `wandb.init(id=..., resume="allow")`,
-so the new offline run reattaches to the same W&B run instead of starting a separate one. Since
-`WANDB_MODE=offline` still writes a fresh local `offline-run-<timestamp>-<id>/` directory per
-launch, this only takes effect once you `wandb sync` those directories (see below) — but because
-they share an `id`, syncing them all with `--append` (see below) merges into one online run's
-history rather than several. Sharing an `id` alone isn't enough for that history to line up
-correctly, though: each launch is a fresh process, so without an explicit `step=` on every
-`wandb.log()` call its internal step counter would restart at 0 every time and each resumed
-launch would overwrite the previous one's history instead of extending it. `Trainer.train()`
-(`walrus/trainer/training.py`) passes `step=epoch` to every `wandb.log()` call specifically so
-each launch's data lands at its own non-overlapping, globally-meaningful step.
-
-Blindly re-running the same script to start an unrelated fresh attempt (e.g. after tweaking
-something that isn't part of the auto-decorated experiment name) would otherwise silently merge
-into the old run's checkpoints and W&B history instead of registering as new. Every non-smoke-test
-script here exposes this as an overridable `AUTO_RESUME` env var (default `True`, i.e. today's
-resume behavior unchanged):
-```
-./submit.sh anchor_dimension_run.sh                                   # resume latest run (default)
-./submit.sh --export=ALL,AUTO_RESUME=False anchor_dimension_run.sh    # force a brand-new run_idx + W&B run
-```
-(`smoke_test.sh` always passes `auto_resume=False` directly — a smoke test should never resume.)
-
-**Resubmitting after a timeout**: there's no automatic requeue — when a job hits its `--time`
-limit, resubmit the same script by hand, e.g. `./submit.sh --dependency=singleton anchor_dimension_run.sh`.
-`--dependency=singleton` makes SLURM hold the new submission until no job with that script's
-`--job-name` is still pending/running for you, so you can't accidentally double-submit while the
-timed-out job is still draining; the multinode scripts already bake this into their `#SBATCH`
-header, but it's equally safe to pass it as an extra `submit.sh`/`sbatch` argument for the
-single-node ones. (An earlier `watch_and_resubmit.sh` poller that automated this loop has been
-removed — it predated `--dependency=singleton` and had no awareness of the W&B run-id continuation
-above, so a manual resubmit is now the supported path.)
-
-**Queueing several resumptions ahead of time**: `--dependency=singleton` isn't limited to "one
-resubmit after the fact" — SLURM's own semantics for it are "begin execution after *any*
-previously launched jobs sharing this job name and user have terminated" (completed, failed, or
-timed out all count), not just the immediately preceding one. So submitting the same script
-several times in a row up front,
-```
-./submit.sh --dependency=singleton anchor_dimension_run.sh
-./submit.sh --dependency=singleton anchor_dimension_run.sh
-./submit.sh --dependency=singleton anchor_dimension_run.sh
-```
-serializes them: the 2nd waits for the 1st to terminate, the 3rd waits for *both* the 1st and 2nd,
-which in practice means they run strictly one at a time in submission order, each auto-resuming
-from whatever checkpoint the previous one left. Two things worth knowing before relying on this:
-account/QOS submit limits (`sacctmgr show assoc` / `show qos` — `boost_qos_dbg` in particular caps
-submitted jobs per user quite low) can reject queueing too many at once; and a queued job that
-starts after training has already reached `max_epoch` isn't free — it still launches, finds
-nothing left to train, and just runs the final test-validation pass before exiting, so queue
-roughly the count you actually expect to need rather than padding it.
-
-### Job submission cheat sheet: resume, fresh, or avoiding collisions
-
-Everything above explains the *mechanism*; this is the actionable version.
-
-**To resume a run that timed out or crashed:**
-1. Resubmit the exact same script with the exact same CLI overrides, unchanged (add
-   `--dependency=singleton` if you want the double-submit guard from above; several such
-   submissions queued up front will run one after another automatically, see below).
-2. That's it — `auto_resume=True` (the default) makes `configure_experiment` find the same
-   `<run-idx>` folder, load `checkpoints/last`, and reattach to the same `wandb_run_id.txt`.
-3. **Don't change anything under `model.*`** (`hidden_dim`, `processor_blocks`, `mlp_dim`,
-   `num_heads`, encoder/decoder/processor choice, etc.) between submissions of the same run.
-   `frozen_components` in `experiment/defaults.yaml` documents an intent to auto-import the old
-   model config on resume, but only `frozen_components: [all]` is actually implemented
-   (`configure_experiment` in `walrus/utils/experiment_utils.py`) — the default `[model]` value
-   does **not** currently protect you, so an architecture change here will try to load a
-   checkpoint into a differently-shaped model instead of erroring cleanly.
-4. Increasing `trainer.max_epoch` between submissions is fine and expected (that's exactly what
-   `test_resume_wandb.sh` exercises) — it's a loop bound, not part of any checkpointed shape.
-
-**To start a genuinely new, independent run:**
-- If the script exposes `AUTO_RESUME` (every hand-written script here except `smoke_test.sh`
-  does): `./submit.sh --export=ALL,AUTO_RESUME=False <script>.sh`. Same `name=`, but a brand-new
-  `<run-idx>` folder, fresh weights, and a fresh W&B run — nothing from the old run carries over.
-- Otherwise, or as a more explicit alternative: give it a different `name=`. This always creates a
-  new folder regardless of `auto_resume`, since the folder path starts from `name`.
-
-**Avoiding accidental collisions — how the folder name actually works:** `get_experiment_name`
-(`walrus/utils/experiment_utils.py`) builds the on-disk folder name as
-`{name}-{data}-{prediction_type}-{model}[{encoder}-{decoder}-{processor}]-{optimizer}-{lr}` —
-your `name=`, the data config's `wandb_data_name`, `trainer.prediction_type`, and the *class
-names* of model/encoder/decoder/processor/optimizer plus `optimizer.lr`. Notably, it does **not**
-include `model.hidden_dim`, `processor_blocks`, `mlp_dim`, `num_heads`, `batch_size`,
-`trainer.max_epoch`, or basically anything else you'd typically sweep. Two consequences:
-- Two runs that differ only in one of those un-encoded values (e.g. a `hidden_dim` sweep) but
-  share the same `name=`/data/model-class/optimizer/lr will resolve to the **same** folder and
-  silently resume into each other's checkpoint instead of running independently. Always bake
-  whatever you're varying into `name=` itself if it isn't already part of the decorated name —
-  exactly what `gen_star_search_runs.py` already does
-  (`job_name = f"star{count}_hidden{hidden_dim}_depth{depth}_mlp{mlp}"`, passed as `name=`).
-- The reverse mistake is just as easy: if you're trying to *resume* a run but tweak something
-  that *is* part of the decorated name (e.g. nudge `optimizer.lr`), you won't get an error — you
-  silently land in a brand-new `<run-idx>` folder with fresh weights instead of continuing.
 
 **Testing resume + W&B continuation**: `test_resume_wandb.sh` runs the tiny `data=debug
 model=debug trainer=debug` config four times back to back under one job - a fresh 1-epoch run,
@@ -275,26 +205,3 @@ starting a new one each time.)
 Then check the `walrus_leonardo_test` project on wandb.ai for that run id — it should show up as
 a **single** run whose `train/epoch` metric rises continuously from 1 to 4, not four separate
 runs. See the script's own comments for exactly what it checks.
-
-**One-time setup** (from the login node, which has internet — compute nodes don't):
-```
-module purge
-source /leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/bin/activate
-wandb login   # paste an API key from https://wandb.ai/authorize, or: wandb login <KEY>
-```
-This writes credentials to `~/.netrc`, used by both `wandb sync` and any future online runs.
-
-**Syncing a run** afterward:
-```
-wandb sync /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/wandb/offline-run-<timestamp>-<id>
-# or sync every not-yet-synced run at once - note --sync-all always scans ./wandb relative to
-# the current directory and silently ignores any path argument, so cd there first:
-cd /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs && wandb sync --sync-all
-```
-If a run was ever resumed (`auto_resume=True` picking up an existing `wandb_run_id.txt`, see
-above), add `--append` so the later offline directories attach to the same online run instead of
-each creating a separate one:
-```
-cd /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs && wandb sync --sync-all --append \
-    --include-offline --include-globs="run-<run-id>.wandb"
-```
