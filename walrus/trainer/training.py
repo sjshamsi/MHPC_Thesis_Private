@@ -33,6 +33,11 @@ from walrus.trainer.normalization_strat import (
     BaseRevNormalization,
     normalize_target,
 )
+from walrus.utils.flops import (
+    FlopAccountant,
+    supports_flop_accounting,
+    unique_model_tokens,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -371,6 +376,16 @@ class Trainer:
             self.sampling_rank = 0
 
         self.dset_metadata = self.datamodule.train_dataset.dset_to_metadata
+        # Per-epoch compute accounting (SCALING_STRATEGY.md 5.1). Baseline wrappers are
+        # not encoder/processor/decoder models, so they simply go unaccounted.
+        if supports_flop_accounting(self.model):
+            self.flop_accountant: Optional[FlopAccountant] = FlopAccountant(
+                self.model,
+                world_size=self.world_size,
+                unique_model_tokens=unique_model_tokens(self.datamodule),
+            )
+        else:
+            self.flop_accountant = None
         self.revin = revin(self.datamodule.train_dataset, self.device)
         self.model_epsilon = (
             epsilon  # Used for compatibility with configs from before split occurred
@@ -1018,6 +1033,9 @@ class Trainer:
         train_logs: dict[str, Any] = {}
         batch_start = time.time()
         interval_start = time.time()
+        epoch_start = time.time()
+        if self.flop_accountant is not None:
+            self.flop_accountant.reset_epoch()
         # When using grad acculuation, it makes sense to zero gradient outside first, then after optimizer step
         self.optimizer.zero_grad()  # Set to none now default
         overall_batch_queue = []
@@ -1125,6 +1143,8 @@ class Trainer:
                 self.optimizer.zero_grad()  # Set to none is now default\
                 if self.lr_scheduler_per_step and self.lr_scheduler:
                     self.lr_scheduler.step()
+            if self.flop_accountant is not None:
+                self.flop_accountant.record_microbatch(dset_name)
             total_time = time.time() - batch_start
             optimizer_time = total_time - forward_time - backward_time - data_time
             # Syncing for all reduce anyway so may as well compute synchornous metrics
@@ -1164,6 +1184,9 @@ class Trainer:
             )
             i += 1
         train_logs["train_loss"] = epoch_loss
+        if self.flop_accountant is not None:
+            # Reduces across ranks, so every rank must reach this.
+            train_logs |= self.flop_accountant.epoch_metrics(time.time() - epoch_start)
         if self.gradient_log_level >= 1:
             train_logs["avg_grad_norm"] = avg_grad_norm.item()
         if self.lr_scheduler:

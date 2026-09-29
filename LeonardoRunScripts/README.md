@@ -54,6 +54,79 @@ timed-out job is still draining.
 
 If you line up too many jobs from a single run, and it is done training through the specified number of epochs, the subsequent jobs will still execute, not train, and just do the final validation/test.
 
+## Queue wait estimation
+
+`queue_eta.py` estimates how long a job will sit in the queue before it runs, and — more usefully
+— which knob would shorten that. It reads everything live from the SLURM CLIs; no config needed.
+
+```bash
+python3 LeonardoRunScripts/queue_eta.py --nodes 32 --time 12:00:00   # a run you're planning
+python3 LeonardoRunScripts/queue_eta.py --script LeonardoRunScripts/grid_run_3.sh
+python3 LeonardoRunScripts/queue_eta.py --mine                       # jobs already queued
+python3 LeonardoRunScripts/queue_eta.py --self-test                  # validate the model
+python3 LeonardoRunScripts/queue_eta.py --backtest                   # check calibration
+```
+
+It prints three independent estimates rather than one blended number, because they fail in
+different ways and their disagreement is informative:
+
+- **(a) backfill reservation** — SLURM's own answer (`squeue --start`, or `sbatch --test-only` for
+  a job not yet submitted). Exact when it exists, but only ~6% of the pending queue has one.
+- **(b) history** — Kaplan-Meier quantiles over comparable jobs from `sacct -a` (all users), so
+  right-censored jobs still waiting are counted instead of silently dropped. Each user's
+  contribution is capped: one high-throughput account submitted 1.67M of 2.08M single-node
+  `normal` jobs in 30 days and, uncapped, dragged the median wait from minutes to ~2 seconds.
+  For a job **already queued** this is *conditional on how long it has already waited*, and
+  reported as `+p50` (time still to go). That matters enormously here — see below.
+- **(c) queue drain** — ranks the job's simulated priority against *genuinely contending* pending
+  jobs (~45% of the pending list is blocked on `Dependency`/held, not priority) and drains the
+  node-hours ahead. It ignores backfill, so it is an upper bound for small jobs.
+
+History is cached under `$FAST/.../logs/queue_eta_cache/` (`--refresh` to force, `--history-days N`
+to change the window). First pull is ~1 min; later runs are a few seconds.
+
+### Waits are bimodal — read `+p50`, not `p50`
+
+Single-node `normal` jobs either backfill within minutes (the large majority) or stick for days.
+So the *unconditional* median is ~4 minutes, which is useless advice for a job that has already
+been sitting for a day: having waited that long, it is demonstrably in the stuck population.
+
+The tool therefore conditions on elapsed wait for anything already queued. Measured over 14 days
+of single-node `normal` jobs:
+
+| Already waited | Predicted remaining (p50) | Actual remaining (p50) | p90 coverage |
+|---|---|---|---|
+| 0 (fresh submit) | 2m | 2m | 91% |
+| 6h | 14.5h | 12.1h | 93% |
+| 24h | 30.3h | 26.8h | 93% |
+
+So a job 24h in should expect **another ~30 hours**, not another 4 minutes — a ~500x difference.
+`--backtest` re-runs this check; the p90 coverage should stay near 90%.
+
+The estimate is also narrowed to jobs that queued at a similar priority, which mostly affects the
+tail: within single-node `normal`, the bottom priority band has a p90 of ~13h against ~0.8h for the
+top band. With `normal` QoS and low fairshare you sit in the bottom few percent.
+
+### What the tool taught us about this cluster
+
+- **QoS dominates priority.** `PriorityWeightJobSize` is 1e7 versus 3e5 for QOS, which looks
+  decisive but is not: the `SMALL_RELATIVE_TO_TIME` flag divides job size by walltime, so the
+  job-size term is only ever 1-400 in practice. Real priority is QOS (120k-240k) ≫ fairshare
+  (0-25k) ≳ age (0-20k). Changing QoS is the only large lever.
+- **The 17-64 node band is a dead zone.** `boost_usr_prod` caps at 64 nodes, but `boost_qos_bprod`
+  only accepts 65+. A 32-node/12h job under `normal` waits ~3.6 days (p50); the same width at 65
+  nodes under `bprod` waits ~7 minutes. Either stay small or go to 65+.
+- **Backfill only tests your first 20 pending jobs per partition** (`bf_max_job_user_part=20`), so
+  submitting all ~50 `grid_run_*.sh` at once starves the tail. Submit in waves.
+- **`boost_qos_dbg` is effectively instant** (~0s median) but capped at 30 min, 8 nodes and *2 jobs
+  per user* — fine for smoke tests, unusable for a sweep.
+- **Shorter `--time` helps twice**: it fits backfill gaps and raises the job-size priority term.
+- Fairshare usage resets monthly, so a big push costs least just after a reset.
+
+Note the `--backtest` output reports a median bias: predictions track the tail well (~90% of actual
+waits land inside the predicted p90) but p50 runs optimistic when the queue is growing. Plan against
+p75/p90.
+
 ## Job submission and W&B cheat sheet
 
 **One-time W&B setup**

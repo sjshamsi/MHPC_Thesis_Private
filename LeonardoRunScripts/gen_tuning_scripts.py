@@ -1,15 +1,28 @@
 # ruff: noqa: E501
-"""Generate single-node (1x boost_usr_prod node, 4x A100) SLURM scripts that grid-search
-training/modeling hyperparameters, modeled on ExampleRunScripts/gen_tuning_scripts.py's
-sweep - but retargeted at Leonardo and at the sweep-anchor architecture (the same
-768/12/2048 base gen_star_search_runs.py holds constant) instead of paper scale, so a full
-5-axis grid is actually affordable here.
+"""*** SUPERSEDED / NOT PART OF THE LIVE PLAN. *** Not referenced anywhere in
+SCALING_STRATEGY.md. Kept only as reference/exploratory material from early planning --
+do not submit against the current substrate without redoing the work below first.
 
-Unlike gen_star_search_runs.py (which fixes hyperparameters and varies architecture size),
-this sweeps training/modeling *choices* at a fixed architecture size - complementary
-axes, not overlapping ones.
+Originally: generate single-node (1x boost_usr_prod node, 4x A100) SLURM scripts that
+grid-search training/modeling hyperparameters, modeled on
+ExampleRunScripts/gen_tuning_scripts.py's sweep - but retargeted at Leonardo and at the
+sweep-anchor architecture (768/12/2048) instead of paper scale, so a full 5-axis grid is
+actually affordable here.
 
-Usage:
+SCALING_STRATEGY.md §6 replaced this file's role for Tier 1 HP reduction with a
+purpose-built, cheaper two-extreme stability check (§6.3: one-factor-at-a-time LR/WD
+sensitivity at the grid sweep's smallest corner and HalfWalrus, not a 48-run full
+factorial at one fixed shape). This generator also predates essentially all of the Tier 0
+work and does not reflect it: no `data/field_index_map_override=full_well_field_index`
+pin (§4.1/§2.2b -- n_states would drift with whatever's on disk), no `seed=` override
+(§2.2e), `distribution=ddp` rather than the substrate's `fsdp`, and its own
+`trainer.max_epoch=21` was never checked against §7.0's warmup/cooldown-fraction/
+saturation/repetition bounds (it doesn't need to be, either -- §7.0's argument is about
+comparing *shapes* at matched compute, and this sweeps hyperparameters at one fixed
+shape, a different question). If this sweep is ever revived, it needs re-pinning to
+§4.1 first, not just a duration fix.
+
+Usage (historical):
     python gen_tuning_scripts.py
     bash run_tuning_all.sh          # submits every generated job
     # or: sbatch tuning_run_3.sh    # submit one at a time
@@ -88,7 +101,7 @@ srun python -u `which torchrun` \\
     --rdzv_id=$SLURM_JOB_ID \\
     --rdzv_backend=c10d \\
     --rdzv_endpoint=$SLURMD_NODENAME:29500 \\
-        train.py distribution=ddp server=leonardo data=Leonardo_smallest8_2_3d \\
+        train.py distribution=ddp server=leonardo data=Leonardo_smallest7_2d \\
             hydra.run.dir=outputs/\${{now:%Y-%m-%d}}/$SLURM_JOB_ID \\
             ++experiment_dir={experiment_dir} \\
             name={job_name} trainer.grad_acc_steps=4 optimizer=adam optimizer.lr={lr} \\

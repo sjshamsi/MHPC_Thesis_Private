@@ -48,18 +48,18 @@ By `IsotropicModel` from a Hydra config and looking at the input to `model.block
 | dataset shape | BCs | token grid entering processor | spatial tokens / frame |
 |---|---|---|---|
 | `256×256` (active_matter) | periodic | `(32, 32, 1)` | 1024 |
-| `512×512` (viscoelastic) | periodic | `(32, 32, 1)` | 1024 |
+| `512×512` (viscoelastic) | periodic + open | `(32, 33, 1)` | 1056 |
 | `512×128` (rayleigh_benard) | periodic | `(32, 32, 1)` | 1024 |
-| `128×384` (TRL 2D) | periodic | `(32, 32, 1)` | 1024 |
-| `256×512` (planetswe) | periodic | `(32, 32, 1)` | 1024 |
+| `128×384` (TRL 2D) | periodic + open | `(32, 33, 1)` | 1056 |
+| `256×512` (planetswe) | open + periodic | `(33, 32, 1)` | 1056 |
 | `256×256` (acoustic scattering) | open/closed | `(33, 33, 1)` | 1089 |
 | `1024×256` (helmholtz_staircase) | open/closed | `(33, 33, 1)` | 1089 |
 | `64³` (MHD_64) | periodic | `(16, 16, 16)` | 4096 |
 | `128³` (RT instability 3D) | periodic | `(16, 16, 16)` | 4096 |
 
-We can see $33 \times 33$ gridsize for datasets with non-periodic axes. This comes from the learned boundary padding in [patch_jitterers.py:210-258](../walrus/models/shared_utils/patch_jitterers.py#L210-L258) (`get_paddings` adds `(effective_patch_size - effective_stride)//2` plus `effective_stride//2` of jitter room on each non-periodic side). Periodic axes get circular padding that cancels exactly, so they land on exactly 32.
+The extra token is **per axis**, not per dataset: a dataset with one periodic and one open axis lands on $32 \times 33$, and only a fully non-periodic one reaches $33 \times 33$. This comes from the learned boundary padding in [patch_jitterers.py:210-258](../walrus/models/shared_utils/patch_jitterers.py#L210-L258) (`get_paddings` adds `(effective_patch_size - effective_stride)//2` plus `effective_stride//2` of jitter room on each non-periodic side). Periodic axes get circular padding that cancels exactly, so they land on exactly 32.
 
-Note the resolution-blindness. `1024×256` and `128×128` produce the same 1024 tokens! WALRUS deliberately trades variable physical information per token for constant compute per sample. This means that token count can be treated as a compute unit!
+Note the resolution-blindness. `512×512` and `128×384` produce the same 1056 tokens, and `256×256` and `128×128` the same 1024 — an 8x spread in pixels collapses onto one token budget. WALRUS deliberately trades variable physical information per token for constant compute per sample. This means that token count can be treated as a compute unit!
 
 ### 1.3 Time is not compressed
 
@@ -152,8 +152,12 @@ The `DataLoader` here is unusually inert. `batch_size=None` + `collate_fn=None`
 
 ### 2.2 One training micro-step, traced end to end
 
-Concrete setting — the thesis anchor: 8 datasets (7× 2D + `MHD_64` 3D), `batch_size=4`,
-`n_steps_input=6`, `n_steps_output=1`, `min_dt_stride=1`, `max_dt_stride=5`.
+Concrete setting used for this walkthrough: 8 datasets (7× 2D + `MHD_64` 3D), `batch_size=4`,
+`n_steps_input=6`, `n_steps_output=1`, `min_dt_stride=1`, `max_dt_stride=5`. **`MHD_64` is kept in
+this trace only to illustrate the dimensionality-dependent `batch_factor` mechanism below** — the
+thesis's actual fixed substrate has since moved to `Leonardo_smallest7_2d` (7 datasets, all 2D, no
+`MHD_64`; see `SCALING_STRATEGY.md` §4.1), under which `batch_factor` is always `1.0` and this
+branch never fires.
 
 1. `train_one_epoch` calls `next(data_iter)`
    ([training.py:1049](../walrus/trainer/training.py#L1049)).
@@ -302,11 +306,11 @@ Each accumulation micro-step calls `next(data_iter)` afresh
 different datasets on each rank**, and the gradient that is actually applied is a mixture. The
 "one dataset per pass" restriction is a *forward-pass* constraint, not an *update* constraint.
 
-At the 4-node anchor (`world_size=16`, `grad_acc_steps=4`, DDP): one optimizer step aggregates
-`16 × 4 = 64` independently-drawn micro-batches over 8 datasets, so in expectation each dataset
-contributes ~8 micro-batches per update, and the probability that a given dataset is absent from
-an update is `(7/8)^64 ≈ 0.02%`. Dataset balance at the *update* level is therefore very good even
-though each forward pass is single-dataset.
+At the 4-node anchor (`world_size=16`, `grad_acc_steps=4`, DDP), now on `Leonardo_smallest7_2d`:
+one optimizer step aggregates `16 × 4 = 64` independently-drawn micro-batches over 7 datasets, so
+in expectation each dataset contributes ~9 micro-batches per update, and the probability that a
+given dataset is absent from an update is `(6/7)^64 ≈ 0.005%`. Dataset balance at the *update*
+level is therefore very good even though each forward pass is single-dataset.
 
 ### 2.7 Equalising 2D and 3D cost
 
@@ -501,7 +505,7 @@ With `recycle=False`, an epoch ends when every sub-dataset has been fully consum
 "epoch" is close to a true pass.
 
 Scale of the repetition for the thesis dataset mix
-(`Leonardo_smallest8_2_3d`, sizes from the paper Table 6, `n_steps_input=6`, `dt_stride=1`,
+(`Leonardo_smallest7_2d`, sizes from the paper Table 6, `n_steps_input=6`, `dt_stride=1`,
 whole-dataset figures — the train split is ~80% of these):
 
 | dataset | resolution | steps | traj | windows/traj | unique windows | unique model tokens |
@@ -513,32 +517,34 @@ whole-dataset figures — the train split is ~80% of these):
 | turbulent_radiative_layer_2D | 128×384 | 101 | 90 | 95 | 8 550 | 9.3 M |
 | helmholtz_staircase | 1024×256 | 50 | 512 | 44 | 22 528 | 26.2 M |
 | viscoelastic_instability | 512×512 | ~20 | 260 | 14 | 3 640 | 5.3 M |
-| MHD_64 (3D) | 64³ | 100 | 100 | 97 | 9 700 | 41.0 M |
-| **total** | | | | | **1.58 M windows** | **1.67 G tokens** |
+| **total** | | | | | **1.57 M windows** | **1.63 G tokens** |
+
+`MHD_64` (3D, 64³, 41.0 M unique tokens) dropped out of the mix per the switch to
+`Leonardo_smallest7_2d` (2D-only) — see `SCALING_STRATEGY.md` §4.1. It is no longer part of any
+figure in this section.
 
 Against that, a 4-node (16-GPU) run at `max_samples=2000`, `max_epoch=21`, `batch_size=4`
 consumes `21 × 2000 × 16 × 24576 ≈ 16.5 G` tokens.
 
-**The aggregate repetition factor (16.5 / 1.67 ≈ 10×) is misleading and should not be used.**
+**The aggregate repetition factor (16.5 / 1.63 ≈ 10×) is misleading and should not be used.**
 Because the sampler picks datasets *uniformly* (`torch.randint` over `sampler_choices`,
 [mixed_dset_sampler.py:176-180](../walrus/data/mixed_dset_sampler.py#L176-L180)) rather than in
 proportion to size, every dataset receives the *same* number of micro-batches — here
-`672 000 / 8 = 84 000` each, i.e. `84 000 × 24 576 = 2.06 G` tokens delivered to each dataset
+`672 000 / 7 = 96 000` each, i.e. `96 000 × 24 576 = 2.36 G` tokens delivered to each dataset
 regardless of whether it holds 5 M or 1 230 M unique tokens. The real repetition factors:
 
 | dataset | unique tokens | tokens delivered | **repetition** |
 |---|---:|---:|---:|
-| gray_scott_reaction_diffusion | 1230.0 M | 2.06 G | **2×** |
-| acoustic_scattering_discontinuous | 208.9 M | 2.06 G | **10×** |
-| planetswe | 123.9 M | 2.06 G | **17×** |
-| MHD_64 | 41.0 M | 2.06 G | **50×** |
-| active_matter | 29.9 M | 2.06 G | **69×** |
-| helmholtz_staircase | 26.2 M | 2.06 G | **79×** |
-| turbulent_radiative_layer_2D | 9.3 M | 2.06 G | **222×** |
-| viscoelastic_instability | 5.3 M | 2.06 G | **388×** |
+| gray_scott_reaction_diffusion | 1230.0 M | 2.36 G | **2×** |
+| acoustic_scattering_discontinuous | 208.9 M | 2.36 G | **11×** |
+| planetswe | 123.9 M | 2.36 G | **19×** |
+| active_matter | 29.9 M | 2.36 G | **79×** |
+| helmholtz_staircase | 26.2 M | 2.36 G | **90×** |
+| turbulent_radiative_layer_2D | 9.3 M | 2.36 G | **254×** |
+| viscoelastic_instability | 5.3 M | 2.36 G | **445×** |
 
-A 194× spread. The aggregate 10× is a token-weighted mean dominated by `gray_scott`, which alone
-holds 73% of the unique tokens in the mix. **Five of the eight datasets are past the ~16-epoch
+A 232× spread. The aggregate 10× is a token-weighted mean dominated by `gray_scott`, which alone
+holds 75% of the unique tokens in the mix. **Five of the seven datasets are past the ~16-epoch
 boundary** beyond which Muennighoff et al. find repeated tokens contribute essentially nothing,
 while `gray_scott` has barely been seen twice. `tools/count_tokens.py` prints this column.
 
@@ -657,10 +663,12 @@ reporting the ratios:
 
 - `T_seen` — tokens processed (§5.1). This is the compute axis.
 - `T_unique_model` — `Σ_datasets (n_traj_train × n_steps × N_spatial(dataset))`, i.e. the number
-  of distinct post-tokenizer cells the data can produce. For the 8-dataset mix: **1.67 G** over
+  of distinct post-tokenizer cells the data can produce. For the 7-dataset mix: **1.63 G** over
   all splits (~1.3 G on the train split).
 - `T_unique_raw` — `Σ_datasets (n_traj × n_steps × Π resolution × n_fields)`, the actual
-  simulation state on disk (≈62 G *cells* for the same mix, before counting fields). The gap
+  simulation state on disk (≈62 G *cells* for the same mix **including `MHD_64`, not
+  recomputed for the 7-dataset mix** — this figure predates the switch to `Leonardo_smallest7_2d`
+  and needs its own per-dataset field-count pass to correct, not attempted here). The gap
   between this and `T_unique_model` is exactly what adaptive tokenization throws away, and it
   is very unequal across datasets (`helmholtz_staircase` at 1024×256 loses 8× more per token
   than `gray_scott` at 128×128).

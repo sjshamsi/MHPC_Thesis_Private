@@ -1,13 +1,30 @@
 import logging
 import os
 import os.path as osp
+import random
 from typing import Tuple, cast
 
+import numpy as np
 import torch
 import torch.distributed
 from omegaconf import DictConfig, OmegaConf, open_dict
 
 logger = logging.getLogger(__name__)
+
+
+def seed_all(seed: int) -> None:
+    """Seed every RNG the training path draws from.
+
+    All three are needed for a run to be reproducible: torch for weight init, dropout and
+    the patch jitterer's rolls (`patch_jitterers.py:148`), numpy for the periodic roll in
+    `isotropic_model.py:375`, and python's `random` for `choose_kernel_size_random`
+    (`flexi_utils.py:17`, only reached when `variable_deterministic_ds` is off).
+
+    `torch.manual_seed` also seeds all CUDA devices, so no separate cuda call is needed.
+    """
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
 
 def align_checkpoint_with_field_to_index_map(

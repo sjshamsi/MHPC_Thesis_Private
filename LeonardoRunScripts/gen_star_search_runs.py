@@ -38,6 +38,15 @@ options: Dict[str, List[Any]] = {
     "mlp": [1024, 1536, 2560, 3072],
 }
 
+# model.override_dimensionality=3 -> include_d=[3]: exactly one encoder/decoder pair.
+# Must be >0 (=0 builds a second, never-trained pair) and must be 3, not 2: forward()
+# takes its dim_key from metadata.n_spatial_dims, which the datamodule has already set to
+# 3 for every dataset (inflated_dataset.py, pad_cartesian_data_to_d), so =2 dies with
+# KeyError '3'. The '2'/'3' keys are bucket labels, not shapes -- both pairs are built
+# with spatial_dims=3 -- so on this 2D-only mixture =3 is bit-identical to a working =2.
+# GUARDRAIL: only valid while the mixture is single-dimensionality. This generator used
+# data=Leonardo_smallest8_2_3d until recently; if it ever goes back to a mixture with 3D
+# datasets, revert to =0, which dispatches on the actual tensor shape.
 SBATCH_TEMPLATE = """#!/bin/bash -l
 #SBATCH --job-name={job_name}
 #SBATCH --time=02:00:00
@@ -81,7 +90,7 @@ srun python -u `which torchrun` \\
     --rdzv_id=$SLURM_JOB_ID \\
     --rdzv_backend=c10d \\
     --rdzv_endpoint=$SLURMD_NODENAME:29500 \\
-        train.py distribution=ddp server=leonardo data=Leonardo_smallest8_2_3d \\
+        train.py distribution=ddp server=leonardo data=Leonardo_smallest7_2d \\
             hydra.run.dir=outputs/\${{now:%Y-%m-%d}}/$SLURM_JOB_ID \\
             ++experiment_dir={experiment_dir} \\
             name={job_name} trainer.grad_acc_steps=4 optimizer=adam optimizer.lr={lr} \\
@@ -93,10 +102,10 @@ srun python -u `which torchrun` \\
             model/processor/space_mixing=full_spatial_attention model.processor.space_mixing.mlp_dim={mlp} \\
             model.processor.space_mixing.num_heads={heads} model.processor.time_mixing.num_heads={heads} \\
             model.causal_in_time=True model.jitter_patches=True data.module_parameters.max_samples=2000 \\
-            trainer.short_validation_length=20 trainer.max_rollout_steps=20 lr_scheduler=inv_sqrt_w_sqrt_ramps \\
+            trainer.short_validation_length=20 trainer.max_rollout_steps=60 lr_scheduler=inv_sqrt_w_sqrt_ramps \\
             trainer.val_frequency=5 trainer.rollout_val_frequency=10 data.module_parameters.max_dt_stride=5 \\
             trainer.prediction_type="delta" trainer.max_epoch=101 data_workers=8 \\
-            model.override_dimensionality=0 ++trainer.skip_spectral_metrics=True auto_resume=$AUTO_RESUME \\
+            model.override_dimensionality=3 ++trainer.skip_spectral_metrics=True auto_resume=$AUTO_RESUME \\
             trainer.video_validation=False
 """
 
