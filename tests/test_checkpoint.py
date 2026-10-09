@@ -71,6 +71,35 @@ def test_resume_from_default_checkpoint(checkpoint_folder: pathlib.Path, conf):
     assert not (checkpoint_folder / "step_1").samefile(checkpoint_folder / "step_2")
 
 
+def test_resume_continues_flop_counters(checkpoint_folder: pathlib.Path, conf):
+    """Cumulative FLOP/token counters must survive auto-resume, not restart from 0.
+
+    The dummy dataset gives every epoch the same micro-batches, so after resuming for a
+    second epoch the counters must be exactly twice the first epoch's.
+    """
+    import torch
+
+    overrides = conf
+    overrides += ["checkpoint.checkpoint_frequency=0", "+model.include_d=[2]"]
+    cfg_dir = osp.relpath(CONFIG_DIR, pathlib.Path(__file__).resolve().parent)
+    with initialize(config_path=str(cfg_dir)):
+        main(compose(config_name=CONFIG_NAME, overrides=overrides))
+    first = torch.load(checkpoint_folder / "step_1" / CHECKPOINT_METADATA_FILENAME, weights_only=False)
+    assert first["flop_accountant"]["cumulative_tokens"] > 0
+
+    overrides += ["checkpoint.checkpoint_frequency=1", "trainer.max_epoch=2"]
+    with initialize(config_path=str(cfg_dir)):
+        main(compose(config_name=CONFIG_NAME, overrides=overrides))
+    second = torch.load(checkpoint_folder / "step_2" / CHECKPOINT_METADATA_FILENAME, weights_only=False)
+
+    a, b = first["flop_accountant"], second["flop_accountant"]
+    assert b["cumulative_tokens"] == 2 * a["cumulative_tokens"]
+    assert b["cumulative_flops"] == pytest.approx(2 * a["cumulative_flops"])
+    assert b["cumulative_processor_flops"] == pytest.approx(2 * a["cumulative_processor_flops"])
+    for key, value in a["cumulative_granular_flops"].items():
+        assert b["cumulative_granular_flops"][key] == pytest.approx(2 * value)
+
+
 @pytest.mark.skip(
     reason="Randomly broke - don't have time to debug and not a targeted task atm"
 )

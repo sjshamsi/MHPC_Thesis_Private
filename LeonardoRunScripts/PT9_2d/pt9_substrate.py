@@ -11,6 +11,19 @@ and by every historical fullDims/halfDims/smallest7_2d_PT_* run here:
 `++model.use_periodic_fixed_jitter=True` and `++model.input_field_drop=0.0`. The older
 Roofline/ and NoiseFloor/ generators omitted them, so they would have trained with the
 class defaults (False, 0.1).
+
+One evaluation pin is ours, not upstream's: `++trainer.debug_mode=True`. Its only effect
+(training.py:657, 1296-1355) is to keep every validation capped at short_validation_length.
+Without it, the epoch that reaches max_epoch runs *full* valid one-step + full-trajectory
+rollout validation over all nine valid splits (~378 k windows, ~2 200 trajectories), and
+then the same over the test split. That would add hours to a 3-epoch roofline and distort
+its timing. It would also touch the test split, which SCALING_STRATEGY_2D.md §3.5 reserves
+for the final §8 numbers. Full-split scores come from re-evaluating chosen checkpoints
+(§3.4 spot-check, §5.3b), not from the end of every training run.
+
+Layout: this module, preflight_pt9.py and validate_flops_pt9.py are shared; each run
+family lives in its own subdirectory (Roofline/, NoiseFloor/) with its generator, the
+generated scripts and its submit wrapper.
 """
 
 import os
@@ -82,6 +95,7 @@ SUBSTRATE: List[str] = [
     "trainer.max_rollout_steps=60",
     "trainer.video_validation=False",
     "++trainer.skip_spectral_metrics=True",
+    "++trainer.debug_mode=True",  # capped validation only; see the module docstring
     "checkpoint=defaults",
     "experiment=defaults",
     "finetuning_mods=defaults",
@@ -186,6 +200,7 @@ def write_run_all(
     """Submit wrapper that runs the data preflight first and aborts if it fails.
 
     `datasets` narrows the file check (default: all nine) for runs that read a subset.
+    The wrapper lives in a family subdirectory; the preflight is one level up.
     """
     path = os.path.join(script_dir, filename)
     with open(path, "w") as f:
@@ -198,10 +213,32 @@ def write_run_all(
             "module load cuda/12.2\n"
             f"source {VENV_ACTIVATE}\n"
             "# Refuse to submit until every file these runs read opens and the config composes.\n"
-            f"python preflight_pt9.py {' '.join(datasets)}".rstrip()
+            f"python ../preflight_pt9.py {' '.join(datasets)}".rstrip()
             + "\n"
             + "\n".join(lines)
             + "\n"
         )
     os.chmod(path, 0o755)
     return path
+
+
+def check_composes(overrides: List[str]):
+    """Compose a generated script's full override list exactly as train.py would see it.
+
+    The preflight only composes SUBSTRATE; this also catches a typo in a per-run key
+    (e.g. checkpoint.checkpoint_frequency), which Hydra would otherwise reject only
+    after the job has waited in the queue. Shell-level syntax is undone first: quotes
+    bash would strip, and the $AUTO_RESUME / $STAGE_DIR variables bash would expand.
+    Returns the composed config so the caller can assert on it.
+    """
+    from hydra import compose, initialize_config_dir
+
+    shell_free = [
+        o.replace("$AUTO_RESUME", "True")
+        .replace("$STAGE_DIR", "/scratch_local/compose_check")
+        .replace("'", "")
+        .replace('"', "")
+        for o in overrides
+    ]
+    with initialize_config_dir(config_dir=f"{WALRUS_DIR}/configs", version_base=None):
+        return compose(config_name="config", overrides=shell_free)

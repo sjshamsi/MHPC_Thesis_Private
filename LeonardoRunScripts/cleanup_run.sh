@@ -85,8 +85,11 @@ fi
 
 # Bare "name=<value>" Hydra override - the negative lookbehind excludes
 # "wandb_project_name=", "data.wandb_data_name=", etc. (anything preceded by a word
-# character or '.'), matching only a standalone "name=" token.
-HYDRA_NAME="$(grep -oP '(?<![\w.])name=\S+' "$SCRIPT_PATH" | head -1 | sed 's/^name=//' || true)"
+# character or '.'), matching only a standalone "name=" token. Comment lines are skipped
+# first: "#SBATCH --job-name=<x>" also matches the lookbehind ('-' before "name="), and
+# being the first line it used to win, so a script whose job name differs from its
+# Hydra name= (e.g. flopcounter/fc_run_*.sh) missed its experiment folder.
+HYDRA_NAME="$(grep -v '^[[:space:]]*#' "$SCRIPT_PATH" | grep -oP '(?<![\w.])name=\S+' | head -1 | sed 's/^name=//' || true)"
 if [ -z "$HYDRA_NAME" ]; then
     echo "WARNING: no bare 'name=' Hydra override found in $SCRIPT_PATH - falling back" >&2
     echo "to the SBATCH job name ('$SBATCH_JOB_NAME') for the experiment folder too." >&2

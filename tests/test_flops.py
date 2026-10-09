@@ -289,6 +289,17 @@ def test_accountant_accumulates_per_microbatch(default_conf):
     second = accountant.epoch_metrics(elapsed_seconds=60.0)
     assert second["cumulative_flops"] > metrics["cumulative_flops"]
 
+    # Run-long counters round-trip through state_dict (checkpoint metadata on resume),
+    # and a fresh accountant continues from them; missing keys mean "start from 0".
+    state = accountant.state_dict()
+    accountant.detach()
+    resumed = FlopAccountant(model, world_size=1)
+    resumed.load_state_dict(state)
+    assert resumed.state_dict() == state
+    resumed.load_state_dict({})
+    assert resumed.cumulative_flops == 0.0 and resumed.cumulative_tokens == 0
+    resumed.detach()
+
 
 def test_accountant_reports_granular_proj_flops(default_conf):
     """The proj1/proj2 encoder/decoder breakdown must reach `epoch_metrics` -- what
@@ -371,3 +382,50 @@ def test_accountant_reports_granular_proj_flops(default_conf):
     second = accountant.epoch_metrics(elapsed_seconds=60.0)
     for k in GRANULAR_FLOP_KEYS:
         assert second[f"cumulative_{k}_flops"] > metrics[f"cumulative_{k}_flops"]
+
+
+def test_accountant_survives_gradient_checkpointing_backward(default_conf):
+    """With gradient checkpointing, backward re-runs the encoder forward and may stop that
+    recompute before the encoder returns, so its pre-hook fires without its post-hook.
+    record_microbatch must still price the complete geometry of the training forward.
+    (Before the fix this raised "token_shape unknown" on the first micro-batch.)"""
+    overrides = [f"{key}={val}" for key, val in default_conf.items()]
+    overrides += ["model.gradient_checkpointing_freq=1"]
+    cfg_dir = osp.relpath(CONFIG_DIR, pathlib.Path(__file__).resolve().parent)
+
+    with initialize(config_path=str(cfg_dir)):
+        cfg = compose(config_name=CONFIG_NAME, overrides=overrides)
+        datamodule = instantiate(
+            cfg.data.module_parameters,
+            world_size=1,
+            rank=0,
+            data_workers=cfg.data_workers,
+            well_base_path=cfg.data.well_base_path,
+            field_index_map_override={},
+            transform=None,
+        )
+        n_states = max(datamodule.train_dataset.field_to_index_map.values()) + 1
+        model = instantiate(cfg.model, n_states=n_states)
+        model.train()
+        batch = datamodule.train_dataset[0]
+        inputs, _ = ChannelsFirstWithTimeFormatter().process_input(
+            batch,
+            causal_in_time=cfg.model.causal_in_time,
+            predict_delta=cfg.trainer.prediction_type == "delta",
+            train=True,
+        )
+
+    accountant = FlopAccountant(model, world_size=1)
+    assert accountant.shape.gradient_checkpointing_freq == 1
+    for _ in range(2):
+        out = model(inputs[0], inputs[1], inputs[2].tolist(), metadata=batch["metadata"])
+        out.float().pow(2).mean().backward()
+        entry = accountant.record_microbatch("dummy")
+        assert entry is not None and entry["tokens"] > 0
+
+    metrics = accountant.epoch_metrics(elapsed_seconds=1.0)
+    forward = forward_flops(accountant.shape, accountant._observed)
+    step = training_step_flops(forward, accountant.shape)
+    assert step["recompute"] > 0
+    assert metrics["epoch_flops"] == pytest.approx(2 * step["total"])
+    accountant.detach()

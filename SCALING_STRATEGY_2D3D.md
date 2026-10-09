@@ -7,8 +7,8 @@ shape recipe, Choshen's intermediate-checkpoint economy, the tier structure and 
 older [SCALING_STRATEGY.md](SCALING_STRATEGY.md) remains the record of how each instrument was
 built and validated. Sections are numbered to match the 2D document.
 
-All 18 of The Well's datasets used in WALRUS pretraining are now on disk (Euler still finishing
-its download). Only FBHarmonics, an external FlowBench dataset, is missing from the paper's 19.
+All 18 of The Well's datasets used in WALRUS pretraining are now on disk and surveyed (Euler
+completed and re-surveyed 2026-10-02). Only FBHarmonics, an external FlowBench dataset, is missing from the paper's 19.
 This plan pretrains on 12 of the 18 and holds 6 out for blind downstream finetuning.
 
 | decision | value |
@@ -34,7 +34,7 @@ RT = `rayleigh_taylor_instability`. Family numerals (I–VI) and axis definition
 
 | item | SCALING_STRATEGY_2D.md | this plan | consequence |
 |---|---|---|---|
-| Pretraining data | 9 × 2D | 9 × 2D + 3 × 3D (K = 12) | T_unique 3.25 G → **3.87 G** train tokens |
+| Pretraining data | 9 × 2D | 9 × 2D + 3 × 3D (K = 12) | T_unique 3.26 G → **3.88 G** train tokens |
 | Held out | ACT, HS, TRL2, VE | the same four, **plus MHD and RT** | adds a far 3D target (MHD) and two transfer-across-dimension tests (§2.4) |
 | Stems | `override_dimensionality=3`: one shared stem, correct for 2D-only | **`=0`: separate 2D and 3D stems, both used** | parameters match the paper exactly (fullDims = 1 286.2 M); encoder/decoder parameters double (§3.3) |
 | Where compute goes | ~uniform across datasets | 3D takes 3/12 of micro-batches but **34 % (fullDims) to 61 % (grid corner) of FLOPs** | the stem-ballast problem of old §2.2(f) is far worse at small shapes (§3.1) |
@@ -80,8 +80,8 @@ a 3D micro-batch carries `T_in = 3` frames of `B = 1` window at `batch_size=2`, 
 |---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
 | GS | 2D | 128² | per, per | 1001 | 960 | **984.0 M** | 120 | 1024 | 2 | 122 G | pretrain |
 | TGC | 3D | 64³ | open ×3 | 50 | 2160 | **530.6 M** | 270 | 4913 | 6 | 633 G | pretrain |
-| EMQ-O\* | 2D | 512² | open, open | 100 | ~4000 | **~435.6 M** | ~500 | 1089 | 6 | ~2.1 T | pretrain |
-| EMQ-P\* | 2D | 512² | per, per | 100 | ~4000 | **~409.6 M** | ~500 | 1024 | 6 | ~2.1 T | pretrain |
+| EMQ-O | 2D | 512² | open, open | 101 | 4000 | **440.0 M** | 500 | 1089 | 6 | 2.15 T | pretrain |
+| EMQ-P | 2D | 512² | per, per | 101 | 4000 | **413.7 M** | 500 | 1024 | 6 | 2.12 T | pretrain |
 | AM | 2D | 256² | wall/open ×2 | 202 | 1600 | **352.0 M** | 200 | 1089 | 6 | 238 G | pretrain |
 | AI | 2D | 256² | wall/open ×2 | 102 | 2798 | **310.8 M** | 400 | 1089 | 6 | 226 G | pretrain |
 | RB | 2D | 512×128 | per, wall | 200 | 1400 | **295.7 M** | 175 | 1056 | 5 | 274 G | pretrain |
@@ -96,11 +96,12 @@ a 3D micro-batch carries `T_in = 3` frames of `B = 1` window at `batch_size=2`, 
 | ACT | 2D | 256² | per, per | 81 | 175 | **14.5 M** | 24 | 1024 | 22 | 39 G | **held out** |
 | TRL2 | 2D | 128×384 | per, open | 101 | 72 | **7.7 M** | 9 | 1056 | 5 | 5.4 G | **held out** |
 | VE | 2D | 512² | per, wall | 20 / 60 | 213 | **7.1 M** | 22 | 1056 | 14 | 53 G | **held out** |
-| **pretrain total** | | | | | | **≈ 3.87 G** | | | | ≈ 7.6 T | |
+| **pretrain total** | | | | | | **≈ 3.88 G** | | | | ≈ 7.6 T | |
 | **held-out total** | | | | | | **106.8 M (2.7 %)** | | | | 363 G | |
 
-\* Euler is estimated until its download completes and it is re-surveyed. The assumptions are in
-[SCALING_STRATEGY_2D.md](SCALING_STRATEGY_2D.md) §2.1.
+Euler figures are measured (re-surveyed 2026-10-02; details in
+[SCALING_STRATEGY_2D.md](SCALING_STRATEGY_2D.md) §2.1). The earlier estimate's only error was the
+trajectory length, 101 steps rather than 100, i.e. +1 % train tokens; no conclusion here changes.
 
 Every field name these datasets produce, including the log10-transformed `log10_density` and
 `log10_temperature`, and `magnetic_field_{x,y,z}`, is already in the 67-entry
@@ -243,7 +244,7 @@ SN/TGC) than a 2D one (≈ 12.3–13.1 k).
 |---|---:|---:|---:|---:|---:|---:|
 | GS | 984.0 M | 120 | 0.5× | 0.8× | 3.3× | ≈ 18× |
 | TGC | 530.6 M | 54 | 1.1× | 1.9× | 7.4× | ≈ 40× |
-| EMQ-O\* / EMQ-P\* | ~420 M | ~50 | ~1.2× | ~2.0× | ~8.0× | ≈ 43× |
+| EMQ-O / EMQ-P | 440.0 / 413.7 M | 50 | 1.2× | 2.0× | 7.9× | ≈ 43× |
 | AM | 352.0 M | 40 | 1.5× | 2.5× | 9.9× | ≈ 53× |
 | AI | 310.8 M | 36 | 1.7× | 2.8× | 11.2× | ≈ 61× |
 | RB | 295.7 M | 35 | 1.7× | 2.9× | 11.4× | ≈ 62× |
@@ -252,7 +253,7 @@ SN/TGC) than a 2D one (≈ 12.3–13.1 k).
 | PS | 102.2 M | 12 | 5.0× | 8.3× | 33.1× | ≈ 179× |
 | SN | 60.3 M | 6.1 | **9.8×** | **16.3×** | 65× | ≈ 352× |
 | TRL3D | 31.6 M | 3.6 | **16.5×** | **27.5×** | 110× | ≈ 595× |
-| aggregate | 3.87 G | — | 1.6× | 2.7× | ≈ 11× | ≈ 58× |
+| aggregate | 3.88 G | — | 1.6× | 2.7× | ≈ 11× | ≈ 58× |
 
 Compared with the 2D plan, the 2D datasets are all *less* repeated, because K rose from 9 to 12.
 The two small 3D pretraining sets become the most repeated. TRL3D crosses Muennighoff's 16×
@@ -337,7 +338,7 @@ Three consequences:
 
 ### 3.2 Data `D`
 
-`T_unique_model` ≈ **3.87 G** train tokens (3.25 G 2D + 0.62 G 3D; Euler estimated).
+`T_unique_model` ≈ **3.88 G** train tokens (3.26 G 2D + 0.62 G 3D; all measured).
 `FlopAccountant` computes it from the loaded datamodule, so it follows the mixture automatically.
 A grid run (40 epochs, N1) sees 4.2 G tokens ≈ 1.1 × `T_unique`.
 
@@ -473,8 +474,9 @@ Keep `batch_size` even, as the tokens doc §2.7 warns.
 
 ### 4.2 Storage
 
-The dataset tree is ≈ 10 TB once Euler completes: ≈ 2.1 TB of other 2D data, ≈ 2.5 TB of 3D, and
-≈ 5.3 TB of Euler. The 3D pretraining train splits alone are ≈ 1.8 TB. Check `cinQuota` before any further download. Checkpoints grow with the
+With every download complete, `cinQuota` reports **9.58 TB of the 20 TB** $WORK quota
+(2026-10-02): ≈ 2.1 TB of other 2D data, ≈ 2.5 TB of 3D, and 5.34 TB of Euler. The 3D pretraining
+train splits alone are ≈ 1.8 TB. Check `cinQuota` before any further download. Checkpoints grow with the
 encoder/decoder doubling (§3.3): fullDims ≈ 16 GB per sharded AdamW checkpoint, and the anchor
 ≈ 2.5 GB. The $FAST budget of the old plan's §4.3 needs re-checking against the new counts.
 
@@ -647,7 +649,7 @@ during finetuning.
 ### Sequencing
 
 As in the 2D plan §11, with these prerequisites before GATE A:
-- the Euler download completes, and a re-survey replaces every `~`
+- ✅ the Euler download completes, and a re-survey replaces every `~` (2026-10-02)
 - `validate_flops_real_data.py` passes on all **12** datasets, including 3D geometry under `=0`
 - the roofline's per-dataset data-wait shows the 3D sets are not I/O-bound — otherwise, fall back
 
@@ -655,11 +657,14 @@ As in the 2D plan §11, with these prerequisites before GATE A:
 
 ## 12. Deliverables
 
-- ✅ `walrus/configs/data/Leonardo_pretrain12_2d3d.yaml`, composition-checked. It loads real
-  batches from all 10 datasets on disk, i.e. everything except Euler.
+- ✅ `walrus/configs/data/Leonardo_pretrain12_2d3d.yaml`, composition-checked. It loaded real
+  batches from the 10 non-Euler datasets when written; Euler's two entries are identical to
+  `Leonardo_pretrain9_2d.yaml`'s, whose datamodule now loads real Euler batches (2026-10-02).
 - ✅ This document.
-- 🔲 Euler re-survey (§2.1, §2.6).
-- 🔲 `validate_flops_real_data.py` extended to 12 datasets, `=0`, and 3D (§5.1).
+- ✅ Euler re-survey (§2.1, §2.6), 2026-10-02.
+- 🔲 FLOP re-validation on 12 datasets, `=0`, and 3D (§5.1). The 9 2D datasets pass under `=3`
+  (`LeonardoRunScripts/PT9_2d/validate_flops_pt9.py`, SCALING_STRATEGY_2D.md §5.1); a PT12 variant
+  of that script under `=0` must still add the three 3D sets.
 - 🔲 Generators switched to `data=Leonardo_pretrain12_2d3d` and `model.override_dimensionality=0`,
   and regenerated (roofline, noise floor, grid, star). **Note that every current generator pins
   `=3`**, correct for the 2D plan and wrong for this one. If both plans are kept, the generators

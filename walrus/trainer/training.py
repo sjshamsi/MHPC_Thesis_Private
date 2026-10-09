@@ -384,6 +384,20 @@ class Trainer:
                 world_size=self.world_size,
                 unique_model_tokens=unique_model_tokens(self.datamodule),
             )
+            # On resume, continue the run-long counters (cumulative_flops, tokens_seen,
+            # repetition_factor, ...) from the checkpoint instead of restarting at 0 while
+            # W&B continues the same run. Finetuning loads keep start_epoch == 1 and start
+            # from 0 on purpose.
+            if self.start_epoch > 1:
+                saved = getattr(self.checkpointer, "loaded_metadata", {}) or {}
+                if "flop_accountant" in saved:
+                    self.flop_accountant.load_state_dict(saved["flop_accountant"])
+                else:
+                    logger.warning(
+                        "Resuming at epoch %d from a checkpoint without FLOP counters; "
+                        "cumulative FLOP/token metrics restart from 0.",
+                        self.start_epoch,
+                    )
         else:
             self.flop_accountant = None
         self.revin = revin(self.datamodule.train_dataset, self.device)
@@ -411,6 +425,11 @@ class Trainer:
             epoch,
             force=last,
             local=self.distribution_type.upper() in ["LOCAL", "DDP"],
+            extra_metadata=(
+                {"flop_accountant": self.flop_accountant.state_dict()}
+                if self.flop_accountant is not None
+                else None
+            ),
         )
         return checkpoint_future
 

@@ -432,6 +432,50 @@ def encoder_shapes_from_tokens(
     return tuple(padded), tuple(mid)
 
 
+def _dataset_periodic_axes(sub: Any, n_axes: int) -> Tuple[bool, ...]:
+    """Per-axis periodicity of a Well sub-dataset, in spatial-axis order.
+
+    Read from the first file with the dataset's own `_padding_bcs`, the reader that fills
+    `batch["boundary_conditions"]`. `WellMetadata.boundary_condition_types` cannot be
+    used for this: it is the *set* of BC types, so it neither says which axis is which
+    nor repeats a type, and mapping it onto axes gave fully periodic 2D datasets a
+    32x33 grid instead of 32x32 and misplaced the wall axis of mixed 3D ones.
+
+    Falls back to the set when the file can't be read; that is exact whenever every
+    axis has the same BC type.
+    """
+    try:
+        import h5py
+        from the_well.data.datasets import IO_PARAMS
+
+        path = sub.files_paths[0]
+        with (
+            sub.fs.open(path, "rb", **IO_PARAMS["fsspec_params"]) as f,
+            h5py.File(f, "r", **IO_PARAMS["h5py_params"]) as h5,
+        ):
+            bcs = sub._padding_bcs(h5, {}, 0, 0, 0, 1)  # cache, sample, t, steps, dt unused
+        flags = list(_periodic_flags(bcs, len(bcs)))
+    except Exception:  # noqa: BLE001 - any read failure: use the BC-type set instead
+        # The unpadded metadata: padding to 3D adds PERIODIC to the set for the fake axis.
+        meta = getattr(sub, "original_metadata", sub.metadata)
+        types = {str(bc).upper() for bc in meta.boundary_condition_types}
+        if types == {BoundaryCondition.PERIODIC.name}:
+            flags = [True] * n_axes
+        elif BoundaryCondition.PERIODIC.name in types:
+            # Mixed: assume one periodic axis, which is exact for 2D data.
+            logger.warning(
+                "unique_model_tokens: could not read per-axis BCs for %s; mixed BC "
+                "types %s, so its token count may be off by one per axis",
+                getattr(sub.metadata, "dataset_name", "?"),
+                sorted(types),
+            )
+            flags = [True] + [False] * (n_axes - 1)
+        else:
+            flags = [False] * n_axes
+    # Axes beyond the stored BCs are singleton padding, where periodicity is irrelevant.
+    return tuple((flags + [False] * n_axes)[:n_axes])
+
+
 def unique_model_tokens(datamodule: Any) -> Optional[int]:
     """`Σ_datasets n_trajectories × n_steps × N_spatial` for the training mixture.
 
@@ -448,13 +492,7 @@ def unique_model_tokens(datamodule: Any) -> Optional[int]:
     total = 0
     for sub in sub_dsets:
         meta = sub.metadata
-        periodic = [
-            str(bc).upper() == BoundaryCondition.PERIODIC.name
-            for bc in meta.boundary_condition_types
-        ]
-        # Pad to the resolution's rank; unspecified axes are treated as non-periodic,
-        # which only ever costs one extra token per axis.
-        periodic += [False] * (len(meta.spatial_resolution) - len(periodic))
+        periodic = _dataset_periodic_axes(sub, len(meta.spatial_resolution))
         n_spatial = math.prod(
             analytic_token_shape(meta.spatial_resolution, periodic)
         )
@@ -491,15 +529,14 @@ def supports_flop_accounting(model: nn.Module) -> bool:
 def _periodic_flags(bcs: Any, n_axes: int) -> Tuple[bool, ...]:
     """Per-axis periodicity from a `(n_dims, 2)` boundary-condition tensor.
 
-    Axis order matches the spatial axes, as `adaptive_conv_transpose` assumes.
+    Axis order matches the spatial axes, as `adaptive_conv_transpose` assumes. Axes
+    beyond the stored BCs (or no BCs at all) count as non-periodic.
     """
-    flags = []
-    for axis in range(n_axes):
-        try:
-            flags.append(int(bcs[axis][0]) == BoundaryCondition.PERIODIC.value)
-        except (IndexError, TypeError):
-            flags.append(False)
-    return tuple(flags)
+    # One `.tolist()`, not per-element tensor indexing: this runs in the encoder pre-hook
+    # every micro-batch, and indexing cost ~200 us there vs ~5 us.
+    rows = [] if bcs is None else (bcs.tolist() if hasattr(bcs, "tolist") else bcs)
+    flags = [int(r[0]) == BoundaryCondition.PERIODIC.value for r in rows[:n_axes]]
+    return tuple(flags + [False] * (n_axes - len(flags)))
 
 
 class FlopAccountant:
@@ -528,7 +565,14 @@ class FlopAccountant:
         self.world_size = world_size
         self.unique_model_tokens = unique_model_tokens
         self._cache: Dict[BatchGeometry, Dict[str, float]] = {}
+        # Last *complete* geometry (token grid included): what record_microbatch prices.
         self._observed: Optional[BatchGeometry] = None
+        # Geometry seen by the pre-hook, committed to _observed only by the post-hook.
+        # Gradient checkpointing re-runs the encoder during backward, and non-reentrant
+        # checkpointing may stop that recompute before the encoder returns, so the
+        # pre-hook can fire without its post-hook. Writing straight into _observed then
+        # left it without a token grid, and record_microbatch raised.
+        self._pending: Optional[BatchGeometry] = None
         self._handles: list = []
         self.cumulative_flops = 0.0
         self.cumulative_processor_flops = 0.0
@@ -552,6 +596,31 @@ class FlopAccountant:
             handle.remove()
         self._handles.clear()
 
+    def state_dict(self) -> Dict[str, Any]:
+        """The run-long counters, for checkpoint metadata.
+
+        Everything else is per-epoch or a cache. The counters are all-reduced in
+        `epoch_metrics`, so they are identical on every rank.
+        """
+        return {
+            "cumulative_flops": self.cumulative_flops,
+            "cumulative_processor_flops": self.cumulative_processor_flops,
+            "cumulative_granular_flops": dict(self.cumulative_granular_flops),
+            "cumulative_tokens": self.cumulative_tokens,
+        }
+
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
+        """Restore the run-long counters on resume; absent keys stay at 0."""
+        self.cumulative_flops = float(state.get("cumulative_flops", 0.0))
+        self.cumulative_processor_flops = float(
+            state.get("cumulative_processor_flops", 0.0)
+        )
+        granular = state.get("cumulative_granular_flops", {})
+        self.cumulative_granular_flops = {
+            k: float(granular.get(k, 0.0)) for k in GRANULAR_FLOP_KEYS
+        }
+        self.cumulative_tokens = int(state.get("cumulative_tokens", 0))
+
     def _pre_hook(self, module, args, kwargs):
         # SpaceBagAdaptiveDVstrideEncoder.forward(x, field_indices, bcs, metadata, *,
         # random_kernel). `field_indices` here is state_labels with the 3 BC-flag
@@ -564,7 +633,7 @@ class FlopAccountant:
         spatial = tuple(int(s) for s in x.shape[3:])
         n_axes = len(spatial)
         n_fields_in = int(field_indices.numel())
-        self._observed = BatchGeometry(
+        self._pending = BatchGeometry(
             encoder_in_shape=spatial,
             stride1=tuple(int(random_kernel[i][0]) for i in range(n_axes)),
             stride2=tuple(int(random_kernel[i][1]) for i in range(n_axes)),
@@ -576,13 +645,14 @@ class FlopAccountant:
         )
 
     def _post_hook(self, module, args, output):
-        if self._observed is None:
+        if self._pending is None:
             return
         x_out = output[0] if isinstance(output, tuple) else output
         token_shape = tuple(int(s) for s in x_out.shape[3:])
         self._observed = BatchGeometry(
-            **{**self._observed.__dict__, "token_shape": token_shape}
+            **{**self._pending.__dict__, "token_shape": token_shape}
         )
+        self._pending = None
 
     def reset_epoch(self) -> None:
         self._epoch_flops = 0.0
