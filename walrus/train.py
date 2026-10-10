@@ -126,6 +126,7 @@ def train(
         cfg.data.module_parameters,
         world_size=world_size,
         rank=rank,
+        seed=cfg.seed,
         data_workers=cfg.data_workers,
         well_base_path=cfg.data.well_base_path,
         field_index_map_override=cfg.data.get("field_index_map_override", {}),
@@ -307,6 +308,7 @@ def train(
         else:
             step_mult_factor = 1
 
+        resumed_lrs = [group["lr"] for group in optimizer.param_groups]
         lr_scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = instantiate(
             cfg.lr_scheduler,
             optimizer=optimizer,
@@ -314,6 +316,14 @@ def train(
             step_mult_factor=step_mult_factor,
             last_epoch=max(-1, last_epoch - 1),
         )
+        if last_epoch > 0:
+            # The scheduler's constructor takes one step. Recursive schedulers (e.g.
+            # InverseSqrtLinearRamps.get_lr scales the current lr) would apply that epoch's
+            # factor a second time on top of the lr just loaded from the checkpoint, so put
+            # the loaded lr back. A no-op for closed-form schedulers.
+            for group, lr in zip(optimizer.param_groups, resumed_lrs):
+                group["lr"] = lr
+            lr_scheduler._last_lr = resumed_lrs  # type: ignore[union-attr]
     else:
         logger.info("No learning rate scheduler")
         lr_scheduler = None
@@ -345,6 +355,7 @@ def train(
         distribution_type=cfg.distribution.distribution_type,
         rank=rank,
         world_size=world_size,
+        seed=cfg.seed,
         formatter=ChannelsFirstWithTimeFormatter,  # TODO change this to function of model
         wandb_logging=cfg.logger.wandb,
         start_epoch=start_epoch,

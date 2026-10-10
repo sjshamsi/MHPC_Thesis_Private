@@ -1,0 +1,9 @@
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/the_well/data/datasets.py:737: RuntimeWarning: Only axis-aligned boundary fully supported. Boundary for axis counted as `open` or `periodic` if any part of it is and `wall` otherwise.If this does not fit your desired usecase, set `boundary_return_type=None`.
+  warnings.warn(
+[rank11]:[E820 14:49:42.049455337 ProcessGroupNCCL.cpp:542] [Rank 11] Collective WorkNCCL(SeqNum=501321, OpType=_ALLGATHER_BASE, NumelIn=867982, NumelOut=27775424, Timeout(ms)=1800000) raised the following async exception: NCCL error: remote process exited or there was a network error, NCCL version 2.21.5
+ncclRemoteError: A call failed possibly due to a network error or a remote process exiting prematurely.
+Last error:
+NET/IB : Got completion from peer 10.128.15.25<33183> with status=5 opcode=5211 len=5209 vendor err 249 (Send)
+Exception raised from checkForNCCLErrorsInternal at ../torch/csrc/distributed/c10d/ProcessGroupNCCL.cpp:2027 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::string) + 0x96 (0x145c2956e446 in /leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/lib/libc10.so)
+frame #1: c10d::ProcessGroupNCCL::checkForNCCLErrorsInternal(std::shared_ptr<c10d::NCCLComm>&) + 0x220 (0x145c2a8b52a0 in /leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/lib/libtorch_cuda.so)

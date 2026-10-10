@@ -1,15 +1,21 @@
 # How WALRUS samples training windows, and how often they repeat
 
 This document follows one training window from the dataset mixture to the GPU. It shows exactly
-which random number decides each choice, lists every way a window can be drawn again, and
-explains how to estimate repetition and how to measure it exactly.
+which random number decides each choice, lists every way a window can be drawn again, explains
+how to estimate repetition and how to measure it exactly, and inventories everything that can
+make a run non-deterministic (§8).
 
 Claims are tagged **[verified]** when an `assert` in
 [`demo_notebooks/walrus_example_5_SamplingAndRepetition.ipynb`](../demo_notebooks/walrus_example_5_SamplingAndRepetition.ipynb)
-checks them (section labels E1–E8 match the notebook), and **[code-read]** when they rest on
-reading the code only. Library line numbers refer to the Leonardo venv: **torch 2.5.1** and its
-bundled `the_well`. The RNG details in §2 and §3.6 depend on torch's `sampler.py` and
-`dataloader.py`, so recheck them after a torch upgrade by re-running the notebook.
+or [`tests/test_determinism.py`](../tests/test_determinism.py) checks them (labels E1–E8 match the
+notebook), and **[code-read]** when they rest on reading the code only. Library line numbers refer
+to the Leonardo venv: **torch 2.5.1** and its bundled `the_well`.
+
+**Seeding scheme.** This describes the per-epoch seeding introduced after commit `656c00c`:
+every random stream is keyed on `(cfg.seed, rank, epoch[, dataset])` through one helper,
+`seed_from` (`walrus/utils/experiment_utils.py`). The earlier behaviour is kept in the *History*
+notes, because runs made before the change used it. The code changes themselves, file by file,
+are listed in [determinism_code_changes.md](determinism_code_changes.md).
 
 Related: [`walrus_tokens_and_data_pipeline.md`](walrus_tokens_and_data_pipeline.md) §2 (data
 objects, one micro-step traced) and §4 (seeding history); notebook 3 §3 (token counts, `R_d`,
@@ -19,20 +25,20 @@ coverage).
 
 ## 1. The sampling hierarchy
 
-One micro-batch is chosen in four nested steps. Only the first two are decided in the main
-process; `dt` and the rotation are decided in the data-loader worker that reads the data.
+One micro-batch is chosen in four nested steps. The first two are decided in the main process;
+`dt` and the rotation are decided in the data-loader worker that reads the data.
 
 ```
 step t of epoch e on rank k
 │
 ├─ 1. WHICH DATASET d          BatchedMultisetSampler, own torch.Generator
-│                              seeded 100·e + 10·0 + sampling_rank          mixed_dset_sampler.py:172
-│                              d ~ Uniform{0..K-1}                          :175-181
+│                              seeded seed_from(DATASET_CHOICE, seed, e, sampling_rank)
+│                              d ~ Uniform{0..K-1}                          mixed_dset_sampler.py
 │
 ├─ 2. WHICH WINDOWS (B of them) RandomSampler of dataset d: next B entries of a randperm(W_d)
-│                              the permutation is seeded from the GLOBAL CPU torch RNG
-│                              on its first next() after (re)creation      torch sampler.py:175-199
-│                              → B global indices (local + offset_d)       mixed_dset_sampler.py:182-194
+│                              from its own generator, seeded at the start of every epoch with
+│                              seed_from(WINDOWS, seed, global_rank, e, d)
+│                              → B global indices (local + offset_d)
 │
 ├─ 3. WHERE IN THE FILES        MixedWellDataset: dataset from searchsorted(offsets)   multidataset.py:374-385
 │                              WellDataset._load_one_sample(index)                     the_well datasets.py:780-792
@@ -42,7 +48,7 @@ step t of epoch e on rank k
 │
 └─ 4. HOW THE WINDOW IS READ    dt ~ randint(min_dt, min(max_dt, (n_steps − t0 − 1)//(T_in+T_out−1)) + 1)
                                np.random in the worker                                 the_well datasets.py:801-813
-                               RandomRotation90 (np.random, once per micro-batch), patch jitter and
+                               RandomRotation90 (np.random, once per micro-batch); patch jitter and
                                periodic roll in the forward pass
 ```
 
@@ -53,49 +59,51 @@ trajectories and start frames. **[verified E1, E7]**
 
 ## 2. The random number generators and who seeds them
 
-| decision | generator | seeded by | depends on `cfg.seed`? | depends on rank? |
-|---|---|---|---|---|
-| dataset `d` per step | sampler's own `torch.Generator` | `100·epoch + sampling_rank` (`mixed_dset_sampler.py:172`; the sampler's `seed` is never passed, `multidatamodule.py:419`) | **no** | only via `sampling_rank` (0 on every GPU under fsdp) |
-| window permutation of each dataset | fresh `torch.Generator` per pass | one draw from the **global CPU torch RNG** at the pass's first `next()` | yes | yes (`seed + 1_000_003·rank`, `train.py:155`) |
-| DataLoader worker seeds | — | `_base_seed`, one global-RNG draw per `iter(loader)` (`dataloader.py:666`); worker `w` seeds torch, numpy and `random` from it (`_utils/worker.py:260-267`) | yes | yes |
-| `dt`, rotation | worker's numpy | worker seed | yes | yes |
-| patch jitter | **global CPU torch RNG**, one `torch.randint` per non-singleton axis per forward (`FixedPatchJittererBoundaryPad`, `patch_jitterers.py:460`; PT9 sets `use_periodic_fixed_jitter=True`) | — | yes | yes |
-| periodic roll between blocks | main-process numpy (`isotropic_model.py:375`) | — | yes | yes |
+| decision | generator | seeded by | depends on |
+|---|---|---|---|
+| dataset `d` per step | the sampler's own `torch.Generator` | `seed_from(SEED_DATASET_CHOICE, seed, epoch, sampling_rank)` | seed, epoch, and `sampling_rank` (0 on every GPU under fsdp) |
+| window permutation of each dataset | its own `torch.Generator`, set on the `RandomSampler` at the start of every epoch | `seed_from(SEED_WINDOWS, seed, global_rank, epoch, dataset)` | seed, epoch, **global** rank, dataset |
+| everything else on the global RNGs (torch CPU + CUDA, numpy, `random`) | re-seeded at the top of every epoch (`Trainer.train`) | `seed_all(seed_from(SEED_GLOBAL, seed, global_rank, epoch))` | seed, epoch, global rank |
+| …which then feeds: DataLoader worker seeds → `dt`, rotation | `_base_seed` (`dataloader.py:666`), then worker numpy | — | + `data_workers` |
+| …patch jitter (`patch_jitterers.py:460`), periodic roll (`isotropic_model.py:375`), DropPath, field dropout | global torch CPU, numpy, CUDA | — | + the epoch's sequence of forward passes (deterministic) |
 
-The important row pair is the second and fifth: **the window permutations and the forward pass
-draw from the same global CPU RNG.** The window drawn at any step therefore depends on how many
-forward passes ran before its permutation was seeded. **[verified E1, E4]**
+`seed_from` hashes its integer keys with `numpy.random.SeedSequence`, so two different key
+tuples never give the same seed. Each use has its own leading tag, so different streams can't
+coincide either.
 
-### 2.1 Exactly when each draw happens
+### 2.1 What a draw depends on
 
-The notebook's predictor (E1) re-implements the sampler and loader using only these global-RNG
-calls, in this order. It reproduces the real `BatchedMultisetSampler` + `DataLoader` **draw for
-draw**: 3 epochs × 3 ranks, `data_workers ∈ {0, 2, 4}`, 0 or 2 forward draws per step, with
-recycling. **[verified E1]**
+The notebook's predictor (E1) re-implements dataset and window choice from these seeds alone. It
+reproduces the real `BatchedMultisetSampler` + `DataLoader` **draw for draw**: 3 epochs × 3 ranks,
+with recycling, `data_workers ∈ {0, 2, 4}`, and 0 or 2 forward draws per step. So:
+**[verified E1, E4]**
 
-1. `iter(loader)` at the start of each epoch (`training.py:1062`): one draw for `_base_seed`.
-2. Batches are drawn by the sampler in the main process:
-   - `data_workers = 0`: one batch just before each `next()` returns it.
-   - `data_workers = w > 0`: `2w` batches up front (`prefetch_factor=2`, `dataloader.py:1227`),
-     then one more at each `next()`, *before* the batch is returned (`_process_data`,
-     `:1487-1489`). PT9 runs use `w ∈ {8, 10, 16}`, i.e. 16–32 batches prefetched.
-3. When a batch is the first of its dataset in this pass, one draw seeds that dataset's
-   permutation. `RandomSampler.__iter__` is a Python generator, so the seed is drawn lazily, at
-   first use, not when the sampler is built.
-4. The forward pass of each batch: 2 jitter draws for 2D data.
-5. Between epochs: validation, when it runs (`val_frequency`, `rollout_val_frequency`), draws a
-   `_base_seed` for each validation loader iterator and 2 jitter draws per validation forward.
-   **[code-read]**
+- **Window choice is a pure function of `(seed, global rank, epoch, dataset)`.** It doesn't
+  depend on `data_workers`, the prefetch depth, the forward passes, validation, or anything that
+  happened in earlier epochs.
+- `dt` and the rotation are a function of `(seed, rank, epoch, data_workers)`. The worker count
+  matters because micro-batches are dealt to workers round-robin and each worker has its own
+  numpy stream. **[code-read]**
+- Jitter, roll and dropout are a function of `(seed, rank, epoch)` and the model's forward
+  passes within the epoch, which are themselves deterministic.
 
-Gradient checkpointing does not change the stream: `torch.utils.checkpoint` saves and restores
-the RNG state around the recompute (`preserve_rng_state=True`, the default). **[code-read]**
+One torch detail matters for exact replay: when a pass runs out, `RandomSampler.__iter__`
+still evaluates its trailing `randperm(n)[:n % n]` (an empty slice, `sampler.py:198-200`), which
+advances the generator once more before the next pass. **[verified E1]**
+
+*History (before the per-epoch seeding).* The global RNG was seeded only at start-up (`seed +
+1_000_003·rank`, `train.py:155`), and each `RandomSampler` seeded every pass from it at first
+use. Window choice then depended on the DataLoader's `_base_seed` draw, the prefetch depth
+(`2·data_workers` batches drawn up front), and every forward pass's jitter draws in all earlier
+epochs, including validation. The dataset-choice seed was `100·epoch + 10·0 + sampling_rank`:
+`cfg.seed` never reached it, and the linear formula collided (seed 10, epoch 1 = seed 0, epoch 2).
 
 ---
 
 ## 3. Repetition, case by case
 
-"Repeat" here means **the same window index** is drawn again: the same file, trajectory and
-start frame. §4 discusses whether that is the same *sample*.
+"Repeat" means **the same window index** is drawn again: the same file, trajectory and start
+frame. §4 discusses whether that is the same *sample*.
 
 ### 3.1 Within one pass over a dataset: never
 
@@ -104,16 +112,14 @@ out. **[verified E3]**
 
 ### 3.2 Within one epoch: only if the dataset runs out
 
-The sampler creates a new iterator for every dataset at the start of each epoch
-(`samplers = [iter(s) for s in self.sub_samplers]`, `mixed_dset_sampler.py:168`). If a dataset
-runs out mid-epoch and `recycle=True` (the default), `StopIteration` is caught (`:195-206`):
+The sampler creates a new iterator for every dataset at the start of each epoch. If a dataset
+runs out mid-epoch and `recycle=True` (the default), `StopIteration` is caught:
 
 - the **partial batch is discarded**, so `W_d mod B` windows of every pass are never yielded,
   and *which* ones changes from pass to pass;
-- the iterator is recreated, so the next pass is a **new permutation**, seeded at its first use;
+- the next pass is a **new permutation** from the same per-dataset generator;
 - the step counter is decremented and a **new dataset is drawn** for this step.
 
-So a window can be drawn twice in one epoch only after its dataset has run out in that epoch.
 **[verified E3]** For the PT9 mixture this never happens: each rank draws about
 `B·max_samples/K ≈ 444` windows of each dataset per epoch, against `W_d ≥ 96 192`. For the
 held-out datasets finetuned alone it also doesn't (4,000 draws per rank-epoch, against
@@ -121,76 +127,77 @@ held-out datasets finetuned alone it also doesn't (4,000 draws per rank-epoch, a
 
 ### 3.3 Across epochs: independent, with no memory
 
-Each epoch draws a **fresh** permutation of every dataset, not a continuation of last epoch's.
-So an epoch that draws only 444 of GS's 955,200 windows does not make the next epoch draw
-different ones. The next epoch's 444 are an independent random subset, and the overlap between
-two epochs is the hypergeometric `r²/W` (E3: 21 shared windows observed vs. 18 expected).
-**[verified E3]**
-
-There is no mechanism that steers draws towards unseen windows. Coverage therefore grows like
-`1 − e^{−λ}` (§5), not linearly.
+Each epoch draws a **fresh** permutation of every dataset, keyed on the epoch, not a continuation
+of last epoch's. The next epoch's draws are an independent random subset, and the overlap between
+two epochs is the hypergeometric `r²/W` (E3: 23 shared windows observed vs. 14 expected for
+`r ≈ 260`, `W = 5000`). **[verified E3]** Nothing steers draws towards unseen windows, so
+coverage grows like `1 − e^{−λ}` (§5), not linearly.
 
 ### 3.4 Across GPUs in a node: independent, and nothing deduplicates
 
-- **Which dataset.** Under `fsdp`, `sampling_rank = 0` on every GPU (`training.py:370-376`,
-  default `sampling_rank_strategy="node"` with the whole world as one sync group). Every GPU
-  therefore draws the **same dataset at every step**, and the sequence is the same for every
-  `cfg.seed`. It matches `count_WALRUS_flops.replay_epoch` exactly. **[verified E2]**
-- **Which windows.** Each rank's global RNG is seeded `seed + 1_000_003·rank` (`train.py:155`),
-  so each GPU draws its own **independent permutation** of the shared dataset. Nothing compares or
-  partitions windows across ranks. **[verified E5]**
+- **Which dataset.** Under `fsdp`, `sampling_rank = 0` on every GPU: the FSDP mesh is the whole
+  world (`distribution_utils.py:43-47`), so `sync_group_rank = rank // world_size = 0`
+  (`training.py:354-376`). Every GPU therefore draws the **same dataset at every step**. The
+  sequence depends on `(seed, epoch)` and matches `count_WALRUS_flops.replay_epoch` exactly.
+  **[verified E2]**
+- **Which windows.** Each rank's window generators are keyed on its **global** rank, so each GPU
+  draws its own **independent permutation** of the shared dataset. Nothing compares or partitions
+  windows across ranks. **[verified E5]** Keying them on the sampling rank instead would give
+  every GPU under fsdp identical windows; that's why the sampler takes `global_rank` separately.
 
-Two consequences, both matching their formulas in E5 (`W = 3 000`: pairwise overlap per epoch
-1,391.5 observed vs. 1,384.5 expected):
-
+Two consequences, both matching their formulas in E5:
 - two GPUs share about `r²/W` windows per epoch;
 - in the **same step**, the expected number of GPU pairs holding the same window is
-  `C(R,2)·B²/W` per step of that dataset. The same window can be in two GPUs' micro-batches of
-  one optimizer step.
+  `C(R,2)·B²/W` per step of that dataset.
+
+This overlap is accepted by design. It is negligible for pretraining and large for
+single-dataset finetunes (§5.3).
 
 Other distribution types, in one sentence each **[code-read]**: under `ddp`, `sampling_rank =
 rank`, so each GPU also draws its own dataset sequence; under `hsdp`, GPUs of one sharding group
-share a dataset sequence and groups differ. Window permutations are per rank in all cases.
+share a dataset sequence and groups differ. Window permutations are per global rank in all cases.
 
 ### 3.5 Across nodes: exactly as across GPUs
 
-Nodes are just more ranks with larger `rank` values: the same shared dataset sequence under fsdp,
-independent window permutations, and no deduplication. Doubling the node count doubles the draws
-per epoch from the same pool. **[code-read, follows from E2/E5]**
+Nodes are just more ranks: the same shared dataset sequence under fsdp, independent window
+permutations, and no deduplication. Doubling the node count doubles the draws per epoch from the
+same pool. **[code-read, follows from E2/E5]**
 
 The only built-in alternative is `allow_sharding_in_train=True` (default `False`,
 `multidatamodule.py:74`), which uses `DistributedSampler` for each dataset. **[verified E6]**
 - Ranks are **disjoint**: one shared permutation, with rank `r` taking every `R`-th entry.
-- The permutation is seeded `0 + epoch` and ignores `cfg.seed`.
-- A recycle within an epoch **replays the same order**, because the permutation depends only on
-  the epoch.
+- The permutation is seeded `cfg.seed + epoch`.
+- A recycle within an epoch **replays the same order**.
 - Not used in PT9.
 
-### 3.6 Across a resumed job: part of epoch 1 is replayed
+### 3.6 Across a resumed job: identical to the uninterrupted run
 
-Checkpoints save no RNG state (`walrus/trainer/checkpoints.py`), and a resumed job runs
-`seed_all` again (`train.py:147, 155`), so its global RNG starts **in the same state** as job
-1's. At the resumed job's first epoch `k+1`, each dataset's permutation seed is whichever
-global draw it reaches first. A dataset reaches the **same** draw as in job 1's epoch 1 iff the
-sequence of earlier global calls is identical. In practice that means first appearing at the
-same position inside the prefetch window, before any forward pass. That dataset then draws
-**exactly the windows it drew in epoch 1, in the same order**, on every rank.
+A resume continues the epoch counter from the checkpoint (`start_epoch = epoch + 1`,
+`train.py:294`). Every stream of an epoch is keyed on `(seed, rank, epoch)`, so a resumed job
+draws exactly what the uninterrupted run would have drawn: datasets, windows, `dt`, rotations,
+jitter and dropout, provided `data_workers` and the GPU count are the same.
+- **[verified E6b]** epochs 4–5 of a job started fresh at epoch 4 equal epochs 4–5 of an
+  uninterrupted job (PT9 window counts, `data_workers=10`, ranks 0 and 3).
+- **[verified `tests/test_determinism.py`]** on CPU with the dummy dataset, an uninterrupted
+  run and a run killed after epoch 1 and resumed end with **bit-identical weights**. It also
+  checks that two same-seed runs are identical and that a different seed differs.
 
-- [verified E6b] A job resumed at epoch 7 (PT9 mixture, real window counts, `data_workers=10`)
-  replays all 404 of AD's epoch-1 draws. The other eight datasets share only chance agreement.
-- [verified E6b] Which datasets replay is fully determined by the epoch-seeded dataset sequences,
-  so it can be computed offline. Over resume epochs 2–100: **0.90 datasets per resume on
-  average** (max 4), and at least one in **61 %** of resumes.
-- **Size of the effect.** One replayed dataset-epoch is about `R·r ≈ 4·440` draws, i.e. about
-  1/9 of one epoch's draws, which become exact repeats of epoch 1. A 3-job chain (2 resumes) over
-  100 epochs replays about 1.8 of 900 dataset-epochs, about 0.2 % of all draws. That is
-  negligible for totals, but it is ordered, exact duplication.
-- **Caveats.** This assumes nothing else consumes the global CPU RNG between `seed_all` and the
-  first epoch. `Trainer.train` runs no validation before epoch 1 (`training.py:1285-1300`), but
-  that is [code-read] for the full start-up path. Later resumed epochs replay job 1's later
-  epochs only if the forward and validation draw counts happen to line up (§2.1 item 5), which
-  isn't generally the case. Whether `dt` and the rotation also repeat depends on which worker
-  loads which batch, and is not claimed.
+The GPU counterpart is
+[`LeonardoRunScripts/PT9_2d/Determinism/`](../LeonardoRunScripts/PT9_2d/Determinism/). It compares
+the weight difference after a resume against the float-noise floor of two uninterrupted runs.
+Generated, not yet submitted.
+
+The test also exposed an unrelated resume bug, now fixed. The upstream default scheduler
+`InverseSqrtLinearRamps` is recursive (`get_lr` scales the current lr), and the constructor's
+initial `step()` on resume applied the resumed epoch's factor a second time on top of the lr
+loaded from the checkpoint. `train.py` now restores the loaded lr after building the scheduler.
+PT9's `InverseSqrtLinearWarmupSqrtCooldown` is closed-form and was never affected.
+
+*History.* Checkpoints store no RNG state, and the global RNG used to be seeded only at start-up.
+A resumed job therefore restarted every stream from the seed, and its first epoch partly
+**replayed epoch 1**: on average 0.9 datasets per resume, and at least one in 61 % of resume
+epochs, redrew exactly their epoch-1 windows in the same order. About 0.2 % of the draws of a
+3-job chain.
 
 ### 3.7 Deliberate reuse
 
@@ -206,7 +213,7 @@ Three levels, from strictest to loosest:
 | level | same when | how often in PT9 N1, 100 epochs (§5) |
 |---|---|---|
 | **identical sample** | same window **and** same `dt`, rotation, jitter, roll | rare: a repeated window usually gets a different `dt` (up to 5 values early in a trajectory, 1 near the end, E7), rotation and jitter |
-| **same window** | same (file, trajectory, `t0`) | 8.7 % (GS) to 54 % (PS) of draws repeat an earlier window |
+| **same window** | same (file, trajectory, `t0`) | 8.7 % (GS) to 54.5 % (PS) of draws repeat an earlier window |
 | **overlapping frames** | any of the 6 input frames was an input of an earlier draw | 77 % (GS) to 98 % (PS) of draws |
 
 The frame level is the one that matters for "has the model seen this data before". Windows
@@ -225,8 +232,8 @@ window level.
 **Model** [verified E3/E5, simulated E8]. Under fsdp each (rank, epoch) draws, for dataset `d`, a
 uniform random subset of `r_{d,e} = B·c_{d,e}` of its `W_d` windows. Here `c_{d,e}` is the
 number of steps on which dataset `d` is drawn in epoch `e`, the same on all ranks, and exactly
-replayable with `count_WALRUS_flops.replay_epoch` (E2). Subsets are independent across ranks and
-epochs. With `N_d = R·Σ_e r_{d,e}` draws and `λ = N_d/W_d`:
+replayable with `count_WALRUS_flops.replay_epoch(seed, epoch, sampling_rank, ...)` (E2). Subsets
+are independent across ranks and epochs. With `N_d = R·Σ_e r_{d,e}` draws and `λ = N_d/W_d`:
 
 | quantity | exact / approximation |
 |---|---|
@@ -238,22 +245,23 @@ epochs. With `N_d = R·Σ_e r_{d,e}` draws and `λ = N_d/W_d`:
 | same-step shared windows per epoch | `c_{d,e}·C(R,2)·B²/W` |
 | frame overlap | simulated (E8), with `dt` drawn by the real rule |
 
-The closed forms agree with the simulation to within 0.1 percentage points on every row below.
-`B=2`, `T_in=6`, `max_samples=2000`, fsdp, 100 epochs, `c_{d,e}` replayed.
+The closed forms agree with the simulation to within 0.2 percentage points on every row below.
+`seed = 0`, `B=2`, `T_in=6`, `max_samples=2000`, fsdp, 100 epochs, `c_{d,e}` replayed. A different
+seed changes `c_{d,e}` by about ±1 % (notebook 3 §3.5), so these numbers barely move.
 
 ### 5.1 PT9 N1 (1 node, 4 GPUs), 9-dataset mixture
 
 | | W | draws/rank/epoch | λ | window coverage | exact-repeat draws | windows ≥ 2× | frame-overlap draws | same-step shared/epoch | pair overlap/epoch |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| GS | 955,200 | 442 | 0.19 | 16.9 % | 8.7 % | 1.5 % | 76.6 % | 0.006 | 0.20 |
-| EMQ-O | 380,000 | 450 | 0.47 | 37.8 % | 20.3 % | 8.2 % | 89.6 % | 0.014 | 0.53 |
-| EMQ-P | 380,000 | 442 | 0.47 | 37.2 % | 20.0 % | 8.0 % | 89.4 % | 0.014 | 0.52 |
-| AM | 313,600 | 441 | 0.56 | 43.0 % | 23.5 % | 11.0 % | 91.7 % | 0.017 | 0.62 |
-| RB | 271,600 | 443 | 0.65 | 48.0 % | 26.5 % | 14.0 % | 92.9 % | 0.020 | 0.72 |
-| AI | 268,608 | 447 | 0.67 | 48.6 % | 26.9 % | 14.4 % | 92.6 % | 0.020 | 0.74 |
-| SF | 173,824 | 444 | 1.02 | 64.0 % | 37.3 % | 27.2 % | 95.5 % | 0.031 | 1.13 |
-| AD | 153,600 | 450 | 1.17 | 69.0 % | 41.0 % | 32.7 % | 95.8 % | 0.035 | 1.32 |
-| PS | 96,192 | 441 | 1.83 | 84.1 % | 54.1 % | 54.7 % | 97.6 % | 0.055 | 2.02 |
+| GS | 955,200 | 444 | 0.19 | 17.0 % | 8.7 % | 1.5 % | 76.7 % | 0.006 | 0.21 |
+| EMQ-O | 380,000 | 439 | 0.46 | 37.0 % | 19.9 % | 7.9 % | 89.3 % | 0.014 | 0.51 |
+| EMQ-P | 380,000 | 448 | 0.47 | 37.6 % | 20.2 % | 8.2 % | 89.6 % | 0.014 | 0.53 |
+| AM | 313,600 | 443 | 0.57 | 43.2 % | 23.6 % | 11.1 % | 91.8 % | 0.017 | 0.63 |
+| RB | 271,600 | 448 | 0.66 | 48.4 % | 26.8 % | 14.2 % | 93.0 % | 0.020 | 0.74 |
+| AI | 268,608 | 442 | 0.66 | 48.2 % | 26.7 % | 14.1 % | 92.5 % | 0.020 | 0.73 |
+| SF | 173,824 | 447 | 1.03 | 64.3 % | 37.5 % | 27.4 % | 95.5 % | 0.031 | 1.15 |
+| AD | 153,600 | 444 | 1.16 | 68.6 % | 40.7 % | 32.2 % | 95.7 % | 0.035 | 1.28 |
+| PS | 96,192 | 446 | 1.85 | 84.4 % | 54.5 % | 55.3 % | 97.6 % | 0.056 | 2.06 |
 
 ### 5.2 PT9 N2 (2 nodes, 8 GPUs)
 
@@ -261,15 +269,15 @@ Same per-rank draws, twice the ranks, so `λ` doubles.
 
 | | λ | window coverage | exact-repeat draws | windows ≥ 2× | frame-overlap draws | same-step shared/epoch |
 |---|---:|---:|---:|---:|---:|---:|
-| GS | 0.37 | 31.0 % | 16.4 % | 5.4 % | 88.0 % | 0.026 |
-| EMQ-O | 0.95 | 61.3 % | 35.4 % | 24.5 % | 94.8 % | 0.066 |
-| EMQ-P | 0.93 | 60.6 % | 34.9 % | 23.9 % | 94.7 % | 0.065 |
-| AM | 1.12 | 67.5 % | 39.9 % | 31.0 % | 95.9 % | 0.079 |
-| RB | 1.31 | 72.9 % | 44.1 % | 37.5 % | 96.4 % | 0.091 |
-| AI | 1.33 | 73.6 % | 44.7 % | 38.4 % | 96.3 % | 0.093 |
-| SF | 2.04 | 87.1 % | 57.4 % | 60.6 % | 97.7 % | 0.143 |
-| AD | 2.34 | 90.4 % | 61.4 % | 67.9 % | 97.9 % | 0.164 |
-| PS | 3.67 | 97.5 % | 73.4 % | 88.1 % | 98.8 % | 0.257 |
+| GS | 0.37 | 31.0 % | 16.5 % | 5.4 % | 88.1 % | 0.026 |
+| EMQ-O | 0.92 | 60.3 % | 34.7 % | 23.6 % | 94.7 % | 0.065 |
+| EMQ-P | 0.94 | 61.1 % | 35.2 % | 24.3 % | 94.8 % | 0.066 |
+| AM | 1.13 | 67.8 % | 40.1 % | 31.2 % | 95.9 % | 0.079 |
+| RB | 1.32 | 73.3 % | 44.5 % | 38.0 % | 96.5 % | 0.092 |
+| AI | 1.32 | 73.2 % | 44.4 % | 37.9 % | 96.3 % | 0.092 |
+| SF | 2.06 | 87.2 % | 57.6 % | 60.9 % | 97.7 % | 0.144 |
+| AD | 2.31 | 90.1 % | 61.0 % | 67.2 % | 97.9 % | 0.162 |
+| PS | 3.71 | 97.6 % | 73.7 % | 88.4 % | 98.8 % | 0.259 |
 
 Same-step sharing grows like `C(R,2)`, so 6 pairs at N1 against 28 at N2.
 
@@ -293,26 +301,29 @@ Variation then comes only from `dt`, rotation and jitter. These are the cases wh
 
 ## 6. Measuring repetition exactly
 
-**Offline replay is possible in principle but fragile.** E1 shows the draws are a deterministic
-function of the seed, rank, `data_workers` and *every* global CPU RNG call the process makes.
-Replaying a real run means reproducing all of those calls exactly: every training and
-validation forward pass's jitter draws, every validation loader's `_base_seed`, and anything
-else that touches the global CPU generator. Any code change that adds or removes one CPU RNG
-call silently changes every later window. The dataset sequence alone *can* be replayed exactly,
-since it uses its own generator (E2, `replay_epoch`).
+**Windows: replay offline.** Window choice is a pure function of `(seed, global rank, epoch,
+dataset)` and the dataset sizes (§2.1). The notebook's E1 predictor, about 30 lines that touch
+neither the model nor the data, therefore reproduces every rank's window sequence of a real run
+exactly. Every window-level quantity in §5 can be computed as an exact count rather than an
+expectation: repeats, coverage, same-step cross-rank collisions. Pass the run's `seed`,
+`max_samples`, `batch_size`, world size and per-dataset window counts.
 
-**The exact method is to log the draws during the run.** It's cheap: N1 for 100 epochs is
-4 ranks × 2,000 steps × 100 epochs × 2 windows = 1.6 M rows.
+**`dt` and rotation: log them.** These depend on `data_workers` and on each worker's numpy stream,
+so replaying them means emulating torch's worker seeding and the round-robin assignment. Logging
+is simpler.
 
 | where | what | why there |
 |---|---|---|
-| main process: wrap `BatchedMultisetSampler.__iter__` (or log `batch` indices in `train_one_epoch`) | `(rank, epoch, step, dataset, global index)` | window identity and order, cross-rank alignment by `step` |
 | worker: `BatchInflatedWellDataset.__getitem__` (`inflated_dataset.py:308-336`) | `(index, file_idx, sample_idx, time_idx, dt)` per sample, plus the rotation | the method already collects `file_idxes`, `sample_idxes`, `time_idxes`, `dts` per sample (`:313-325`) and throws all but the last away, so it only needs persisting |
+| main process: the batch indices in `train_one_epoch` | `(rank, epoch, step, dataset, global index)` | to align worker records with steps, and to cross-check the offline window replay |
 
-Write one file per rank, and join on `(rank, epoch, step)` afterwards. From the joined log, every
-quantity in §5 becomes an exact count rather than an expectation: window, sample and frame
-repeats; coverage; same-step cross-rank collisions; and resume replays. The frame level uses
-`frames = t0 + dt·[0..5]`.
+Write one file per rank, and join on `(rank, epoch, step)`. The frame level then uses
+`frames = t0 + dt·[0..5]`. Size: N1 for 100 epochs is 4 ranks × 2,000 steps × 100 epochs ×
+2 windows = 1.6 M rows.
+
+*History:* before the per-epoch seeding, window choice depended on every global-RNG call the
+trainer made (forward passes, validation, loader seeds). Offline replay was possible only by
+reproducing all of them, so logging was the only practical exact method.
 
 ---
 
@@ -320,13 +331,41 @@ repeats; coverage; same-step cross-rank collisions; and resume replays. The fram
 
 | question | answer |
 |---|---|
-| How is a dataset chosen? | Uniformly per step, by a generator seeded `100·epoch + sampling_rank`: the same on every GPU (fsdp) and for every seed |
-| How is a window chosen? | The next entry of a per-dataset `randperm`, seeded from the global CPU RNG at the start of each pass |
+| How is a dataset chosen? | Uniformly per step, by a generator keyed on `(seed, epoch, sampling_rank)`: the same on every GPU (fsdp), different for each seed |
+| How is a window chosen? | The next entry of a per-dataset `randperm` whose generator is keyed on `(seed, global rank, epoch, dataset)` |
 | How are file, trajectory and `t0` chosen? | Not separately: they are arithmetic on the window index |
 | Can the same window be drawn again on the same GPU? | Not within a pass. Across epochs: yes, independently (`r²/W` per epoch pair) |
 | Can overlapping windows be drawn? | Yes, freely. By 100 epochs, 77–98 % of PT9 draws share frames with an earlier draw |
-| Is anything preventing repeats? | Only the permutation within one pass. Nothing across epochs, GPUs, nodes or resumes |
+| Is anything preventing repeats? | Only the permutation within one pass. Nothing across epochs, GPUs or nodes |
 | Across GPUs / nodes? | Same dataset at each step (fsdp), independent windows, no deduplication; collisions grow like `C(R,2)` |
-| Resumed jobs? | Reseeded from scratch; about 0.9 datasets per resume replay their epoch-1 windows exactly |
+| Resumed jobs? | Identical to the uninterrupted run (same `data_workers` and GPU count) |
 | Estimate? | Poisson(`λ = N/W`) with `N` from the replayed dataset counts (§5) |
-| Exact? | Log `(rank, epoch, step, index, file, traj, t0, dt)` during the run (§6); offline replay is fragile |
+| Exact? | Windows: replay offline with the E1 predictor. `dt`/rotation: log in the worker (§6) |
+
+---
+
+## 8. Inventory: what can make a run non-deterministic
+
+Everything on the PT9 training path that draws a random number or can change results between
+two runs with the same config, and how it is handled.
+
+| # | source | where | status |
+|---|---|---|---|
+| 1 | Global RNGs seeded only at start-up; no RNG state in checkpoints | `train.py:155`, `checkpoints.py` | **fixed**: re-seeded every epoch from `(seed, rank, epoch)`, `Trainer.train` |
+| 2 | Window permutations seeded from the global CPU RNG at each pass | `RandomSampler` | **fixed**: own generator per `(seed, global rank, epoch, dataset)` |
+| 3 | DataLoader `_base_seed` → worker seeds → `dt`, rotation | `dataloader.py:666`, `_utils/worker.py:260-267`, the_well `np.random` | **fixed** per epoch by #1; still depends on `data_workers` (keep it fixed within a chain) |
+| 4 | Patch jitter, in training and validation | `patch_jitterers.py:460` (global torch CPU) | **fixed** by #1 |
+| 5 | Periodic roll between blocks | `isotropic_model.py:375` (numpy) | **fixed** by #1 |
+| 6 | DropPath (`drop_path=0.05`), field dropout | timm `DropPath`, `F.dropout3d` (CUDA RNG) | **fixed** by #1 (`torch.manual_seed` seeds CUDA) |
+| 7 | Validation consumes the RNGs between epochs | validation loaders and forward passes | **fixed** by #1: the next epoch re-seeds |
+| 8 | Dataset-choice seed ignored `cfg.seed` and collided (`100e + 10s + r`) | `mixed_dset_sampler.py` | **fixed**: `seed_from(SEED_DATASET_CHOICE, seed, epoch, sampling_rank)` |
+| 9 | `distribution=local` never called `set_epoch`, so every epoch got the same dataset order | `training.py` | **fixed**: called unconditionally |
+| 10 | Resume re-applied one LR-scheduler step for recursive schedulers | `train.py` scheduler construction, `InverseSqrtLinearRamps.get_lr` | **fixed**: the loaded lr is restored (PT9's closed-form scheduler was never affected) |
+| 11 | GPU floating-point non-determinism: SDPA backward, the backward of indexed weights (`proj1.weight[:, field_indices]`), collective reduction order | CUDA kernels, NCCL | **not addressed**: same draws, slightly different floats. Would need `torch.use_deterministic_algorithms(True)` and a cuBLAS workspace setting, at a speed cost |
+| 12 | Changing `data_workers` or the GPU count between the jobs of one chain | — | **by design**: changes `dt`/rotation (workers), or every rank's streams (GPU count). Keep both fixed within a chain |
+
+Already deterministic before the change: the validation samplers (fixed `manual_seed(0)` /
+`DistributedSampler(seed=0)`), and gradient-checkpoint recompute (`preserve_rng_state=True`
+restores the RNG state around it). `reuse_batches` (python `random.shuffle`) is off and is covered
+by #1 anyway. `choose_kernel_size_random` (python `random`) is only reached when
+`variable_deterministic_ds` is off; it is on in every encoder config, and covered by #1 anyway.

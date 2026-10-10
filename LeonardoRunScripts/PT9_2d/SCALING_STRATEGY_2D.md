@@ -818,8 +818,12 @@ the FLOP count is still exact; it is the reconstruction that is lossy.
 all three of which the training path draws from (torch for weight init, dropout and the jitterer's
 rolls; numpy for the periodic roll in `isotropic_model.py`; `random` for
 `choose_kernel_size_random`). Two `seed=0` runs give a bit-identical train loss; `seed=1` differs.
-After construction the seed is re-derived per rank (`cfg.seed + 1_000_003 · rank`), so patch
-jittering stays decorrelated across ranks.
+After construction the seed is re-derived per rank (`cfg.seed + 1_000_003 · rank`), and at the
+top of **every epoch** all RNGs are re-seeded from `(cfg.seed, rank, epoch)` (`Trainer.train`, via
+`seed_from` in `experiment_utils.py`). Every random stream of an epoch is therefore a function of
+the seed, the rank and the epoch, so a resumed epoch draws exactly what the uninterrupted run
+would (`tests/test_determinism.py`; full inventory in
+[walrus_sampling_and_repetition.md](../../mydocs/walrus_sampling_and_repetition.md) §8).
 
 Seeding identically on every rank also closes a cross-rank hole. Each process's default torch
 generator is otherwise seeded from OS entropy, and `distribute_model` builds FSDP without
@@ -828,14 +832,17 @@ correctness bug: every rank keeps a different full replica forever, and the aver
 not the gradient of any single model. Under `fsdp`/`hsdp` it was only a reproducibility gap (one
 coherent but unreproducible random init). This study uses `fsdp`.
 
-**What the seed does not control.** Which dataset fires at each step is
-`BatchedMultisetSampler`'s own generator, seeded `100·epoch + 10·seed + rank` with its own
-constructor default `seed = 0` ([mixed_dset_sampler.py:61](../../walrus/data/mixed_dset_sampler.py#L61));
-`multidatamodule.py` never passes `cfg.seed` to it
-([multidatamodule.py:419](../../walrus/data/multidatamodule.py#L419)). So the **dataset-selection
-pattern is identical across seeds**. Which sample fires *within* the chosen dataset is each
-sub-dataset's `RandomSampler`, which draws its per-epoch seed from the global torch generator, so
-that part *does* vary with `cfg.seed`, entangled with init and augmentation.
+**What the seed controls in the data.** Both levels of sampling now follow `cfg.seed`:
+- which dataset fires at each step is `BatchedMultisetSampler`'s own generator, keyed on
+  `(seed, epoch, sampling_rank)`;
+- which window fires *within* it is a per-dataset generator keyed on `(seed, global rank,
+  epoch, dataset)`.
+
+The sampling rank is 0 on every GPU under fsdp, so all GPUs share the dataset sequence; the
+global rank keeps their windows independent. Before this change (commit `656c00c` and earlier) the
+dataset-choice seed was `100·epoch + 10·0 + rank`, so the **dataset-selection pattern was
+identical across seeds**, and the window permutations drew their seeds from the global generator,
+so they depended on every earlier forward pass.
 
 **PT9 re-validation, done:**
 
@@ -1002,10 +1009,13 @@ for `seed`. The scripts are **generated and ready to submit** in [`NoiseFloor/`]
 `run_p9_noise_floor_all.sh`). Report the spread in field-time-averaged VRMSE (and every secondary
 metric of §3.4) at each epoch.
 
-**What `seed` varies.** Weight init, dropout and augmentation, *together with* the within-dataset
-sample order; the dataset-selection pattern is held fixed (§5.1). This is close to Choshen's
-combined run-to-run figure, not an init-only measurement, and it is the right quantity: no further
-code change is needed.
+**What `seed` varies.** Weight init, dropout, augmentation, the within-dataset sample order **and
+the dataset-selection order** (§5.1). This is Choshen's combined run-to-run figure, including data
+order, not an init-only measurement. Since the per-epoch seeding change, a chain's resumes no
+longer add noise of their own: a resumed epoch is identical to the uninterrupted one, provided
+`data_workers` and the GPU count stay the same across the chain's links. Sweep runs that share a
+seed also share their dataset order, so comparisons between them are not affected by dataset-order
+noise; comparisons across seeds are.
 
 **Sequencing: all three seeds run to `max_epoch=100` and are read at the same epoch `E ≤ 90`.**
 The noise floor must be measured at the duration the sweeps will use, which is not yet known

@@ -62,6 +62,7 @@ class MixedWellDataModule:
         max_dt_stride: int = 1,
         world_size: int = 1,
         rank: int = 1,
+        seed: int = 0,
         data_workers: int = 4,
         inner_dataset_type: WellDataset = BatchInflatedWellDataset,
         epoch: int = 0,
@@ -135,6 +136,8 @@ class MixedWellDataModule:
             Number of total processes in the distributed setting.
         rank:
             Rank of the current GPU in the full torchrun world.
+        seed:
+            `cfg.seed`. Keys the training sampler's dataset choice and window permutations.
         data_workers:
             Number of workers for the dataloaders in the given process.
         inner_dataset_type:
@@ -399,6 +402,7 @@ class MixedWellDataModule:
         self.world_size = world_size
         self.data_workers = data_workers
         self.rank = rank
+        self.seed = seed
         self.epoch = epoch
         self.max_samples = max_samples
         self.recycle = recycle_datasets
@@ -416,12 +420,14 @@ class MixedWellDataModule:
         sampler = BatchedMultisetSampler(
             self.train_dataset,
             base_sampler,
-            self.batch_size,  # seed=seed,
+            self.batch_size,
+            seed=self.seed,
             distributed=self.is_distributed,
             max_samples=self.max_samples,  # TODO Fix max_samples later
             recycle=self.recycle,
             drop_last=False,
             rank=self.rank if rank_override is None else rank_override,
+            global_rank=self.rank,
         )
 
         shuffle = sampler is None

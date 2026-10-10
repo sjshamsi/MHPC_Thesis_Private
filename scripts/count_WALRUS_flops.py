@@ -139,13 +139,15 @@ def sampling_layout(cfg, world_size: int, gpus_per_node: int):
 
 
 # ------------------------------------------------------------------------ micro-batch counts
-def replay_epoch(seed, dset_batch, windows, max_samples, recycle):
+def replay_epoch(seed, epoch, sampling_rank, dset_batch, windows, max_samples, recycle):
     """Micro-batches per dataset for one sampler pass: BatchedMultisetSampler.__iter__
-    (mixed_dset_sampler.py:167-210), with sub-sampler exhaustion modelled from window counts."""
+    (mixed_dset_sampler.py), with sub-sampler exhaustion modelled from window counts."""
     import torch
 
+    from walrus.utils.experiment_utils import SEED_DATASET_CHOICE, seed_from
+
     g = torch.Generator()
-    g.manual_seed(seed)
+    g.manual_seed(seed_from(SEED_DATASET_CHOICE, seed, epoch, sampling_rank))
     k = len(windows)
     remaining = list(windows)
     counts = [0] * k
@@ -170,7 +172,7 @@ def replay_epoch(seed, dset_batch, windows, max_samples, recycle):
 
 
 def microbatch_counts(datasets, epochs, max_samples, world_size, streams, per_stream,
-                      distributed, recycle, exact):
+                      recycle, exact, seed=0):
     """Micro-batches per dataset over the job, summed over all ranks."""
     k = len(datasets)
     if not exact:
@@ -179,10 +181,8 @@ def microbatch_counts(datasets, epochs, max_samples, world_size, streams, per_st
     windows = [d["windows"] for d in datasets]
     totals = [0] * k
     for epoch in epochs:
-        sampler_epoch = epoch if distributed else 0  # set_epoch is only called when distributed
         for rank in range(streams):
-            seed = 100 * sampler_epoch + 10 * 0 + rank  # sampler seed is never passed: 0
-            for d, c in enumerate(replay_epoch(seed, dset_batch, windows, max_samples, recycle)):
+            for d, c in enumerate(replay_epoch(seed, epoch, rank, dset_batch, windows, max_samples, recycle)):
                 totals[d] += c * per_stream
     return totals
 
@@ -322,7 +322,7 @@ def main():
 
     counts = microbatch_counts(
         datasets, epochs, max_samples, world_size, streams, per_stream,
-        distributed=dist != "local", recycle=bool(mp.get("recycle_datasets", True)), exact=a.exact,
+        recycle=bool(mp.get("recycle_datasets", True)), exact=a.exact, seed=int(cfg.seed),
     )
 
     # --- totals over the job (all ranks)

@@ -1,0 +1,77 @@
+Job 59847084 (determinism check, run B): faulthandler dumps after the watchdog's SIGABRT
+(180 s without log output). 44 processes = 4 ranks + 40 DataLoader workers.
+Main-thread stack per group, most recent call first. torch.utils.data._utils.worker:259 is
+`torch.set_num_threads(1)`.
+
+=== 1 process(es): RANK WAITING FOR DATA (main process, DataLoader.__next__)
+  threading.py:331  wait
+  queue.py:180  get
+  torch/utils/data/dataloader.py:1243  _try_get_data
+  torch/utils/data/dataloader.py:1402  _get_data
+  torch/utils/data/dataloader.py:1448  _next_data
+  torch/utils/data/dataloader.py:701  __next__
+  walrus/trainer/training.py:1092  train_one_epoch
+  walrus/trainer/training.py:1308  train
+  walrus/train.py:382  train
+  walrus/train.py:436  main
+  hydra/core/utils.py:186  run_job
+  hydra/_internal/hydra.py:119  run
+  hydra/_internal/utils.py:458  <lambda>
+  hydra/_internal/utils.py:220  run_and_report
+  hydra/_internal/utils.py:457  _run_app
+  hydra/_internal/utils.py:394  _run_hydra
+
+=== 3 process(es): RANKS WAITING IN FSDP all_gather (batch 2 forward)
+  torch/distributed/distributed_c10d.py:3435  all_gather_into_tensor
+  torch/distributed/c10d_logger.py:83  wrapper
+  torch/distributed/fsdp/_flat_param.py:1403  _all_gather_flat_param
+  torch/distributed/fsdp/_flat_param.py:1312  unshard
+  torch/distributed/fsdp/_runtime_utils.py:301  _unshard
+  torch/distributed/fsdp/_runtime_utils.py:417  _pre_forward_unshard
+  torch/distributed/fsdp/_runtime_utils.py:382  _pre_forward
+  torch/distributed/fsdp/fully_sharded_data_parallel.py:850  forward
+  torch/nn/modules/module.py:1747  _call_impl
+  torch/nn/modules/module.py:1736  _wrapped_call_impl
+  walrus/trainer/training.py:514  rollout_model
+  walrus/trainer/training.py:1115  train_one_epoch
+  walrus/trainer/training.py:1308  train
+  walrus/train.py:382  train
+  walrus/train.py:436  main
+  hydra/core/utils.py:186  run_job
+
+=== 39 process(es): IDLE WORKERS (waiting for work, normal)
+  selectors.py:415  select
+  multiprocessing/connection.py:947  wait
+  multiprocessing/connection.py:440  _poll
+  multiprocessing/connection.py:257  poll
+  multiprocessing/queues.py:113  get
+  torch/utils/data/_utils/worker.py:317  _worker_loop
+  multiprocessing/process.py:108  run
+  multiprocessing/process.py:314  _bootstrap
+  multiprocessing/popen_fork.py:71  _launch
+  multiprocessing/popen_fork.py:19  __init__
+  multiprocessing/context.py:281  _Popen
+  multiprocessing/context.py:224  _Popen
+  multiprocessing/process.py:121  start
+  torch/utils/data/dataloader.py:1138  __init__
+  torch/utils/data/dataloader.py:415  _get_iterator
+  torch/utils/data/dataloader.py:484  __iter__
+
+=== 1 process(es): STUCK WORKER (forked at epoch start, frozen in torch.set_num_threads(1))
+  torch/utils/data/_utils/worker.py:259  _worker_loop
+  multiprocessing/process.py:108  run
+  multiprocessing/process.py:314  _bootstrap
+  multiprocessing/popen_fork.py:71  _launch
+  multiprocessing/popen_fork.py:19  __init__
+  multiprocessing/context.py:281  _Popen
+  multiprocessing/context.py:224  _Popen
+  multiprocessing/process.py:121  start
+  torch/utils/data/dataloader.py:1138  __init__
+  torch/utils/data/dataloader.py:415  _get_iterator
+  torch/utils/data/dataloader.py:484  __iter__
+  walrus/trainer/training.py:1067  train_one_epoch
+  walrus/trainer/training.py:1308  train
+  walrus/train.py:382  train
+  walrus/train.py:436  main
+  hydra/core/utils.py:186  run_job
+

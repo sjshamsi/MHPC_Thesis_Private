@@ -1,0 +1,283 @@
+tput: No value for $TERM and no -T specified
+/leonardo/home/userexternal/sshamsi0/.bashrc: line 39: [: : integer expression expected
+Loading python/3.11.7
+  Loading requirement: bzip2/1.0.8-ib3znej libmd/1.0.4-2km2lxx
+    libbsd/0.12.1-oocs6an expat/2.6.2-p2t4wry ncurses/6.5-svfl57u
+    readline/8.2-zeda6mx gdbm/1.23-wiol7vk libiconv/1.17-nhc3mhm
+    xz/5.4.6-xxxg42c zlib-ng/2.1.6-jkgunjc libxml2/2.10.3-zbbe7lm
+    pigz/2.8-5bwzpml zstd/1.5.6-uq5yyux tar/1.34-jgektnv gettext/0.22.5-hsxgafg
+    libffi/3.4.6-4vs4jpp libxcrypt/4.4.35-7om46b5 sqlite/3.43.2-4kl5mnp
+    util-linux-uuid/2.38.1-5achpds
+wandb: WARNING `resume` will be ignored since W&B syncing is set to `offline`. Starting a new run with run id k1r0i6os.
+wandb: Tracking run with wandb version 0.28.0
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/wandb/offline-run-20261009_234251-k1r0i6os
+wandb: View this run in the terminal with `wandb leet`
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py:282: UserWarning: No last checkpoint found
+  warnings.warn("No last checkpoint found")
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py:282: UserWarning: No last checkpoint found
+  warnings.warn("No last checkpoint found")
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py:282: UserWarning: No last checkpoint found
+  warnings.warn("No last checkpoint found")
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py:282: UserWarning: No last checkpoint found
+  warnings.warn("No last checkpoint found")
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+[rank2]:[E1009 23:48:17.841939490 ProcessGroupGloo.cpp:143] Rank 2 successfully reached monitoredBarrier, but received errors while waiting for send/recv from rank 0. Please check rank 0 logs for faulty rank.
+[rank3]:[E1009 23:48:17.841942439 ProcessGroupGloo.cpp:143] Rank 3 successfully reached monitoredBarrier, but received errors while waiting for send/recv from rank 0. Please check rank 0 logs for faulty rank.
+[rank1]:[E1009 23:48:17.841940412 ProcessGroupGloo.cpp:143] Rank 1 successfully reached monitoredBarrier, but received errors while waiting for send/recv from rank 0. Please check rank 0 logs for faulty rank.
+Error executing job with overrides: ['distribution=fsdp', 'model=isotropic_model', 'trainer=defaults', 'server=leonardo', 'data=Leonardo_pretrain9_2d', 'data/field_index_map_override=full_well_field_index', 'optimizer=adam', 'optimizer.lr=2.e-4', 'trainer.enable_amp=False', 'trainer.grad_acc_steps=4', 'trainer.clip_gradient=10', 'trainer.prediction_type=delta', 'data.module_parameters.batch_size=2', 'data.module_parameters.n_steps_input=6', 'data.module_parameters.n_steps_output=1', 'data.module_parameters.min_dt_stride=1', 'data.module_parameters.max_dt_stride=5', 'data.module_parameters.max_samples=2000', 'model.projection_dim=48', 'model.intermediate_dim=352', 'model.groups=16', 'model.override_dimensionality=3', 'model.drop_path=0.05', 'model/processor/space_mixing=full_spatial_attention', 'model.processor.space_mixing.num_heads=16', 'model.processor.time_mixing.num_heads=16', 'model.causal_in_time=True', 'model.jitter_patches=True', '++model.use_periodic_fixed_jitter=True', '++model.input_field_drop=0.0', 'lr_scheduler=inv_sqrt_w_sqrt_ramps', 'trainer.short_validation_length=20', 'trainer.val_frequency=2', 'trainer.rollout_val_frequency=5', 'trainer.max_rollout_steps=60', 'trainer.video_validation=False', '++trainer.skip_spectral_metrics=True', '++trainer.debug_mode=True', 'checkpoint=defaults', 'experiment=defaults', 'finetuning_mods=defaults', '++experiment_dir=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs', 'model.hidden_dim=320', 'model.processor_blocks=6', 'model.processor.space_mixing.mlp_dim=768', 'model.gradient_checkpointing_freq=0', 'name=p9_determinism_B', 'logger.wandb_project_name=p9_determinism', 'seed=0', 'trainer.max_epoch=2', 'data.module_parameters.max_samples=100', 'trainer.max_rollout_steps=2', 'trainer.short_validation_length=2', 'data_workers=10', 'checkpoint.checkpoint_frequency=1', 'folder_override=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/B', 'auto_resume=True']
+Error executing job with overrides: ['distribution=fsdp', 'model=isotropic_model', 'trainer=defaults', 'server=leonardo', 'data=Leonardo_pretrain9_2d', 'data/field_index_map_override=full_well_field_index', 'optimizer=adam', 'optimizer.lr=2.e-4', 'trainer.enable_amp=False', 'trainer.grad_acc_steps=4', 'trainer.clip_gradient=10', 'trainer.prediction_type=delta', 'data.module_parameters.batch_size=2', 'data.module_parameters.n_steps_input=6', 'data.module_parameters.n_steps_output=1', 'data.module_parameters.min_dt_stride=1', 'data.module_parameters.max_dt_stride=5', 'data.module_parameters.max_samples=2000', 'model.projection_dim=48', 'model.intermediate_dim=352', 'model.groups=16', 'model.override_dimensionality=3', 'model.drop_path=0.05', 'model/processor/space_mixing=full_spatial_attention', 'model.processor.space_mixing.num_heads=16', 'model.processor.time_mixing.num_heads=16', 'model.causal_in_time=True', 'model.jitter_patches=True', '++model.use_periodic_fixed_jitter=True', '++model.input_field_drop=0.0', 'lr_scheduler=inv_sqrt_w_sqrt_ramps', 'trainer.short_validation_length=20', 'trainer.val_frequency=2', 'trainer.rollout_val_frequency=5', 'trainer.max_rollout_steps=60', 'trainer.video_validation=False', '++trainer.skip_spectral_metrics=True', '++trainer.debug_mode=True', 'checkpoint=defaults', 'experiment=defaults', 'finetuning_mods=defaults', '++experiment_dir=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs', 'model.hidden_dim=320', 'model.processor_blocks=6', 'model.processor.space_mixing.mlp_dim=768', 'model.gradient_checkpointing_freq=0', 'name=p9_determinism_B', 'logger.wandb_project_name=p9_determinism', 'seed=0', 'trainer.max_epoch=2', 'data.module_parameters.max_samples=100', 'trainer.max_rollout_steps=2', 'trainer.short_validation_length=2', 'data_workers=10', 'checkpoint.checkpoint_frequency=1', 'folder_override=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/B', 'auto_resume=True']
+Error executing job with overrides: ['distribution=fsdp', 'model=isotropic_model', 'trainer=defaults', 'server=leonardo', 'data=Leonardo_pretrain9_2d', 'data/field_index_map_override=full_well_field_index', 'optimizer=adam', 'optimizer.lr=2.e-4', 'trainer.enable_amp=False', 'trainer.grad_acc_steps=4', 'trainer.clip_gradient=10', 'trainer.prediction_type=delta', 'data.module_parameters.batch_size=2', 'data.module_parameters.n_steps_input=6', 'data.module_parameters.n_steps_output=1', 'data.module_parameters.min_dt_stride=1', 'data.module_parameters.max_dt_stride=5', 'data.module_parameters.max_samples=2000', 'model.projection_dim=48', 'model.intermediate_dim=352', 'model.groups=16', 'model.override_dimensionality=3', 'model.drop_path=0.05', 'model/processor/space_mixing=full_spatial_attention', 'model.processor.space_mixing.num_heads=16', 'model.processor.time_mixing.num_heads=16', 'model.causal_in_time=True', 'model.jitter_patches=True', '++model.use_periodic_fixed_jitter=True', '++model.input_field_drop=0.0', 'lr_scheduler=inv_sqrt_w_sqrt_ramps', 'trainer.short_validation_length=20', 'trainer.val_frequency=2', 'trainer.rollout_val_frequency=5', 'trainer.max_rollout_steps=60', 'trainer.video_validation=False', '++trainer.skip_spectral_metrics=True', '++trainer.debug_mode=True', 'checkpoint=defaults', 'experiment=defaults', 'finetuning_mods=defaults', '++experiment_dir=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs', 'model.hidden_dim=320', 'model.processor_blocks=6', 'model.processor.space_mixing.mlp_dim=768', 'model.gradient_checkpointing_freq=0', 'name=p9_determinism_B', 'logger.wandb_project_name=p9_determinism', 'seed=0', 'trainer.max_epoch=2', 'data.module_parameters.max_samples=100', 'trainer.max_rollout_steps=2', 'trainer.short_validation_length=2', 'data_workers=10', 'checkpoint.checkpoint_frequency=1', 'folder_override=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/B', 'auto_resume=True']
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 452, in <module>
+[rank1]:     main()
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/main.py", line 94, in decorated_main
+[rank1]:     _run_hydra(
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 394, in _run_hydra
+[rank1]:     _run_app(
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 457, in _run_app
+[rank1]:     run_and_report(
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 223, in run_and_report
+[rank1]:     raise ex
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 220, in run_and_report
+[rank1]:     return func()
+[rank1]:            ^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 458, in <lambda>
+[rank1]:     lambda: hydra.run(
+[rank1]:             ^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/hydra.py", line 132, in run
+[rank1]:     _ = ret.return_value
+[rank1]:         ^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 260, in return_value
+[rank1]:     raise self._return_value
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 186, in run_job
+[rank1]:     ret.return_value = task_function(task_cfg)
+[rank1]:                        ^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 436, in main
+[rank1]:     train(
+[rank1]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 382, in train
+[rank1]:     trainer.train()
+[rank1]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/training.py", line 1308, in train
+[rank1]:     train_loss, train_logs = self.train_one_epoch(epoch, train_dataloader)
+[rank1]:                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/training.py", line 1115, in train_one_epoch
+[rank1]:     y_pred, y_ref = self.rollout_model(
+[rank1]:                     ^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/training.py", line 514, in rollout_model
+[rank1]:     y_pred_internal = model(
+[rank1]:                       ^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py", line 850, in forward
+[rank1]:     args, kwargs = _pre_forward(
+[rank1]:                    ^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_runtime_utils.py", line 382, in _pre_forward
+[rank1]:     unshard_fn(state, handle)
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_runtime_utils.py", line 417, in _pre_forward_unshard
+[rank1]:     _unshard(state, handle, state._unshard_stream, state._pre_unshard_stream)
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_runtime_utils.py", line 301, in _unshard
+[rank1]:     handle.unshard()
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_flat_param.py", line 1312, in unshard
+[rank1]:     padded_unsharded_flat_param = self._all_gather_flat_param(unsharded_flat_param)
+[rank1]:                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_flat_param.py", line 1403, in _all_gather_flat_param
+[rank1]:     dist.all_gather_into_tensor(
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/c10d_logger.py", line 83, in wrapper
+[rank1]:     return func(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/distributed_c10d.py", line 3435, in all_gather_into_tensor
+[rank1]:     work = group._allgather_base(output_tensor, input_tensor, opts)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]: RuntimeError: Rank 1 successfully reached monitoredBarrier, but received errors while waiting for send/recv from rank 0. Please check rank 0 logs for faulty rank.
+[rank1]:  Original exception: 
+[rank1]: [../third_party/gloo/gloo/transport/tcp/unbound_buffer.cc:133] Timed out waiting 180000ms for send operation to complete
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 452, in <module>
+[rank2]:     main()
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/main.py", line 94, in decorated_main
+[rank2]:     _run_hydra(
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 394, in _run_hydra
+[rank2]:     _run_app(
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 457, in _run_app
+[rank2]:     run_and_report(
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 223, in run_and_report
+[rank2]:     raise ex
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 220, in run_and_report
+[rank2]:     return func()
+[rank2]:            ^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 458, in <lambda>
+[rank2]:     lambda: hydra.run(
+[rank2]:             ^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/hydra.py", line 132, in run
+[rank2]:     _ = ret.return_value
+[rank2]:         ^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 260, in return_value
+[rank2]:     raise self._return_value
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 186, in run_job
+[rank2]:     ret.return_value = task_function(task_cfg)
+[rank2]:                        ^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 436, in main
+[rank2]:     train(
+[rank2]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 382, in train
+[rank2]:     trainer.train()
+[rank2]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/training.py", line 1308, in train
+[rank2]:     train_loss, train_logs = self.train_one_epoch(epoch, train_dataloader)
+[rank2]:                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/training.py", line 1115, in train_one_epoch
+[rank2]:     y_pred, y_ref = self.rollout_model(
+[rank2]:                     ^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/training.py", line 514, in rollout_model
+[rank2]:     y_pred_internal = model(
+[rank2]:                       ^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank2]:     return forward_call(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py", line 850, in forward
+[rank2]:     args, kwargs = _pre_forward(
+[rank2]:                    ^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_runtime_utils.py", line 382, in _pre_forward
+[rank2]:     unshard_fn(state, handle)
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_runtime_utils.py", line 417, in _pre_forward_unshard
+[rank2]:     _unshard(state, handle, state._unshard_stream, state._pre_unshard_stream)
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_runtime_utils.py", line 301, in _unshard
+[rank2]:     handle.unshard()
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_flat_param.py", line 1312, in unshard
+[rank2]:     padded_unsharded_flat_param = self._all_gather_flat_param(unsharded_flat_param)
+[rank2]:                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_flat_param.py", line 1403, in _all_gather_flat_param
+[rank2]:     dist.all_gather_into_tensor(
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/c10d_logger.py", line 83, in wrapper
+[rank2]:     return func(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/distributed_c10d.py", line 3435, in all_gather_into_tensor
+[rank2]:     work = group._allgather_base(output_tensor, input_tensor, opts)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]: RuntimeError: Rank 2 successfully reached monitoredBarrier, but received errors while waiting for send/recv from rank 0. Please check rank 0 logs for faulty rank.
+[rank2]:  Original exception: 
+[rank2]: [../third_party/gloo/gloo/transport/tcp/unbound_buffer.cc:133] Timed out waiting 180000ms for send operation to complete
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 452, in <module>
+[rank3]:     main()
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/main.py", line 94, in decorated_main
+[rank3]:     _run_hydra(
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 394, in _run_hydra
+[rank3]:     _run_app(
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 457, in _run_app
+[rank3]:     run_and_report(
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 223, in run_and_report
+[rank3]:     raise ex
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 220, in run_and_report
+[rank3]:     return func()
+[rank3]:            ^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 458, in <lambda>
+[rank3]:     lambda: hydra.run(
+[rank3]:             ^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/hydra.py", line 132, in run
+[rank3]:     _ = ret.return_value
+[rank3]:         ^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 260, in return_value
+[rank3]:     raise self._return_value
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 186, in run_job
+[rank3]:     ret.return_value = task_function(task_cfg)
+[rank3]:                        ^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 436, in main
+[rank3]:     train(
+[rank3]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 382, in train
+[rank3]:     trainer.train()
+[rank3]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/training.py", line 1308, in train
+[rank3]:     train_loss, train_logs = self.train_one_epoch(epoch, train_dataloader)
+[rank3]:                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/training.py", line 1115, in train_one_epoch
+[rank3]:     y_pred, y_ref = self.rollout_model(
+[rank3]:                     ^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/training.py", line 514, in rollout_model
+[rank3]:     y_pred_internal = model(
+[rank3]:                       ^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py", line 850, in forward
+[rank3]:     args, kwargs = _pre_forward(
+[rank3]:                    ^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_runtime_utils.py", line 382, in _pre_forward
+[rank3]:     unshard_fn(state, handle)
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_runtime_utils.py", line 417, in _pre_forward_unshard
+[rank3]:     _unshard(state, handle, state._unshard_stream, state._pre_unshard_stream)
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_runtime_utils.py", line 301, in _unshard
+[rank3]:     handle.unshard()
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_flat_param.py", line 1312, in unshard
+[rank3]:     padded_unsharded_flat_param = self._all_gather_flat_param(unsharded_flat_param)
+[rank3]:                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_flat_param.py", line 1403, in _all_gather_flat_param
+[rank3]:     dist.all_gather_into_tensor(
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/c10d_logger.py", line 83, in wrapper
+[rank3]:     return func(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/distributed_c10d.py", line 3435, in all_gather_into_tensor
+[rank3]:     work = group._allgather_base(output_tensor, input_tensor, opts)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]: RuntimeError: Rank 3 successfully reached monitoredBarrier, but received errors while waiting for send/recv from rank 0. Please check rank 0 logs for faulty rank.
+[rank3]:  Original exception: 
+[rank3]: [../third_party/gloo/gloo/transport/tcp/unbound_buffer.cc:133] Timed out waiting 180000ms for send operation to complete
+W1009 23:48:30.824000 117480 torch/distributed/elastic/multiprocessing/api.py:897] Sending process 117525 closing signal SIGTERM
+W1009 23:48:30.825000 117480 torch/distributed/elastic/multiprocessing/api.py:897] Sending process 117526 closing signal SIGTERM
+W1009 23:48:30.825000 117480 torch/distributed/elastic/multiprocessing/api.py:897] Sending process 117527 closing signal SIGTERM
+E1009 23:48:31.690000 117480 torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 3 (pid: 117528) of binary: /leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/bin/python
+Traceback (most recent call last):
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/bin/torchrun", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/run.py", line 919, in main
+    run(args)
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/run.py", line 910, in run
+    elastic_launch(
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+train.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-10-09_23:48:30
+  host      : lrdn3284-net10-3.leonardo.local
+  rank      : 3 (local_rank: 3)
+  exitcode  : 1 (pid: 117528)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
+srun: error: lrdn3284: task 0: Exited with exit code 1

@@ -27,6 +27,20 @@ def seed_all(seed: int) -> None:
     random.seed(seed)
 
 
+# Stream tags, so the seeds of different random streams can never coincide.
+SEED_GLOBAL, SEED_DATASET_CHOICE, SEED_WINDOWS = 1, 2, 3
+
+
+def seed_from(*keys: int) -> int:
+    """A 32-bit seed hashed from integer keys, e.g. `seed_from(SEED_GLOBAL, seed, rank, epoch)`.
+
+    Keying every stream on (seed, rank, epoch, ...) instead of carrying RNG state makes a
+    resumed epoch draw exactly what the uninterrupted run would, without saving RNG state.
+    A hash, unlike `seed + c * rank + epoch`, cannot map two key tuples to the same seed.
+    """
+    return int(np.random.SeedSequence([int(k) for k in keys]).generate_state(1)[0])
+
+
 def align_checkpoint_with_field_to_index_map(
     checkpoint_state_dict,
     model_state_dict,

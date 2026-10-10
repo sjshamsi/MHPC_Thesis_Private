@@ -5,6 +5,8 @@ from typing import Iterator, List
 import torch
 from torch.utils.data import Sampler
 
+from walrus.utils.experiment_utils import SEED_DATASET_CHOICE, SEED_WINDOWS, seed_from
+
 from .multidataset import MixedWellDataset
 
 __all__ = [
@@ -58,7 +60,7 @@ class MultisetSampler(Sampler[int]):
         sampler_choices = list(range(len(samplers)))
         generator = torch.Generator()
         # Ensure each worker on the same rank (GPU) sample the same dataset
-        generator.manual_seed(100 * self.epoch + 10 * self.seed + self.rank)
+        generator.manual_seed(seed_from(SEED_DATASET_CHOICE, self.seed, self.epoch, self.rank))
         count = 0
         while len(sampler_choices) > 0:
             count += 1
@@ -141,6 +143,7 @@ class BatchedMultisetSampler(Sampler[int]):
         rank=0,
         distributed=True,
         recycle=True,
+        global_rank=None,
     ) -> None:
         self.batch_size = batch_size
         self.sub_dsets = dataset.sub_dsets
@@ -162,14 +165,25 @@ class BatchedMultisetSampler(Sampler[int]):
         self.shuffle = shuffle
         self.seed = seed
         self.max_samples = max_samples
-        self.rank = rank
+        self.rank = rank  # sampling rank: picks the dataset stream (0 on every GPU under fsdp)
+        self.global_rank = rank if global_rank is None else global_rank
 
     def __iter__(self) -> Iterator[int]:
+        for d, sampler in enumerate(self.sub_samplers):
+            if hasattr(sampler, "generator"):  # RandomSampler
+                # Windows are keyed on the *global* rank: keyed on the sampling rank, every
+                # GPU under fsdp would draw the same windows. A recycle continues this
+                # generator, so the next pass is a new (but still deterministic) permutation.
+                sampler.generator = torch.Generator().manual_seed(
+                    seed_from(SEED_WINDOWS, self.seed, self.global_rank, self.epoch, d)
+                )
+            elif hasattr(sampler, "seed"):  # DistributedSampler: one permutation shared by all ranks
+                sampler.seed = self.seed
         samplers = [iter(sampler) for sampler in self.sub_samplers]
         sampler_choices = list(range(len(samplers)))
         generator = torch.Generator()
         # Ensure each worker on the same rank (GPU) sample the same dataset
-        generator.manual_seed(100 * self.epoch + 10 * self.seed + self.rank)
+        generator.manual_seed(seed_from(SEED_DATASET_CHOICE, self.seed, self.epoch, self.rank))
         count = 0
         while len(sampler_choices) > 0:
             count += 1

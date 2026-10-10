@@ -135,9 +135,9 @@ MixedWellDataModule                             walrus/data/multidatamodule.py:3
      ├── BatchedMultisetSampler                  mixed_dset_sampler.py:126
      │     decides WHICH dataset, and hands out a whole batch of indices at a time
      │     ├── sub_samplers : list[RandomSampler]   one per sub-dataset, :153-158
-     │     │     (no generator: permutations come from the global torch RNG, i.e. cfg.seed)
-     │     └── its own torch.Generator, seeded 100*epoch + 10*seed + rank   :172
-     │           (sampler seed always 0; rank = sampling rank, §2.8)
+     │     │     (each gets its own generator per epoch: seed_from(WINDOWS, seed, global rank, epoch, d))
+     │     └── its own torch.Generator, seeded seed_from(DATASET_CHOICE, seed, epoch, sampling rank)
+     │           (rank = sampling rank, §2.8; before 656c00c: 100*epoch + 10*0 + rank)
      └── DataLoader(batch_size=None, collate_fn=None, sampler=sampler)   :429-438
 ```
 
@@ -416,9 +416,9 @@ generator. Under `"node"` it is `rank // sync_group_size`, where the sync group 
 | **`hsdp`** (upstream) | `("ddp","fsdp")` | one node | `rank // local_size` | **same within a node**, different across nodes | **own, per GPU** | own |
 | `sampling_rank_strategy="world"` | any | — | `0` | **same on every GPU** | own | own |
 
-"Own" means each GPU draws independently. Since `seed_all` (§4.2), each rank's draws come from a
-global RNG seeded with `seed + 1_000_003·rank`, so they are reproducible but still differ across
-ranks.
+"Own" means each GPU draws independently. Each rank's window draws come from generators keyed
+on `(seed, global rank, epoch, dataset)`, so they are reproducible but differ across ranks
+([walrus_sampling_and_repetition.md](walrus_sampling_and_repetition.md) §2).
 
 Worked example, HSDP on 4 nodes × 4 GPUs, `sampling_rank_strategy="node"`:
 
@@ -447,11 +447,10 @@ Three further rank facts:
   `DistributedSampler` and partition the index space; it is off, and its docstring warns it drops
   a large fraction when a dataset is small relative to the world size. So two ranks *can* draw the
   same window in the same step; over a run they sample from the same pool entirely.
-- **The dataset-choice seed is `100*epoch + 10*seed + rank`**, where `seed` is the *sampler's*
-  own argument (never passed, so always 0; `cfg.seed` does not reach it, §4.2) and `rank` is the
-  sampling rank. Under `fsdp` that is `100·epoch` on every GPU. Under `ddp` with ranks `0..15`,
-  epoch `e` uses `100e … 100e+15`. That collides with epoch `e+1` only once there are more than
-  100 sampling ranks.
+- **The dataset-choice seed is a hash of `(cfg.seed, epoch, sampling rank)`** (`seed_from`), so
+  it follows `cfg.seed` and cannot collide. Under `fsdp` the sampling rank is 0 on every GPU, so
+  every GPU shares the sequence. (Before `656c00c` it was `100*epoch + 10*0 + rank`: `cfg.seed`
+  never reached it, and it collided once there were more than 100 sampling ranks.)
 - **Workers do not multiply sampling.** With `batch_size=None` + a sampler, PyTorch iterates the
   sampler in the **main** process and dispatches index-lists round-robin to workers, so
   `data_workers=8` prefetches but does not change what is drawn. Workers *do* each get their own
@@ -613,6 +612,13 @@ patch jittering, and periodic rolls all resample per `__getitem__` / per forward
 
 ### 4.2 Shuffling and seeding
 
+> **Superseded.** This section describes the seeding up to commit `656c00c`. Since then every
+> epoch re-seeds all RNGs from `(cfg.seed, rank, epoch)`, the dataset order follows `cfg.seed`,
+> and each dataset's window permutation has its own generator keyed on
+> `(cfg.seed, global rank, epoch, dataset)`. Resumed epochs are identical to uninterrupted ones.
+> Current behaviour and the full non-determinism inventory:
+> [walrus_sampling_and_repetition.md](walrus_sampling_and_repetition.md) §2 and §8.
+
 **What changed.** Upstream Walrus never seeds the global RNGs, so before commit `5ec35c6` every
 run had an OS-entropy seed per process. This branch adds a top-level `seed` key (`config.yaml`,
 default `0`) and `seed_all` ([experiment_utils.py:15-27](../walrus/utils/experiment_utils.py#L15-L27)),
@@ -692,10 +698,11 @@ Three random processes decide what a run sees. `cfg.seed` reaches two of them:
   (`checkpoints.py` stores model, optimizer and epoch metadata only), and `seed_all` re-runs at
   startup. A run resumed at epoch `k` therefore restarts its window, `dt`, rotation and jitter
   streams from the seed, and diverges from an uninterrupted run from epoch `k` on. The dataset
-  sequence is unaffected because it is keyed on the epoch. Restarting from the seed also means
-  the resumed epoch partly *replays* job 1's epoch 1: on average about 0.9 datasets get the same
-  window permutation, and draw exactly the same windows in the same order
-  ([walrus_sampling_and_repetition.md](walrus_sampling_and_repetition.md) §3.6). The noise-floor chains (3 auto-resuming
+  sequence is unaffected because it is keyed on the epoch. Restarting from the seed also meant
+  the resumed epoch partly *replayed* job 1's epoch 1: on average about 0.9 datasets got the same
+  window permutation, and drew exactly the same windows in the same order. (Fixed by the
+  per-epoch seeding, see the note above;
+  [walrus_sampling_and_repetition.md](walrus_sampling_and_repetition.md) §3.6.) The noise-floor chains (3 auto-resuming
   jobs per seed, `SCALING_STRATEGY_2D.md` §5.4) resume wherever the wall clock ends, so two
   same-seed chains need not match.
 - **Same draws are not the same floats on GPU.** Nothing calls

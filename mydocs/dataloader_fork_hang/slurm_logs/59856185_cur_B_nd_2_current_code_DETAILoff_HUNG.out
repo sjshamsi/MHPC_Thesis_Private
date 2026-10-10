@@ -1,0 +1,1779 @@
+[2026-10-10 02:13:06,071][walrus.utils.experiment_utils][INFO] - Using override experiment folder /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2
+[2026-10-10 02:13:06,071][walrus.utils.experiment_utils][INFO] - Using override experiment folder /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2
+[2026-10-10 02:13:06,071][walrus.utils.experiment_utils][INFO] - Using override experiment folder /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2
+[2026-10-10 02:13:06,071][walrus.utils.experiment_utils][INFO] - Using override experiment folder /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2
+[2026-10-10 02:13:06,243][walrus.utils.experiment_utils][INFO] - Combining current field_index_map_override with previous config.
+[2026-10-10 02:13:06,243][walrus.utils.experiment_utils][INFO] - Combining current field_index_map_override with previous config.
+[2026-10-10 02:13:06,243][walrus.utils.experiment_utils][INFO] - Combining current field_index_map_override with previous config.
+[2026-10-10 02:13:06,246][walrus][INFO] - Run experiment p9_determinism_cur_B_nd_2-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+[2026-10-10 02:13:06,246][walrus][INFO] - Run experiment p9_determinism_cur_B_nd_2-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+[2026-10-10 02:13:06,246][walrus][INFO] - Run experiment p9_determinism_cur_B_nd_2-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+[2026-10-10 02:13:06,250][walrus.utils.experiment_utils][INFO] - Combining current field_index_map_override with previous config.
+[2026-10-10 02:13:06,253][walrus][INFO] - Run experiment p9_determinism_cur_B_nd_2-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+[2026-10-10 02:13:06,258][walrus][INFO] - Configuration:
+data_workers: 10
+name: p9_determinism_cur_B_nd_2-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+finetune: false
+automatic_setup: true
+seed: 0
+trainer:
+  _target_: walrus.trainer.Trainer
+  max_epoch: 2
+  val_frequency: 2
+  rollout_val_frequency: 5
+  short_validation_length: 2
+  max_rollout_steps: 2
+  num_time_intervals: 5
+  enable_amp: false
+  loss_fn:
+    _target_: the_well.benchmark.metrics.MAE
+  formatter:
+    _target_: hydra.utils.get_class
+    path: walrus.data.well_to_multi_transformer.ChannelsFirstWithTimeFormatter
+  revin:
+    _target_: walrus.trainer.normalization_strat.SamplewiseRevNormalization
+    _partial_: true
+  prediction_type: delta
+  grad_acc_steps: 4
+  image_validation: true
+  video_validation: false
+  gradient_log_level: 0
+  clip_gradient: 10
+  log_interval: 10
+  loss_multiplier: 100.0
+  lr_scheduler_per_step: false
+  validation_suite:
+  - _target_: the_well.benchmark.metrics.NRMSE
+  - _target_: the_well.benchmark.metrics.VRMSE
+  - _target_: the_well.benchmark.metrics.binned_spectral_mse
+  - _target_: the_well.benchmark.metrics.PearsonR
+  batch_aggregation_fns:
+  - torch.mean
+  - torch.median
+  - torch.std
+  skip_spectral_metrics: true
+  debug_mode: true
+optimizer:
+  _target_: torch.optim.AdamW
+  weight_decay: 0.0001
+  eps: 1.0e-10
+  lr: 0.0002
+lr_scheduler:
+  _target_: walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+  warmup_epochs: 10
+  cooldown_epochs: 10
+  warmup_lr_factor: 0.1
+  cooldown_lr_factor: 0.001
+model:
+  encoder:
+    _partial_: true
+    _target_: walrus.models.encoders.vstride_encoder.SpaceBagAdaptiveDVstrideEncoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    kernel_scales_seq:
+    - - 2
+      - 2
+    - - 4
+      - 2
+    - - 4
+      - 4
+    - - 8
+      - 4
+    variable_downsample: true
+    variable_deterministic_ds: true
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  decoder:
+    _partial_: true
+    _target_: walrus.models.decoders.vstride_decoder.AdaptiveDVstrideDecoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  processor:
+    space_mixing:
+      _partial_: true
+      _target_: walrus.models.spatial_blocks.full_attention.FullAttention
+      num_heads: 16
+      mlp_dim: 768
+    time_mixing:
+      _partial_: true
+      _target_: walrus.models.temporal_blocks.axial_time_attention.AxialTimeAttention
+      num_heads: 16
+      bias_type: rel
+    channel_mixing:
+      _partial_: true
+      _target_: torch.nn.Identity
+    _partial_: true
+    _target_: walrus.models.spatiotemporal_blocks.space_time_split.SpaceTimeSplitBlock
+  norm_layer:
+    _partial_: true
+    _target_: walrus.models.shared_utils.normalization.RMSGroupNorm
+  _target_: walrus.models.IsotropicModel
+  hidden_dim: 320
+  projection_dim: 48
+  intermediate_dim: 352
+  processor_blocks: 6
+  drop_path: 0.05
+  groups: 16
+  max_d: 3
+  causal_in_time: true
+  include_d:
+  - 2
+  - 3
+  override_dimensionality: 3
+  jitter_patches: true
+  gradient_checkpointing_freq: 0
+  use_periodic_fixed_jitter: true
+  input_field_drop: 0.0
+data:
+  field_index_map_override:
+    closed_boundary: 0
+    open_boundary: 1
+    bias_correction: 2
+    pressure: 3
+    velocity_x: 4
+    velocity_y: 5
+    velocity_z: 6
+    zeros_like_density: 7
+    speed_of_sound: 8
+    concentration: 9
+    D_xx: 10
+    D_xy: 11
+    D_xz: 12
+    D_yx: 13
+    D_yy: 14
+    D_yz: 15
+    D_zx: 16
+    D_zy: 17
+    D_zz: 18
+    E_xx: 19
+    E_xy: 20
+    E_xz: 21
+    E_yx: 22
+    E_yy: 23
+    E_yz: 24
+    E_zx: 25
+    E_zy: 26
+    E_zz: 27
+    density: 28
+    energy: 29
+    velocity_r: 30
+    velocity_theta: 31
+    velocity_phi: 32
+    momentum_x: 33
+    momentum_y: 34
+    momentum_z: 35
+    pressure_re: 36
+    pressure_im: 37
+    mask: 38
+    magnetic_field_x: 39
+    magnetic_field_y: 40
+    magnetic_field_z: 41
+    A: 42
+    B: 43
+    height: 44
+    internal_energy: 45
+    temperature: 46
+    electron_fraction: 47
+    entropy: 48
+    magnetic_field_log_r: 49
+    magnetic_field_theta: 50
+    magnetic_field_phi: 51
+    velocity_log_r: 52
+    buoyancy: 53
+    tracer: 54
+    log10_density: 55
+    log10_temperature: 56
+    c_zz: 57
+    C_xx: 58
+    C_xy: 59
+    C_xz: 60
+    C_yx: 61
+    C_yy: 62
+    C_yz: 63
+    C_zx: 64
+    C_zy: 65
+    C_zz: 66
+  transform:
+    train:
+      _target_: the_well.data.augmentation.RandomRotation90
+      p: 1.0
+  well_base_path: /leonardo_work/ICT26_MHPC_0/sshamsi/datasets/
+  wandb_data_name: well_pretrain9_2d
+  module_parameters:
+    _target_: walrus.data.MixedWellDataModule
+    batch_size: 2
+    n_steps_input: 6
+    n_steps_output: 1
+    min_dt_stride: 1
+    max_dt_stride: 5
+    max_samples: 100
+    well_dataset_info:
+      acoustic_scattering_discontinuous:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_inclusions:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_maze:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      euler_multi_quadrants_openBC:
+        include_filters: []
+        exclude_filters: []
+      euler_multi_quadrants_periodicBC:
+        include_filters: []
+        exclude_filters: []
+      gray_scott_reaction_diffusion:
+        include_filters: []
+        exclude_filters: []
+      planetswe:
+        include_filters: []
+        exclude_filters: []
+      rayleigh_benard:
+        include_filters: []
+        exclude_filters: []
+      shear_flow:
+        include_filters: []
+        exclude_filters: []
+auto_resume: true
+folder_override: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2
+checkpoint_override: ''
+config_override: ''
+validation_mode: false
+frozen_components:
+- model
+distribution:
+  distribution_type: fsdp
+  local_size: null
+logger:
+  wandb: true
+  wandb_project_name: p9_determinism
+checkpoint:
+  _target_: walrus.trainer.checkpoints.CheckPointer
+  save_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints
+  load_checkpoint_path: null
+  coalesced_checkpoint_path: null
+  save_best: true
+  checkpoint_frequency: 1
+  align_fields: true
+  load_chkpt_after_finetuning_expansion: false
+finetuning_mods: {}
+experiment_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs
+
+[2026-10-10 02:13:06,258][walrus][INFO] - Configuration:
+data_workers: 10
+name: p9_determinism_cur_B_nd_2-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+finetune: false
+automatic_setup: true
+seed: 0
+trainer:
+  _target_: walrus.trainer.Trainer
+  max_epoch: 2
+  val_frequency: 2
+  rollout_val_frequency: 5
+  short_validation_length: 2
+  max_rollout_steps: 2
+  num_time_intervals: 5
+  enable_amp: false
+  loss_fn:
+    _target_: the_well.benchmark.metrics.MAE
+  formatter:
+    _target_: hydra.utils.get_class
+    path: walrus.data.well_to_multi_transformer.ChannelsFirstWithTimeFormatter
+  revin:
+    _target_: walrus.trainer.normalization_strat.SamplewiseRevNormalization
+    _partial_: true
+  prediction_type: delta
+  grad_acc_steps: 4
+  image_validation: true
+  video_validation: false
+  gradient_log_level: 0
+  clip_gradient: 10
+  log_interval: 10
+  loss_multiplier: 100.0
+  lr_scheduler_per_step: false
+  validation_suite:
+  - _target_: the_well.benchmark.metrics.NRMSE
+  - _target_: the_well.benchmark.metrics.VRMSE
+  - _target_: the_well.benchmark.metrics.binned_spectral_mse
+  - _target_: the_well.benchmark.metrics.PearsonR
+  batch_aggregation_fns:
+  - torch.mean
+  - torch.median
+  - torch.std
+  skip_spectral_metrics: true
+  debug_mode: true
+optimizer:
+  _target_: torch.optim.AdamW
+  weight_decay: 0.0001
+  eps: 1.0e-10
+  lr: 0.0002
+lr_scheduler:
+  _target_: walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+  warmup_epochs: 10
+  cooldown_epochs: 10
+  warmup_lr_factor: 0.1
+  cooldown_lr_factor: 0.001
+model:
+  encoder:
+    _partial_: true
+    _target_: walrus.models.encoders.vstride_encoder.SpaceBagAdaptiveDVstrideEncoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    kernel_scales_seq:
+    - - 2
+      - 2
+    - - 4
+      - 2
+    - - 4
+      - 4
+    - - 8
+      - 4
+    variable_downsample: true
+    variable_deterministic_ds: true
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  decoder:
+    _partial_: true
+    _target_: walrus.models.decoders.vstride_decoder.AdaptiveDVstrideDecoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  processor:
+    space_mixing:
+      _partial_: true
+      _target_: walrus.models.spatial_blocks.full_attention.FullAttention
+      num_heads: 16
+      mlp_dim: 768
+    time_mixing:
+      _partial_: true
+      _target_: walrus.models.temporal_blocks.axial_time_attention.AxialTimeAttention
+      num_heads: 16
+      bias_type: rel
+    channel_mixing:
+      _partial_: true
+      _target_: torch.nn.Identity
+    _partial_: true
+    _target_: walrus.models.spatiotemporal_blocks.space_time_split.SpaceTimeSplitBlock
+  norm_layer:
+    _partial_: true
+    _target_: walrus.models.shared_utils.normalization.RMSGroupNorm
+  _target_: walrus.models.IsotropicModel
+  hidden_dim: 320
+  projection_dim: 48
+  intermediate_dim: 352
+  processor_blocks: 6
+  drop_path: 0.05
+  groups: 16
+  max_d: 3
+  causal_in_time: true
+  include_d:
+  - 2
+  - 3
+  override_dimensionality: 3
+  jitter_patches: true
+  gradient_checkpointing_freq: 0
+  use_periodic_fixed_jitter: true
+  input_field_drop: 0.0
+data:
+  field_index_map_override:
+    closed_boundary: 0
+    open_boundary: 1
+    bias_correction: 2
+    pressure: 3
+    velocity_x: 4
+    velocity_y: 5
+    velocity_z: 6
+    zeros_like_density: 7
+    speed_of_sound: 8
+    concentration: 9
+    D_xx: 10
+    D_xy: 11
+    D_xz: 12
+    D_yx: 13
+    D_yy: 14
+    D_yz: 15
+    D_zx: 16
+    D_zy: 17
+    D_zz: 18
+    E_xx: 19
+    E_xy: 20
+    E_xz: 21
+    E_yx: 22
+    E_yy: 23
+    E_yz: 24
+    E_zx: 25
+    E_zy: 26
+    E_zz: 27
+    density: 28
+    energy: 29
+    velocity_r: 30
+    velocity_theta: 31
+    velocity_phi: 32
+    momentum_x: 33
+    momentum_y: 34
+    momentum_z: 35
+    pressure_re: 36
+    pressure_im: 37
+    mask: 38
+    magnetic_field_x: 39
+    magnetic_field_y: 40
+    magnetic_field_z: 41
+    A: 42
+    B: 43
+    height: 44
+    internal_energy: 45
+    temperature: 46
+    electron_fraction: 47
+    entropy: 48
+    magnetic_field_log_r: 49
+    magnetic_field_theta: 50
+    magnetic_field_phi: 51
+    velocity_log_r: 52
+    buoyancy: 53
+    tracer: 54
+    log10_density: 55
+    log10_temperature: 56
+    c_zz: 57
+    C_xx: 58
+    C_xy: 59
+    C_xz: 60
+    C_yx: 61
+    C_yy: 62
+    C_yz: 63
+    C_zx: 64
+    C_zy: 65
+    C_zz: 66
+  transform:
+    train:
+      _target_: the_well.data.augmentation.RandomRotation90
+      p: 1.0
+  well_base_path: /leonardo_work/ICT26_MHPC_0/sshamsi/datasets/
+  wandb_data_name: well_pretrain9_2d
+  module_parameters:
+    _target_: walrus.data.MixedWellDataModule
+    batch_size: 2
+    n_steps_input: 6
+    n_steps_output: 1
+    min_dt_stride: 1
+    max_dt_stride: 5
+    max_samples: 100
+    well_dataset_info:
+      acoustic_scattering_discontinuous:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_inclusions:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_maze:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      euler_multi_quadrants_openBC:
+        include_filters: []
+        exclude_filters: []
+      euler_multi_quadrants_periodicBC:
+        include_filters: []
+        exclude_filters: []
+      gray_scott_reaction_diffusion:
+        include_filters: []
+        exclude_filters: []
+      planetswe:
+        include_filters: []
+        exclude_filters: []
+      rayleigh_benard:
+        include_filters: []
+        exclude_filters: []
+      shear_flow:
+        include_filters: []
+        exclude_filters: []
+auto_resume: true
+folder_override: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2
+checkpoint_override: ''
+config_override: ''
+validation_mode: false
+frozen_components:
+- model
+distribution:
+  distribution_type: fsdp
+  local_size: null
+logger:
+  wandb: true
+  wandb_project_name: p9_determinism
+checkpoint:
+  _target_: walrus.trainer.checkpoints.CheckPointer
+  save_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints
+  load_checkpoint_path: null
+  coalesced_checkpoint_path: null
+  save_best: true
+  checkpoint_frequency: 1
+  align_fields: true
+  load_chkpt_after_finetuning_expansion: false
+finetuning_mods: {}
+experiment_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs
+
+[2026-10-10 02:13:06,258][walrus][INFO] - Configuration:
+data_workers: 10
+name: p9_determinism_cur_B_nd_2-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+finetune: false
+automatic_setup: true
+seed: 0
+trainer:
+  _target_: walrus.trainer.Trainer
+  max_epoch: 2
+  val_frequency: 2
+  rollout_val_frequency: 5
+  short_validation_length: 2
+  max_rollout_steps: 2
+  num_time_intervals: 5
+  enable_amp: false
+  loss_fn:
+    _target_: the_well.benchmark.metrics.MAE
+  formatter:
+    _target_: hydra.utils.get_class
+    path: walrus.data.well_to_multi_transformer.ChannelsFirstWithTimeFormatter
+  revin:
+    _target_: walrus.trainer.normalization_strat.SamplewiseRevNormalization
+    _partial_: true
+  prediction_type: delta
+  grad_acc_steps: 4
+  image_validation: true
+  video_validation: false
+  gradient_log_level: 0
+  clip_gradient: 10
+  log_interval: 10
+  loss_multiplier: 100.0
+  lr_scheduler_per_step: false
+  validation_suite:
+  - _target_: the_well.benchmark.metrics.NRMSE
+  - _target_: the_well.benchmark.metrics.VRMSE
+  - _target_: the_well.benchmark.metrics.binned_spectral_mse
+  - _target_: the_well.benchmark.metrics.PearsonR
+  batch_aggregation_fns:
+  - torch.mean
+  - torch.median
+  - torch.std
+  skip_spectral_metrics: true
+  debug_mode: true
+optimizer:
+  _target_: torch.optim.AdamW
+  weight_decay: 0.0001
+  eps: 1.0e-10
+  lr: 0.0002
+lr_scheduler:
+  _target_: walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+  warmup_epochs: 10
+  cooldown_epochs: 10
+  warmup_lr_factor: 0.1
+  cooldown_lr_factor: 0.001
+model:
+  encoder:
+    _partial_: true
+    _target_: walrus.models.encoders.vstride_encoder.SpaceBagAdaptiveDVstrideEncoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    kernel_scales_seq:
+    - - 2
+      - 2
+    - - 4
+      - 2
+    - - 4
+      - 4
+    - - 8
+      - 4
+    variable_downsample: true
+    variable_deterministic_ds: true
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  decoder:
+    _partial_: true
+    _target_: walrus.models.decoders.vstride_decoder.AdaptiveDVstrideDecoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  processor:
+    space_mixing:
+      _partial_: true
+      _target_: walrus.models.spatial_blocks.full_attention.FullAttention
+      num_heads: 16
+      mlp_dim: 768
+    time_mixing:
+      _partial_: true
+      _target_: walrus.models.temporal_blocks.axial_time_attention.AxialTimeAttention
+      num_heads: 16
+      bias_type: rel
+    channel_mixing:
+      _partial_: true
+      _target_: torch.nn.Identity
+    _partial_: true
+    _target_: walrus.models.spatiotemporal_blocks.space_time_split.SpaceTimeSplitBlock
+  norm_layer:
+    _partial_: true
+    _target_: walrus.models.shared_utils.normalization.RMSGroupNorm
+  _target_: walrus.models.IsotropicModel
+  hidden_dim: 320
+  projection_dim: 48
+  intermediate_dim: 352
+  processor_blocks: 6
+  drop_path: 0.05
+  groups: 16
+  max_d: 3
+  causal_in_time: true
+  include_d:
+  - 2
+  - 3
+  override_dimensionality: 3
+  jitter_patches: true
+  gradient_checkpointing_freq: 0
+  use_periodic_fixed_jitter: true
+  input_field_drop: 0.0
+data:
+  field_index_map_override:
+    closed_boundary: 0
+    open_boundary: 1
+    bias_correction: 2
+    pressure: 3
+    velocity_x: 4
+    velocity_y: 5
+    velocity_z: 6
+    zeros_like_density: 7
+    speed_of_sound: 8
+    concentration: 9
+    D_xx: 10
+    D_xy: 11
+    D_xz: 12
+    D_yx: 13
+    D_yy: 14
+    D_yz: 15
+    D_zx: 16
+    D_zy: 17
+    D_zz: 18
+    E_xx: 19
+    E_xy: 20
+    E_xz: 21
+    E_yx: 22
+    E_yy: 23
+    E_yz: 24
+    E_zx: 25
+    E_zy: 26
+    E_zz: 27
+    density: 28
+    energy: 29
+    velocity_r: 30
+    velocity_theta: 31
+    velocity_phi: 32
+    momentum_x: 33
+    momentum_y: 34
+    momentum_z: 35
+    pressure_re: 36
+    pressure_im: 37
+    mask: 38
+    magnetic_field_x: 39
+    magnetic_field_y: 40
+    magnetic_field_z: 41
+    A: 42
+    B: 43
+    height: 44
+    internal_energy: 45
+    temperature: 46
+    electron_fraction: 47
+    entropy: 48
+    magnetic_field_log_r: 49
+    magnetic_field_theta: 50
+    magnetic_field_phi: 51
+    velocity_log_r: 52
+    buoyancy: 53
+    tracer: 54
+    log10_density: 55
+    log10_temperature: 56
+    c_zz: 57
+    C_xx: 58
+    C_xy: 59
+    C_xz: 60
+    C_yx: 61
+    C_yy: 62
+    C_yz: 63
+    C_zx: 64
+    C_zy: 65
+    C_zz: 66
+  transform:
+    train:
+      _target_: the_well.data.augmentation.RandomRotation90
+      p: 1.0
+  well_base_path: /leonardo_work/ICT26_MHPC_0/sshamsi/datasets/
+  wandb_data_name: well_pretrain9_2d
+  module_parameters:
+    _target_: walrus.data.MixedWellDataModule
+    batch_size: 2
+    n_steps_input: 6
+    n_steps_output: 1
+    min_dt_stride: 1
+    max_dt_stride: 5
+    max_samples: 100
+    well_dataset_info:
+      acoustic_scattering_discontinuous:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_inclusions:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_maze:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      euler_multi_quadrants_openBC:
+        include_filters: []
+        exclude_filters: []
+      euler_multi_quadrants_periodicBC:
+        include_filters: []
+        exclude_filters: []
+      gray_scott_reaction_diffusion:
+        include_filters: []
+        exclude_filters: []
+      planetswe:
+        include_filters: []
+        exclude_filters: []
+      rayleigh_benard:
+        include_filters: []
+        exclude_filters: []
+      shear_flow:
+        include_filters: []
+        exclude_filters: []
+auto_resume: true
+folder_override: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2
+checkpoint_override: ''
+config_override: ''
+validation_mode: false
+frozen_components:
+- model
+distribution:
+  distribution_type: fsdp
+  local_size: null
+logger:
+  wandb: true
+  wandb_project_name: p9_determinism
+checkpoint:
+  _target_: walrus.trainer.checkpoints.CheckPointer
+  save_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints
+  load_checkpoint_path: null
+  coalesced_checkpoint_path: null
+  save_best: true
+  checkpoint_frequency: 1
+  align_fields: true
+  load_chkpt_after_finetuning_expansion: false
+finetuning_mods: {}
+experiment_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs
+
+[2026-10-10 02:13:06,260][walrus][INFO] - Instantiate datamodule well_pretrain9_2d
+[2026-10-10 02:13:06,260][walrus][INFO] - Instantiate datamodule well_pretrain9_2d
+[2026-10-10 02:13:06,260][walrus][INFO] - Instantiate datamodule well_pretrain9_2d
+[2026-10-10 02:13:06,265][walrus][INFO] - Configuration:
+data_workers: 10
+name: p9_determinism_cur_B_nd_2-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+finetune: false
+automatic_setup: true
+seed: 0
+trainer:
+  _target_: walrus.trainer.Trainer
+  max_epoch: 2
+  val_frequency: 2
+  rollout_val_frequency: 5
+  short_validation_length: 2
+  max_rollout_steps: 2
+  num_time_intervals: 5
+  enable_amp: false
+  loss_fn:
+    _target_: the_well.benchmark.metrics.MAE
+  formatter:
+    _target_: hydra.utils.get_class
+    path: walrus.data.well_to_multi_transformer.ChannelsFirstWithTimeFormatter
+  revin:
+    _target_: walrus.trainer.normalization_strat.SamplewiseRevNormalization
+    _partial_: true
+  prediction_type: delta
+  grad_acc_steps: 4
+  image_validation: true
+  video_validation: false
+  gradient_log_level: 0
+  clip_gradient: 10
+  log_interval: 10
+  loss_multiplier: 100.0
+  lr_scheduler_per_step: false
+  validation_suite:
+  - _target_: the_well.benchmark.metrics.NRMSE
+  - _target_: the_well.benchmark.metrics.VRMSE
+  - _target_: the_well.benchmark.metrics.binned_spectral_mse
+  - _target_: the_well.benchmark.metrics.PearsonR
+  batch_aggregation_fns:
+  - torch.mean
+  - torch.median
+  - torch.std
+  skip_spectral_metrics: true
+  debug_mode: true
+optimizer:
+  _target_: torch.optim.AdamW
+  weight_decay: 0.0001
+  eps: 1.0e-10
+  lr: 0.0002
+lr_scheduler:
+  _target_: walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+  warmup_epochs: 10
+  cooldown_epochs: 10
+  warmup_lr_factor: 0.1
+  cooldown_lr_factor: 0.001
+model:
+  encoder:
+    _partial_: true
+    _target_: walrus.models.encoders.vstride_encoder.SpaceBagAdaptiveDVstrideEncoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    kernel_scales_seq:
+    - - 2
+      - 2
+    - - 4
+      - 2
+    - - 4
+      - 4
+    - - 8
+      - 4
+    variable_downsample: true
+    variable_deterministic_ds: true
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  decoder:
+    _partial_: true
+    _target_: walrus.models.decoders.vstride_decoder.AdaptiveDVstrideDecoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  processor:
+    space_mixing:
+      _partial_: true
+      _target_: walrus.models.spatial_blocks.full_attention.FullAttention
+      num_heads: 16
+      mlp_dim: 768
+    time_mixing:
+      _partial_: true
+      _target_: walrus.models.temporal_blocks.axial_time_attention.AxialTimeAttention
+      num_heads: 16
+      bias_type: rel
+    channel_mixing:
+      _partial_: true
+      _target_: torch.nn.Identity
+    _partial_: true
+    _target_: walrus.models.spatiotemporal_blocks.space_time_split.SpaceTimeSplitBlock
+  norm_layer:
+    _partial_: true
+    _target_: walrus.models.shared_utils.normalization.RMSGroupNorm
+  _target_: walrus.models.IsotropicModel
+  hidden_dim: 320
+  projection_dim: 48
+  intermediate_dim: 352
+  processor_blocks: 6
+  drop_path: 0.05
+  groups: 16
+  max_d: 3
+  causal_in_time: true
+  include_d:
+  - 2
+  - 3
+  override_dimensionality: 3
+  jitter_patches: true
+  gradient_checkpointing_freq: 0
+  use_periodic_fixed_jitter: true
+  input_field_drop: 0.0
+data:
+  field_index_map_override:
+    closed_boundary: 0
+    open_boundary: 1
+    bias_correction: 2
+    pressure: 3
+    velocity_x: 4
+    velocity_y: 5
+    velocity_z: 6
+    zeros_like_density: 7
+    speed_of_sound: 8
+    concentration: 9
+    D_xx: 10
+    D_xy: 11
+    D_xz: 12
+    D_yx: 13
+    D_yy: 14
+    D_yz: 15
+    D_zx: 16
+    D_zy: 17
+    D_zz: 18
+    E_xx: 19
+    E_xy: 20
+    E_xz: 21
+    E_yx: 22
+    E_yy: 23
+    E_yz: 24
+    E_zx: 25
+    E_zy: 26
+    E_zz: 27
+    density: 28
+    energy: 29
+    velocity_r: 30
+    velocity_theta: 31
+    velocity_phi: 32
+    momentum_x: 33
+    momentum_y: 34
+    momentum_z: 35
+    pressure_re: 36
+    pressure_im: 37
+    mask: 38
+    magnetic_field_x: 39
+    magnetic_field_y: 40
+    magnetic_field_z: 41
+    A: 42
+    B: 43
+    height: 44
+    internal_energy: 45
+    temperature: 46
+    electron_fraction: 47
+    entropy: 48
+    magnetic_field_log_r: 49
+    magnetic_field_theta: 50
+    magnetic_field_phi: 51
+    velocity_log_r: 52
+    buoyancy: 53
+    tracer: 54
+    log10_density: 55
+    log10_temperature: 56
+    c_zz: 57
+    C_xx: 58
+    C_xy: 59
+    C_xz: 60
+    C_yx: 61
+    C_yy: 62
+    C_yz: 63
+    C_zx: 64
+    C_zy: 65
+    C_zz: 66
+  transform:
+    train:
+      _target_: the_well.data.augmentation.RandomRotation90
+      p: 1.0
+  well_base_path: /leonardo_work/ICT26_MHPC_0/sshamsi/datasets/
+  wandb_data_name: well_pretrain9_2d
+  module_parameters:
+    _target_: walrus.data.MixedWellDataModule
+    batch_size: 2
+    n_steps_input: 6
+    n_steps_output: 1
+    min_dt_stride: 1
+    max_dt_stride: 5
+    max_samples: 100
+    well_dataset_info:
+      acoustic_scattering_discontinuous:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_inclusions:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_maze:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      euler_multi_quadrants_openBC:
+        include_filters: []
+        exclude_filters: []
+      euler_multi_quadrants_periodicBC:
+        include_filters: []
+        exclude_filters: []
+      gray_scott_reaction_diffusion:
+        include_filters: []
+        exclude_filters: []
+      planetswe:
+        include_filters: []
+        exclude_filters: []
+      rayleigh_benard:
+        include_filters: []
+        exclude_filters: []
+      shear_flow:
+        include_filters: []
+        exclude_filters: []
+auto_resume: true
+folder_override: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2
+checkpoint_override: ''
+config_override: ''
+validation_mode: false
+frozen_components:
+- model
+distribution:
+  distribution_type: fsdp
+  local_size: null
+logger:
+  wandb: true
+  wandb_project_name: p9_determinism
+checkpoint:
+  _target_: walrus.trainer.checkpoints.CheckPointer
+  save_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints
+  load_checkpoint_path: null
+  coalesced_checkpoint_path: null
+  save_best: true
+  checkpoint_frequency: 1
+  align_fields: true
+  load_chkpt_after_finetuning_expansion: false
+finetuning_mods: {}
+experiment_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs
+
+[2026-10-10 02:13:12,479][walrus][INFO] - Instantiate datamodule well_pretrain9_2d
+[2026-10-10 02:13:38,039][walrus.data.multidataset][WARNING] - Failed to load convective_envelope_rsg dataset
+[2026-10-10 02:13:38,039][walrus.data.multidataset][WARNING] - Failed to load convective_envelope_rsg dataset
+[2026-10-10 02:13:38,039][walrus.data.multidataset][WARNING] - Failed to load convective_envelope_rsg dataset
+[2026-10-10 02:13:38,040][walrus.data.multidataset][WARNING] - Failed to load convective_envelope_rsg dataset
+[2026-10-10 02:13:40,791][walrus.data.multidataset][WARNING] - Failed to load MHD_256 dataset
+[2026-10-10 02:13:40,791][walrus.data.multidataset][WARNING] - Failed to load MHD_256 dataset
+[2026-10-10 02:13:40,791][walrus.data.multidataset][WARNING] - Failed to load MHD_256 dataset
+[2026-10-10 02:13:40,791][walrus.data.multidataset][WARNING] - Failed to load MHD_256 dataset
+[2026-10-10 02:13:41,318][walrus.data.multidataset][WARNING] - Failed to load post_neutron_star_merger dataset
+[2026-10-10 02:13:41,318][walrus.data.multidataset][WARNING] - Failed to load post_neutron_star_merger dataset
+[2026-10-10 02:13:41,318][walrus.data.multidataset][WARNING] - Failed to load post_neutron_star_merger dataset
+[2026-10-10 02:13:41,318][walrus.data.multidataset][WARNING] - Failed to load post_neutron_star_merger dataset
+[2026-10-10 02:13:41,517][walrus.data.multidataset][WARNING] - Failed to load rayleigh_benard_uniform dataset
+[2026-10-10 02:13:41,517][walrus.data.multidataset][WARNING] - Failed to load rayleigh_benard_uniform dataset
+[2026-10-10 02:13:41,517][walrus.data.multidataset][WARNING] - Failed to load rayleigh_benard_uniform dataset
+[2026-10-10 02:13:41,517][walrus.data.multidataset][WARNING] - Failed to load rayleigh_benard_uniform dataset
+[2026-10-10 02:13:42,196][walrus.data.multidataset][WARNING] - Failed to load supernova_explosion_64 dataset
+[2026-10-10 02:13:42,196][walrus.data.multidataset][WARNING] - Failed to load supernova_explosion_64 dataset
+[2026-10-10 02:13:42,196][walrus.data.multidataset][WARNING] - Failed to load supernova_explosion_64 dataset
+[2026-10-10 02:13:42,197][walrus.data.multidataset][WARNING] - Failed to load supernova_explosion_64 dataset
+[2026-10-10 02:13:49,572][walrus.data.multidataset][WARNING] - Failed to load viscoelastic_instability_v2 dataset
+[2026-10-10 02:13:49,572][walrus.data.multidataset][WARNING] - Failed to load viscoelastic_instability_v2 dataset
+[2026-10-10 02:13:49,572][walrus.data.multidataset][WARNING] - Failed to load viscoelastic_instability_v2 dataset
+[2026-10-10 02:13:49,574][walrus.data.multidataset][WARNING] - Failed to load viscoelastic_instability_v2 dataset
+[2026-10-10 02:14:19,388][walrus][INFO] - Instantiate model walrus.models.IsotropicModel
+[2026-10-10 02:14:19,388][walrus][INFO] - Instantiate model walrus.models.IsotropicModel
+[2026-10-10 02:14:19,388][walrus][INFO] - Instantiate model walrus.models.IsotropicModel
+[2026-10-10 02:14:19,389][walrus][INFO] - Instantiate model walrus.models.IsotropicModel
+[2026-10-10 02:14:29,169][walrus][INFO] - Assigning distribution strategy: fsdp
+===========================================================================
+Layer (type:depth-idx)                             Param #
+===========================================================================
+IsotropicModel                                     1
+├─FixedPatchJittererBoundaryPad: 1-1               --
+├─ModuleDict: 1-2                                  --
+│    └─SpaceBagAdaptiveDVstrideEncoder: 2-1        --
+│    │    └─Conv3d: 3-1                            12,075,008
+│    │    └─RMSGroupNorm: 3-2                      352
+│    │    └─SiLU: 3-3                              --
+│    │    └─Conv3d: 3-4                            7,208,960
+│    │    └─RMSGroupNorm: 3-5                      320
+├─ModuleList: 1-3                                  --
+│    └─SpaceTimeSplitBlock: 2-2                    --
+│    │    └─FullAttention: 3-6                     --
+│    │    │    └─RMSGroupNorm: 4-1                 320
+│    │    │    └─Linear: 4-2                       554,688
+│    │    │    └─SwiGLU: 4-3                       --
+│    │    │    └─Linear: 4-4                       123,200
+│    │    │    └─Linear: 4-5                       102,400
+│    │    │    └─LayerNorm: 4-6                    40
+│    │    │    └─LayerNorm: 4-7                    40
+│    │    │    └─RotaryEmbedding: 4-8              --
+│    │    │    └─Identity: 4-9                     --
+│    │    └─AxialTimeAttention: 3-7                --
+│    │    │    └─RMSGroupNorm: 4-10                320
+│    │    │    └─Conv3d: 4-11                      308,160
+│    │    │    └─Conv3d: 4-12                      102,720
+│    │    │    └─LayerNorm: 4-13                   40
+│    │    │    └─LayerNorm: 4-14                   40
+│    │    │    └─RelativePositionBias: 4-15        --
+│    │    │    │    └─Embedding: 5-1               512
+│    │    │    └─Identity: 4-16                    --
+│    │    └─Identity: 3-8                          --
+│    └─SpaceTimeSplitBlock: 2-3                    --
+│    │    └─FullAttention: 3-9                     --
+│    │    │    └─RMSGroupNorm: 4-17                320
+│    │    │    └─Linear: 4-18                      554,688
+│    │    │    └─SwiGLU: 4-19                      --
+│    │    │    └─Linear: 4-20                      123,200
+│    │    │    └─Linear: 4-21                      102,400
+│    │    │    └─LayerNorm: 4-22                   40
+│    │    │    └─LayerNorm: 4-23                   40
+│    │    │    └─RotaryEmbedding: 4-24             --
+│    │    │    └─DropPath: 4-25                    --
+│    │    └─AxialTimeAttention: 3-10               --
+│    │    │    └─RMSGroupNorm: 4-26                320
+│    │    │    └─Conv3d: 4-27                      308,160
+│    │    │    └─Conv3d: 4-28                      102,720
+│    │    │    └─LayerNorm: 4-29                   40
+│    │    │    └─LayerNorm: 4-30                   40
+│    │    │    └─RelativePositionBias: 4-31        --
+│    │    │    │    └─Embedding: 5-2               512
+│    │    │    └─DropPath: 4-32                    --
+│    │    └─Identity: 3-11                         --
+│    └─SpaceTimeSplitBlock: 2-4                    --
+│    │    └─FullAttention: 3-12                    --
+│    │    │    └─RMSGroupNorm: 4-33                320
+│    │    │    └─Linear: 4-34                      554,688
+│    │    │    └─SwiGLU: 4-35                      --
+│    │    │    └─Linear: 4-36                      123,200
+│    │    │    └─Linear: 4-37                      102,400
+│    │    │    └─LayerNorm: 4-38                   40
+│    │    │    └─LayerNorm: 4-39                   40
+│    │    │    └─RotaryEmbedding: 4-40             --
+│    │    │    └─DropPath: 4-41                    --
+│    │    └─AxialTimeAttention: 3-13               --
+│    │    │    └─RMSGroupNorm: 4-42                320
+│    │    │    └─Conv3d: 4-43                      308,160
+│    │    │    └─Conv3d: 4-44                      102,720
+│    │    │    └─LayerNorm: 4-45                   40
+│    │    │    └─LayerNorm: 4-46                   40
+│    │    │    └─RelativePositionBias: 4-47        --
+│    │    │    │    └─Embedding: 5-3               512
+│    │    │    └─DropPath: 4-48                    --
+│    │    └─Identity: 3-14                         --
+│    └─SpaceTimeSplitBlock: 2-5                    --
+│    │    └─FullAttention: 3-15                    --
+│    │    │    └─RMSGroupNorm: 4-49                320
+│    │    │    └─Linear: 4-50                      554,688
+│    │    │    └─SwiGLU: 4-51                      --
+│    │    │    └─Linear: 4-52                      123,200
+│    │    │    └─Linear: 4-53                      102,400
+│    │    │    └─LayerNorm: 4-54                   40
+│    │    │    └─LayerNorm: 4-55                   40
+│    │    │    └─RotaryEmbedding: 4-56             --
+│    │    │    └─DropPath: 4-57                    --
+│    │    └─AxialTimeAttention: 3-16               --
+│    │    │    └─RMSGroupNorm: 4-58                320
+│    │    │    └─Conv3d: 4-59                      308,160
+│    │    │    └─Conv3d: 4-60                      102,720
+│    │    │    └─LayerNorm: 4-61                   40
+│    │    │    └─LayerNorm: 4-62                   40
+│    │    │    └─RelativePositionBias: 4-63        --
+│    │    │    │    └─Embedding: 5-4               512
+│    │    │    └─DropPath: 4-64                    --
+│    │    └─Identity: 3-17                         --
+│    └─SpaceTimeSplitBlock: 2-6                    --
+│    │    └─FullAttention: 3-18                    --
+│    │    │    └─RMSGroupNorm: 4-65                320
+│    │    │    └─Linear: 4-66                      554,688
+│    │    │    └─SwiGLU: 4-67                      --
+│    │    │    └─Linear: 4-68                      123,200
+│    │    │    └─Linear: 4-69                      102,400
+│    │    │    └─LayerNorm: 4-70                   40
+│    │    │    └─LayerNorm: 4-71                   40
+│    │    │    └─RotaryEmbedding: 4-72             --
+│    │    │    └─DropPath: 4-73                    --
+│    │    └─AxialTimeAttention: 3-19               --
+│    │    │    └─RMSGroupNorm: 4-74                320
+│    │    │    └─Conv3d: 4-75                      308,160
+│    │    │    └─Conv3d: 4-76                      102,720
+│    │    │    └─LayerNorm: 4-77                   40
+│    │    │    └─LayerNorm: 4-78                   40
+│    │    │    └─RelativePositionBias: 4-79        --
+│    │    │    │    └─Embedding: 5-5               512
+│    │    │    └─DropPath: 4-80                    --
+│    │    └─Identity: 3-20                         --
+│    └─SpaceTimeSplitBlock: 2-7                    --
+│    │    └─FullAttention: 3-21                    --
+│    │    │    └─RMSGroupNorm: 4-81                320
+│    │    │    └─Linear: 4-82                      554,688
+│    │    │    └─SwiGLU: 4-83                      --
+│    │    │    └─Linear: 4-84                      123,200
+│    │    │    └─Linear: 4-85                      102,400
+│    │    │    └─LayerNorm: 4-86                   40
+│    │    │    └─LayerNorm: 4-87                   40
+│    │    │    └─RotaryEmbedding: 4-88             --
+│    │    │    └─DropPath: 4-89                    --
+│    │    └─AxialTimeAttention: 3-22               --
+│    │    │    └─RMSGroupNorm: 4-90                320
+│    │    │    └─Conv3d: 4-91                      308,160
+│    │    │    └─Conv3d: 4-92                      102,720
+│    │    │    └─LayerNorm: 4-93                   40
+│    │    │    └─LayerNorm: 4-94                   40
+│    │    │    └─RelativePositionBias: 4-95        --
+│    │    │    │    └─Embedding: 5-6               512
+│    │    │    └─DropPath: 4-96                    --
+│    │    └─Identity: 3-23                         --
+├─ModuleDict: 1-4                                  --
+│    └─AdaptiveDVstrideDecoder: 2-8                --
+│    │    └─ConvTranspose3d: 3-24                  7,208,960
+│    │    └─RMSGroupNorm: 3-25                     352
+│    │    └─SiLU: 3-26                             --
+│    │    └─ConvTranspose3d: 3-27                  12,075,075
+===========================================================================
+Total params: 45,723,908
+Trainable params: 45,723,908
+Non-trainable params: 0
+===========================================================================
+[2026-10-10 02:14:29,173][walrus][INFO] - Assigning distribution strategy: fsdp
+[2026-10-10 02:14:29,174][walrus][INFO] - Assigning distribution strategy: fsdp
+[2026-10-10 02:14:29,176][walrus][INFO] - Assigning distribution strategy: fsdp
+[2026-10-10 02:14:30,239][walrus][INFO] - Instantiate optimizer torch.optim.AdamW
+[2026-10-10 02:14:30,239][walrus][INFO] - Instantiate optimizer torch.optim.AdamW
+[2026-10-10 02:14:30,239][walrus][INFO] - Instantiate optimizer torch.optim.AdamW
+[2026-10-10 02:14:30,239][walrus][INFO] - Instantiate optimizer torch.optim.AdamW
+[2026-10-10 02:14:30,242][walrus][INFO] - Instantiate checkpointer walrus.trainer.checkpoints.CheckPointer
+[2026-10-10 02:14:30,242][walrus][INFO] - Instantiate checkpointer walrus.trainer.checkpoints.CheckPointer
+[2026-10-10 02:14:30,242][walrus][INFO] - Instantiate checkpointer walrus.trainer.checkpoints.CheckPointer
+[2026-10-10 02:14:30,242][walrus][INFO] - Instantiate checkpointer walrus.trainer.checkpoints.CheckPointer
+[2026-10-10 02:14:30,255][walrus.trainer.checkpoints][INFO] - Source checkpoint path set to: None
+[2026-10-10 02:14:30,255][walrus.trainer.checkpoints][INFO] - Source checkpoint path set to: None
+[2026-10-10 02:14:30,255][walrus.trainer.checkpoints][INFO] - Checkpointing to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints
+[2026-10-10 02:14:30,255][walrus.trainer.checkpoints][INFO] - Source checkpoint path set to: None
+[2026-10-10 02:14:30,255][walrus.trainer.checkpoints][INFO] - Checkpointing to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints
+[2026-10-10 02:14:30,255][walrus.trainer.checkpoints][INFO] - Source checkpoint path set to: None
+[2026-10-10 02:14:30,255][walrus.trainer.checkpoints][INFO] - Checkpointing to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints
+[2026-10-10 02:14:30,255][walrus][INFO] - Instantiate learning rate scheduler walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+[2026-10-10 02:14:30,255][walrus][INFO] - Instantiate learning rate scheduler walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+[2026-10-10 02:14:30,255][walrus][INFO] - Instantiate learning rate scheduler walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+[2026-10-10 02:14:30,255][walrus.trainer.checkpoints][INFO] - Checkpointing to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints
+[2026-10-10 02:14:30,256][walrus][INFO] - Instantiate learning rate scheduler walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+[2026-10-10 02:14:30,261][walrus][INFO] - Instantiate trainer walrus.trainer.Trainer
+[2026-10-10 02:14:30,261][walrus][INFO] - Instantiate trainer walrus.trainer.Trainer
+[2026-10-10 02:14:30,261][walrus][INFO] - Instantiate trainer walrus.trainer.Trainer
+[2026-10-10 02:14:30,272][walrus][INFO] - Final configuration:
+data_workers: 10
+name: p9_determinism_cur_B_nd_2-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+finetune: false
+automatic_setup: true
+seed: 0
+trainer:
+  _target_: walrus.trainer.Trainer
+  max_epoch: 2
+  val_frequency: 2
+  rollout_val_frequency: 5
+  short_validation_length: 2
+  max_rollout_steps: 2
+  num_time_intervals: 5
+  enable_amp: false
+  loss_fn:
+    _target_: the_well.benchmark.metrics.MAE
+  formatter:
+    _target_: hydra.utils.get_class
+    path: walrus.data.well_to_multi_transformer.ChannelsFirstWithTimeFormatter
+  revin:
+    _target_: walrus.trainer.normalization_strat.SamplewiseRevNormalization
+    _partial_: true
+  prediction_type: delta
+  grad_acc_steps: 4
+  image_validation: true
+  video_validation: false
+  gradient_log_level: 0
+  clip_gradient: 10
+  log_interval: 10
+  loss_multiplier: 100.0
+  lr_scheduler_per_step: false
+  validation_suite:
+  - _target_: the_well.benchmark.metrics.NRMSE
+  - _target_: the_well.benchmark.metrics.VRMSE
+  - _target_: the_well.benchmark.metrics.binned_spectral_mse
+  - _target_: the_well.benchmark.metrics.PearsonR
+  batch_aggregation_fns:
+  - torch.mean
+  - torch.median
+  - torch.std
+  skip_spectral_metrics: true
+  debug_mode: true
+optimizer:
+  _target_: torch.optim.AdamW
+  weight_decay: 0.0001
+  eps: 1.0e-10
+  lr: 0.0002
+lr_scheduler:
+  _target_: walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+  warmup_epochs: 10
+  cooldown_epochs: 10
+  warmup_lr_factor: 0.1
+  cooldown_lr_factor: 0.001
+model:
+  encoder:
+    _partial_: true
+    _target_: walrus.models.encoders.vstride_encoder.SpaceBagAdaptiveDVstrideEncoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    kernel_scales_seq:
+    - - 2
+      - 2
+    - - 4
+      - 2
+    - - 4
+      - 4
+    - - 8
+      - 4
+    variable_downsample: true
+    variable_deterministic_ds: true
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  decoder:
+    _partial_: true
+    _target_: walrus.models.decoders.vstride_decoder.AdaptiveDVstrideDecoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  processor:
+    space_mixing:
+      _partial_: true
+      _target_: walrus.models.spatial_blocks.full_attention.FullAttention
+      num_heads: 16
+      mlp_dim: 768
+    time_mixing:
+      _partial_: true
+      _target_: walrus.models.temporal_blocks.axial_time_attention.AxialTimeAttention
+      num_heads: 16
+      bias_type: rel
+    channel_mixing:
+      _partial_: true
+      _target_: torch.nn.Identity
+    _partial_: true
+    _target_: walrus.models.spatiotemporal_blocks.space_time_split.SpaceTimeSplitBlock
+  norm_layer:
+    _partial_: true
+    _target_: walrus.models.shared_utils.normalization.RMSGroupNorm
+  _target_: walrus.models.IsotropicModel
+  hidden_dim: 320
+  projection_dim: 48
+  intermediate_dim: 352
+  processor_blocks: 6
+  drop_path: 0.05
+  groups: 16
+  max_d: 3
+  causal_in_time: true
+  include_d:
+  - 2
+  - 3
+  override_dimensionality: 3
+  jitter_patches: true
+  gradient_checkpointing_freq: 0
+  use_periodic_fixed_jitter: true
+  input_field_drop: 0.0
+data:
+  field_index_map_override:
+    closed_boundary: 0
+    open_boundary: 1
+    bias_correction: 2
+    pressure: 3
+    velocity_x: 4
+    velocity_y: 5
+    velocity_z: 6
+    zeros_like_density: 7
+    speed_of_sound: 8
+    concentration: 9
+    D_xx: 10
+    D_xy: 11
+    D_xz: 12
+    D_yx: 13
+    D_yy: 14
+    D_yz: 15
+    D_zx: 16
+    D_zy: 17
+    D_zz: 18
+    E_xx: 19
+    E_xy: 20
+    E_xz: 21
+    E_yx: 22
+    E_yy: 23
+    E_yz: 24
+    E_zx: 25
+    E_zy: 26
+    E_zz: 27
+    density: 28
+    energy: 29
+    velocity_r: 30
+    velocity_theta: 31
+    velocity_phi: 32
+    momentum_x: 33
+    momentum_y: 34
+    momentum_z: 35
+    pressure_re: 36
+    pressure_im: 37
+    mask: 38
+    magnetic_field_x: 39
+    magnetic_field_y: 40
+    magnetic_field_z: 41
+    A: 42
+    B: 43
+    height: 44
+    internal_energy: 45
+    temperature: 46
+    electron_fraction: 47
+    entropy: 48
+    magnetic_field_log_r: 49
+    magnetic_field_theta: 50
+    magnetic_field_phi: 51
+    velocity_log_r: 52
+    buoyancy: 53
+    tracer: 54
+    log10_density: 55
+    log10_temperature: 56
+    c_zz: 57
+    C_xx: 58
+    C_xy: 59
+    C_xz: 60
+    C_yx: 61
+    C_yy: 62
+    C_yz: 63
+    C_zx: 64
+    C_zy: 65
+    C_zz: 66
+  transform:
+    train:
+      _target_: the_well.data.augmentation.RandomRotation90
+      p: 1.0
+  well_base_path: /leonardo_work/ICT26_MHPC_0/sshamsi/datasets/
+  wandb_data_name: well_pretrain9_2d
+  module_parameters:
+    _target_: walrus.data.MixedWellDataModule
+    batch_size: 2
+    n_steps_input: 6
+    n_steps_output: 1
+    min_dt_stride: 1
+    max_dt_stride: 5
+    max_samples: 100
+    well_dataset_info:
+      acoustic_scattering_discontinuous:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_inclusions:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_maze:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      euler_multi_quadrants_openBC:
+        include_filters: []
+        exclude_filters: []
+      euler_multi_quadrants_periodicBC:
+        include_filters: []
+        exclude_filters: []
+      gray_scott_reaction_diffusion:
+        include_filters: []
+        exclude_filters: []
+      planetswe:
+        include_filters: []
+        exclude_filters: []
+      rayleigh_benard:
+        include_filters: []
+        exclude_filters: []
+      shear_flow:
+        include_filters: []
+        exclude_filters: []
+auto_resume: true
+folder_override: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2
+checkpoint_override: ''
+config_override: ''
+validation_mode: false
+frozen_components:
+- model
+distribution:
+  distribution_type: fsdp
+  local_size: null
+logger:
+  wandb: true
+  wandb_project_name: p9_determinism
+checkpoint:
+  _target_: walrus.trainer.checkpoints.CheckPointer
+  save_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints
+  load_checkpoint_path: null
+  coalesced_checkpoint_path: null
+  save_best: true
+  checkpoint_frequency: 1
+  align_fields: true
+  load_chkpt_after_finetuning_expansion: false
+finetuning_mods: {}
+experiment_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs
+
+[2026-10-10 02:14:30,273][walrus][INFO] - Instantiate trainer walrus.trainer.Trainer
+[2026-10-10 02:14:30,553][walrus.trainer.training][INFO] - Epoch 1/2: starting training
+[2026-10-10 02:14:30,556][walrus.trainer.training][INFO] - Epoch 1/2: starting training
+[2026-10-10 02:14:30,556][walrus.trainer.training][INFO] - Epoch 1/2: starting training
+[2026-10-10 02:14:30,572][walrus.trainer.training][INFO] - Epoch 1/2: starting training
+NCCL version 2.21.5+cuda12.4
+[2026-10-10 02:14:48,117][walrus.trainer.training][INFO] - Epoch    1, Batch 1/100, Rank   1, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.7539, mem  3.34 GB, total_time 1.752s, data 1.3843s, fwd 14.712s, bw 1.424s, opt 0.000s
+[2026-10-10 02:14:48,118][walrus.trainer.training][INFO] - Epoch    1, Batch 1/100, Rank   0, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.8148, mem  3.34 GB, total_time 1.750s, data 1.4008s, fwd 14.679s, bw 1.423s, opt 0.000s
+[2026-10-10 02:14:48,124][walrus.trainer.training][INFO] - Epoch    1, Batch 1/100, Rank   2, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.2154, mem  3.41 GB, total_time 1.752s, data 1.4973s, fwd 14.151s, bw 1.871s, opt 0.000s
+[2026-10-10 02:14:48,124][walrus.trainer.training][INFO] - Epoch    1, Batch 1/100, Rank   3, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.1784, mem  3.41 GB, total_time 1.752s, data 1.5082s, fwd 14.144s, bw 1.871s, opt 0.000s
+[2026-10-10 02:14:51,745][walrus.trainer.training][INFO] - Epoch    1, Batch 11/100, Rank   3, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.8111, mem  3.59 GB, total_time 0.366s, data 0.0006s, fwd 0.158s, bw 0.159s, opt 0.000s
+[2026-10-10 02:14:51,746][walrus.trainer.training][INFO] - Epoch    1, Batch 11/100, Rank   2, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.6990, mem  3.60 GB, total_time 0.361s, data 0.0058s, fwd 0.171s, bw 0.086s, opt 0.000s
+[2026-10-10 02:14:51,752][walrus.trainer.training][INFO] - Epoch    1, Batch 11/100, Rank   0, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.4676, mem  3.67 GB, total_time 0.361s, data 0.0025s, fwd 0.162s, bw 0.115s, opt 0.000s
+[2026-10-10 02:14:51,756][walrus.trainer.training][INFO] - Epoch    1, Batch 11/100, Rank   1, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  7.2236, mem  3.67 GB, total_time 0.361s, data 0.0007s, fwd 0.165s, bw 0.115s, opt 0.000s
+[2026-10-10 02:14:54,294][walrus.trainer.training][INFO] - Epoch    1, Batch 21/100, Rank   2, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.1359, mem  5.70 GB, total_time 0.254s, data 0.0006s, fwd 0.138s, bw 0.121s, opt 0.000s
+[2026-10-10 02:14:54,311][walrus.trainer.training][INFO] - Epoch    1, Batch 21/100, Rank   3, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.9771, mem  5.95 GB, total_time 0.250s, data 0.0005s, fwd 0.153s, bw 0.128s, opt 0.000s
+[2026-10-10 02:14:54,312][walrus.trainer.training][INFO] - Epoch    1, Batch 21/100, Rank   0, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.0224, mem  5.95 GB, total_time 0.254s, data 0.0005s, fwd 0.154s, bw 0.128s, opt 0.000s
+[2026-10-10 02:14:54,312][walrus.trainer.training][INFO] - Epoch    1, Batch 21/100, Rank   1, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.5354, mem  5.95 GB, total_time 0.254s, data 0.0007s, fwd 0.152s, bw 0.128s, opt 0.000s
+[2026-10-10 02:14:56,672][walrus.trainer.training][INFO] - Epoch    1, Batch 31/100, Rank   0, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.1359, mem  3.60 GB, total_time 0.238s, data 0.0011s, fwd 0.117s, bw 0.100s, opt 0.000s
+[2026-10-10 02:14:56,672][walrus.trainer.training][INFO] - Epoch    1, Batch 31/100, Rank   2, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.3375, mem  3.65 GB, total_time 0.239s, data 0.0005s, fwd 0.132s, bw 0.100s, opt 0.000s
+[2026-10-10 02:14:56,672][walrus.trainer.training][INFO] - Epoch    1, Batch 31/100, Rank   1, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.7496, mem  3.65 GB, total_time 0.238s, data 0.0006s, fwd 0.128s, bw 0.099s, opt 0.000s
+[2026-10-10 02:14:56,677][walrus.trainer.training][INFO] - Epoch    1, Batch 31/100, Rank   3, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.7914, mem  3.67 GB, total_time 0.238s, data 0.0006s, fwd 0.135s, bw 0.102s, opt 0.000s
+[2026-10-10 02:14:59,054][walrus.trainer.training][INFO] - Epoch    1, Batch 41/100, Rank   1, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.3092, mem  4.00 GB, total_time 0.238s, data 0.0007s, fwd 0.167s, bw 0.098s, opt 0.000s
+[2026-10-10 02:14:59,063][walrus.trainer.training][INFO] - Epoch    1, Batch 41/100, Rank   0, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.9289, mem  4.00 GB, total_time 0.239s, data 0.0007s, fwd 0.172s, bw 0.108s, opt 0.000s
+[2026-10-10 02:14:59,065][walrus.trainer.training][INFO] - Epoch    1, Batch 41/100, Rank   3, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.3161, mem  4.05 GB, total_time 0.239s, data 0.0007s, fwd 0.160s, bw 0.110s, opt 0.000s
+[2026-10-10 02:14:59,065][walrus.trainer.training][INFO] - Epoch    1, Batch 41/100, Rank   2, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.3998, mem  4.05 GB, total_time 0.239s, data 0.0013s, fwd 0.148s, bw 0.110s, opt 0.000s
+[2026-10-10 02:15:01,546][walrus.trainer.training][INFO] - Epoch    1, Batch 51/100, Rank   0, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.6093, mem  3.66 GB, total_time 0.248s, data 0.0005s, fwd 0.125s, bw 0.099s, opt 0.000s
+[2026-10-10 02:15:01,546][walrus.trainer.training][INFO] - Epoch    1, Batch 51/100, Rank   1, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.7126, mem  3.65 GB, total_time 0.249s, data 0.0006s, fwd 0.126s, bw 0.100s, opt 0.000s
+[2026-10-10 02:15:01,551][walrus.trainer.training][INFO] - Epoch    1, Batch 51/100, Rank   3, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.5447, mem  3.67 GB, total_time 0.249s, data 0.0075s, fwd 0.115s, bw 0.100s, opt 0.000s
+[2026-10-10 02:15:01,552][walrus.trainer.training][INFO] - Epoch    1, Batch 51/100, Rank   2, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.2169, mem  3.67 GB, total_time 0.249s, data 0.0020s, fwd 0.119s, bw 0.102s, opt 0.000s
+[2026-10-10 02:15:06,102][walrus.trainer.training][INFO] - Epoch    1, Batch 61/100, Rank   1, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.0902, mem  5.70 GB, total_time 0.455s, data 0.0005s, fwd 0.112s, bw 0.175s, opt 0.000s
+[2026-10-10 02:15:06,103][walrus.trainer.training][INFO] - Epoch    1, Batch 61/100, Rank   2, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.0357, mem  5.95 GB, total_time 0.454s, data 0.0006s, fwd 0.112s, bw 0.175s, opt 0.000s
+[2026-10-10 02:15:06,103][walrus.trainer.training][INFO] - Epoch    1, Batch 61/100, Rank   0, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.4733, mem  5.95 GB, total_time 0.455s, data 0.0005s, fwd 0.112s, bw 0.175s, opt 0.000s
+[2026-10-10 02:15:06,113][walrus.trainer.training][INFO] - Epoch    1, Batch 61/100, Rank   3, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.5615, mem  5.95 GB, total_time 0.454s, data 0.0005s, fwd 0.112s, bw 0.175s, opt 0.000s
+[2026-10-10 02:15:08,622][walrus.trainer.training][INFO] - Epoch    1, Batch 71/100, Rank   3, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  7.9768, mem  3.42 GB, total_time 0.254s, data 0.0005s, fwd 0.102s, bw 0.086s, opt 0.000s
+[2026-10-10 02:15:08,622][walrus.trainer.training][INFO] - Epoch    1, Batch 71/100, Rank   2, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  8.4581, mem  3.42 GB, total_time 0.254s, data 0.0068s, fwd 0.087s, bw 0.088s, opt 0.000s
+[2026-10-10 02:15:08,624][walrus.trainer.training][INFO] - Epoch    1, Batch 71/100, Rank   0, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  4.5278, mem  3.40 GB, total_time 0.254s, data 0.0006s, fwd 0.100s, bw 0.088s, opt 0.000s
+[2026-10-10 02:15:08,624][walrus.trainer.training][INFO] - Epoch    1, Batch 71/100, Rank   1, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  6.4278, mem  3.40 GB, total_time 0.254s, data 0.0024s, fwd 0.098s, bw 0.089s, opt 0.000s
+[2026-10-10 02:15:11,229][walrus.trainer.training][INFO] - Epoch    1, Batch 81/100, Rank   3, SyncStep: False:
+	 Data: planetswe                       , loss  8.6170, mem  4.01 GB, total_time 0.260s, data 0.0308s, fwd 0.087s, bw 0.098s, opt 0.000s
+[2026-10-10 02:15:11,230][walrus.trainer.training][INFO] - Epoch    1, Batch 81/100, Rank   2, SyncStep: False:
+	 Data: planetswe                       , loss  8.4697, mem  4.01 GB, total_time 0.260s, data 0.0292s, fwd 0.087s, bw 0.098s, opt 0.000s
+[2026-10-10 02:15:11,230][walrus.trainer.training][INFO] - Epoch    1, Batch 81/100, Rank   1, SyncStep: False:
+	 Data: planetswe                       , loss  8.5944, mem  4.01 GB, total_time 0.260s, data 0.0263s, fwd 0.092s, bw 0.098s, opt 0.000s
+[2026-10-10 02:15:11,230][walrus.trainer.training][INFO] - Epoch    1, Batch 81/100, Rank   0, SyncStep: False:
+	 Data: planetswe                       , loss  8.7467, mem  4.01 GB, total_time 0.260s, data 0.0246s, fwd 0.098s, bw 0.098s, opt 0.000s
+[2026-10-10 02:15:13,489][walrus.trainer.training][INFO] - Epoch    1, Batch 91/100, Rank   3, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.4306, mem  4.18 GB, total_time 0.226s, data 0.0004s, fwd 0.121s, bw 0.100s, opt 0.000s
+[2026-10-10 02:15:13,491][walrus.trainer.training][INFO] - Epoch    1, Batch 91/100, Rank   1, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.3062, mem  4.22 GB, total_time 0.226s, data 0.0040s, fwd 0.116s, bw 0.101s, opt 0.000s
+[2026-10-10 02:15:13,491][walrus.trainer.training][INFO] - Epoch    1, Batch 91/100, Rank   0, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.5532, mem  4.22 GB, total_time 0.226s, data 0.0004s, fwd 0.120s, bw 0.101s, opt 0.000s
+[2026-10-10 02:15:13,500][walrus.trainer.training][INFO] - Epoch    1, Batch 91/100, Rank   2, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.1175, mem  4.22 GB, total_time 0.226s, data 0.0005s, fwd 0.107s, bw 0.105s, opt 0.000s
+[2026-10-10 02:15:15,676][walrus.trainer.training][INFO] - Epoch 1/2: training loss 47.1428
+[2026-10-10 02:15:15,679][walrus.trainer.training][INFO] - Epoch 1/2: training loss 45.7218
+[2026-10-10 02:15:15,681][walrus.trainer.training][INFO] - Epoch 1/2: training loss 46.9794
+[2026-10-10 02:15:15,684][walrus.trainer.training][INFO] - Epoch 1/2: training loss 47.0986
+[2026-10-10 02:15:22,418][walrus.trainer.checkpoints][INFO] - Save checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints/step_1
+[2026-10-10 02:15:22,418][walrus.trainer.checkpoints][INFO] - Save checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints/step_1
+[2026-10-10 02:15:22,418][walrus.trainer.checkpoints][INFO] - Save checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints/step_1
+[2026-10-10 02:15:22,418][walrus.trainer.checkpoints][INFO] - Save checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints/step_1
+[2026-10-10 02:15:23,306][walrus.trainer.training][INFO] - Epoch 2/2: starting training
+[2026-10-10 02:15:23,313][walrus.trainer.training][INFO] - Epoch 2/2: starting training
+[2026-10-10 02:15:23,315][walrus.trainer.training][INFO] - Epoch 2/2: starting training
+[2026-10-10 02:15:23,319][walrus.trainer.training][INFO] - Epoch 2/2: starting training
+[2026-10-10 02:15:24,358][walrus.trainer.checkpoints][INFO] - Link checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints/best to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints/step_1
+[2026-10-10 02:15:24,359][walrus.trainer.checkpoints][INFO] - Link checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints/last to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/cur_B_nd_2/checkpoints/step_1
+[2026-10-10 02:15:25,045][walrus.trainer.training][INFO] - Epoch    2, Batch 1/100, Rank   3, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  8.1950, mem  3.25 GB, total_time 0.168s, data 0.6902s, fwd 0.837s, bw 0.155s, opt 0.000s
+[2026-10-10 02:15:25,045][walrus.trainer.training][INFO] - Epoch    2, Batch 1/100, Rank   1, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  5.1616, mem  3.26 GB, total_time 0.168s, data 0.7072s, fwd 0.813s, bw 0.156s, opt 0.000s
+[2026-10-10 02:15:25,053][walrus.trainer.training][INFO] - Epoch    2, Batch 1/100, Rank   2, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  7.4889, mem  3.26 GB, total_time 0.169s, data 0.7069s, fwd 0.828s, bw 0.155s, opt 0.000s
+[2026-10-10 02:15:25,055][walrus.trainer.training][INFO] - Epoch    2, Batch 1/100, Rank   0, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  6.0668, mem  3.25 GB, total_time 0.167s, data 0.6828s, fwd 0.833s, bw 0.156s, opt 0.000s
