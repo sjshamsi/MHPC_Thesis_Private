@@ -91,7 +91,6 @@ srun python -u `which torchrun` \
             name=p9_roofline_fullDims_H1408_L40_M5632_E3_dw10 \
             logger.wandb_project_name="p9_roofline" \
             trainer.log_interval=10 \
-            seed=0 \
             trainer.max_epoch=3 \
             data_workers=10 \
             auto_resume=$AUTO_RESUME

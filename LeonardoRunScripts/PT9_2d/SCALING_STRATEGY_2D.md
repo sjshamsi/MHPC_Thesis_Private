@@ -812,6 +812,8 @@ more positions than the token grid implies. On a 384-pixel axis (stride 6, e.g. 
 returns 394 where the encoder consumed 398 (the case `vstride_decoder.py:225` flags with a TODO):
 the FLOP count is still exact; it is the reconstruction that is lossy.
 
+> **Branch note (`flopsonly`):** this paragraph and the next describe the seeding and determinism work on the `flopcount` branch. `flopsonly` has none of it: no `cfg.seed`, no `seed_all`, no per-epoch re-seeding, and the sampler keeps upstream's fixed `100·epoch + rank` dataset-choice seed, so every run starts from OS-entropy randomness. Read it as a record of `flopcount` (`git show flopcount:LeonardoRunScripts/PT9_2d/SCALING_STRATEGY_2D.md`), not as a description of this branch.
+
 **Seed.** `seed: 0` is a top-level key in `config.yaml`, and `train.py::train` calls
 `seed_all(cfg.seed)` immediately before model construction, identically on every rank.
 [`seed_all`](../../walrus/utils/experiment_utils.py) seeds torch, numpy **and** python's `random`,
@@ -1008,6 +1010,8 @@ for `seed`. The scripts are **generated and ready to submit** in [`NoiseFloor/`]
 (`p9_noise_floor_run_{0,1,2}.sh`, generator `gen_pt9_noise_floor_runs.py`, submit with
 `run_p9_noise_floor_all.sh`). Report the spread in field-time-averaged VRMSE (and every secondary
 metric of §3.4) at each epoch.
+
+> **Branch note (`flopsonly`):** this branch has no `cfg.seed`. Its noise-floor runs are `p9_noise_floor_..._run0..2`, identical apart from their names, so they differ only by unseeded OS-entropy randomness and are not reproducible. The paragraph below describes the seeded design on `flopcount`.
 
 **What `seed` varies.** Weight init, dropout, augmentation, the within-dataset sample order **and
 the dataset-selection order** (§5.1). This is Choshen's combined run-to-run figure, including data

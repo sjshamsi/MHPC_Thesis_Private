@@ -15,7 +15,3 @@ data_workers: 14
 name: default_name
 finetune: False
 automatic_setup: True
-# Seeds everything random: weight init, then at every epoch all RNGs from (seed, rank, epoch),
-# including the dataset order and the window draws (walrus/utils/experiment_utils.py::seed_from).
-# A resumed epoch is therefore identical to the uninterrupted one (tests/test_determinism.py).
-seed: 0

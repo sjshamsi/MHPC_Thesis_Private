@@ -1,5 +1,8 @@
 # DataLoader worker hang after an async checkpoint save (investigation, Oct 2026)
 
+> **Branch note (`flopsonly`):** this investigation describes the seeding and determinism work on the `flopcount` branch. `flopsonly` has none of it: no `cfg.seed`, no `seed_all`, no per-epoch re-seeding, and the sampler keeps upstream's fixed `100·epoch + rank` dataset-choice seed, so every run starts from OS-entropy randomness. Read it as a record of `flopcount` (`git show flopcount:mydocs/dataloader_fork_hang/README.md`), not as a description of this branch.
+
+
 **Status: diagnosed, not fixed.** The fix options are in §8. Nothing in `walrus/` has been changed
 to address it.
 

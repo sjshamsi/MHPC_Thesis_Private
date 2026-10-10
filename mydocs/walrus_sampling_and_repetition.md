@@ -1,5 +1,8 @@
 # How WALRUS samples training windows, and how often they repeat
 
+> **Branch note (`flopsonly`):** this document describes the seeding and determinism work on the `flopcount` branch. `flopsonly` has none of it: no `cfg.seed`, no `seed_all`, no per-epoch re-seeding, and the sampler keeps upstream's fixed `100·epoch + rank` dataset-choice seed, so every run starts from OS-entropy randomness. Read it as a record of `flopcount` (`git show flopcount:mydocs/walrus_sampling_and_repetition.md`), not as a description of this branch.
+
+
 This document follows one training window from the dataset mixture to the GPU. It shows exactly
 which random number decides each choice, lists every way a window can be drawn again, explains
 how to estimate repetition and how to measure it exactly, and inventories everything that can

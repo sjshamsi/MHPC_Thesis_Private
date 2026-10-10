@@ -5,7 +5,7 @@ We make runs for four model sizes (fullDims, 200M, and roofline small) x 3 epoch
 genuinely different script logic (a staging loop, not just parameter substitution) and
 is hand-written as roofline_staged.sh instead, mirroring storage_bench_walrus.sh.
 
-Also the first live-GPU exercise of the flopcount branch's FlopAccountant and seed_all:
+Also the first live-GPU exercise of the flopcount branch's FlopAccountant:
 after the first job lands, check its log for `flops_per_microbatch`/`cumulative_flops`
 in the per-epoch W&B log before letting the rest run unattended.
 
@@ -136,7 +136,6 @@ srun python -u `which torchrun` \\
             model.processor.time_mixing.num_heads={heads} \\
             model.causal_in_time=True \\
             model.jitter_patches=True \\
-            seed=0 \\
             lr_scheduler=inv_sqrt_w_sqrt_ramps \\
             trainer.short_validation_length=20 \\
             trainer.val_frequency=2 \\

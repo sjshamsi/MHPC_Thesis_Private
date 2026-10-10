@@ -1,6 +1,5 @@
 import logging
 import os
-from datetime import timedelta
 from functools import partial
 
 import torch
@@ -33,13 +32,7 @@ def configure_distribution(cfg):
     # device_mesh, but I got errors until I set it in train.py.
     if cfg.distribution.distribution_type.upper() == "LOCAL":
         return None
-    # Diagnostic knob: a short collective timeout turns a hang into an error naming the
-    # stuck collective. init_device_mesh would otherwise create the same default group
-    # (gloo for CPU, NCCL for CUDA) with torch's default timeouts (30 / 10 min).
-    timeout = os.environ.get("WALRUS_PG_TIMEOUT_SEC")
-    if timeout and not torch.distributed.is_initialized():
-        torch.distributed.init_process_group(timeout=timedelta(seconds=int(timeout)))
-    if cfg.distribution.distribution_type.upper() == "HSDP":
+    elif cfg.distribution.distribution_type.upper() == "HSDP":
         # HSDP is DDP across nodes, FSDP within nodes - useful if  intra-node xfer speed >>> inter-node xfer speed
         mesh = init_device_mesh(
             "cuda",

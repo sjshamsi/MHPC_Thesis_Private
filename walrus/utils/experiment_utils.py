@@ -1,44 +1,13 @@
 import logging
 import os
 import os.path as osp
-import random
 from typing import Tuple, cast
 
-import numpy as np
 import torch
 import torch.distributed
 from omegaconf import DictConfig, OmegaConf, open_dict
 
 logger = logging.getLogger(__name__)
-
-
-def seed_all(seed: int) -> None:
-    """Seed every RNG the training path draws from.
-
-    All three are needed for a run to be reproducible: torch for weight init, dropout and
-    the patch jitterer's rolls (`patch_jitterers.py:148`), numpy for the periodic roll in
-    `isotropic_model.py:375`, and python's `random` for `choose_kernel_size_random`
-    (`flexi_utils.py:17`, only reached when `variable_deterministic_ds` is off).
-
-    `torch.manual_seed` also seeds all CUDA devices, so no separate cuda call is needed.
-    """
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-
-
-# Stream tags, so the seeds of different random streams can never coincide.
-SEED_GLOBAL, SEED_DATASET_CHOICE, SEED_WINDOWS = 1, 2, 3
-
-
-def seed_from(*keys: int) -> int:
-    """A 32-bit seed hashed from integer keys, e.g. `seed_from(SEED_GLOBAL, seed, rank, epoch)`.
-
-    Keying every stream on (seed, rank, epoch, ...) instead of carrying RNG state makes a
-    resumed epoch draw exactly what the uninterrupted run would, without saving RNG state.
-    A hash, unlike `seed + c * rank + epoch`, cannot map two key tuples to the same seed.
-    """
-    return int(np.random.SeedSequence([int(k) for k in keys]).generate_state(1)[0])
 
 
 def align_checkpoint_with_field_to_index_map(

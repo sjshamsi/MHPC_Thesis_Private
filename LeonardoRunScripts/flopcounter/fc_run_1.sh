@@ -91,7 +91,6 @@ srun python -u `which torchrun` \
             model.gradient_checkpointing_freq=2 \
             name=fc_H256_L4_M512_gc2 \
             logger.wandb_project_name="flopcounter_test" \
-            seed=0 \
             data.module_parameters.max_samples=40 \
             checkpoint.checkpoint_frequency=1 \
             trainer.val_frequency=1000 \

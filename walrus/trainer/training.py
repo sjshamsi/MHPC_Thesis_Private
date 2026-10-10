@@ -33,7 +33,6 @@ from walrus.trainer.normalization_strat import (
     BaseRevNormalization,
     normalize_target,
 )
-from walrus.utils.experiment_utils import SEED_GLOBAL, seed_all, seed_from
 from walrus.utils.flops import (
     FlopAccountant,
     supports_flop_accounting,
@@ -156,7 +155,6 @@ class Trainer:
         distribution_type: str = "local",
         rank: int = 0,
         world_size: int = 1,
-        seed: int = 0,
         enable_amp: bool = False,
         amp_type: str = "float16",  # bfloat not supported in FFT
         grad_acc_steps: int = 1,
@@ -236,8 +234,6 @@ class Trainer:
             The rank of the current GPU in the PyTorch world.
         world_size:
             The total number of GPUs in the PyTorch world
-        seed:
-            `cfg.seed`. Every epoch re-seeds all RNGs from (seed, rank, epoch).
         enable_amp:
             A boolean flag to enable automatic mixed precision training
         amp_type:
@@ -355,7 +351,6 @@ class Trainer:
         self.distribution_type = distribution_type
         self.rank = rank
         self.world_size = world_size
-        self.seed = seed
         self.sampling_rank_strategy = sampling_rank_strategy
         self.reuse_batches = reuse_batches
         # Get derived rank info about which nodes must be synced from the device mesh
@@ -1295,12 +1290,9 @@ class Trainer:
         for epoch in range(
             self.start_epoch, self.max_epoch + 1
         ):  # I like 1 indexing for epochs
-            # Everything random in this epoch (windows, dt, rotation, jitter, dropout, and the
-            # validation after it) is a function of (seed, rank, epoch), so a resumed epoch
-            # equals the uninterrupted one. No RNG state needs to be checkpointed.
-            seed_all(seed_from(SEED_GLOBAL, self.seed, self.rank, epoch))
             # NOTE - only update train sampler because we want to sample same valid data every time
-            train_dataloader.sampler.set_epoch(epoch)
+            if self.is_distributed:
+                train_dataloader.sampler.set_epoch(epoch)
             # Empty mem caches before train loop
             torch.cuda.empty_cache()
             gc.collect()

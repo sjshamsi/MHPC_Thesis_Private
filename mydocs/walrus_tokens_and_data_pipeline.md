@@ -610,6 +610,8 @@ its worst case is PS at 11× by 100 epochs; `SCALING_STRATEGY_2D.md` §2.5.)
 Repeats are not bit-identical, though: `RandomRotation90`, the random `dt` stride (§2.4),
 patch jittering, and periodic rolls all resample per `__getitem__` / per forward.
 
+> **Branch note (`flopsonly`):** this section describes the seeding and determinism work on the `flopcount` branch. `flopsonly` has none of it: no `cfg.seed`, no `seed_all`, no per-epoch re-seeding, and the sampler keeps upstream's fixed `100·epoch + rank` dataset-choice seed, so every run starts from OS-entropy randomness. Read it as a record of `flopcount` (`git show flopcount:mydocs/walrus_tokens_and_data_pipeline.md`), not as a description of this branch.
+
 ### 4.2 Shuffling and seeding
 
 > **Superseded.** This section describes the seeding up to commit `656c00c`. Since then every

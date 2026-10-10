@@ -1,5 +1,8 @@
 # Code changes: deterministic, resume-exact training runs
 
+> **Branch note (`flopsonly`):** this change log describes the seeding and determinism work on the `flopcount` branch. `flopsonly` has none of it: no `cfg.seed`, no `seed_all`, no per-epoch re-seeding, and the sampler keeps upstream's fixed `100·epoch + rank` dataset-choice seed, so every run starts from OS-entropy randomness. Read it as a record of `flopcount` (`git show flopcount:mydocs/determinism_code_changes.md`), not as a description of this branch.
+
+
 This is a record of every change made after commit `656c00c` ("Commit before changing
 determinism of the runs") to make a run's random draws a function of `(cfg.seed, rank, epoch)`,
 plus one resume bug found along the way. Roll back with `git checkout 656c00c -- <files>` or by

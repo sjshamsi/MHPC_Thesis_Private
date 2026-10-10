@@ -111,7 +111,6 @@ srun python -u `which torchrun` \
             model.processor.time_mixing.num_heads=16 \
             model.causal_in_time=True \
             model.jitter_patches=True \
-            seed=0 \
             lr_scheduler=inv_sqrt_w_sqrt_ramps \
             trainer.short_validation_length=20 \
             trainer.val_frequency=2 \

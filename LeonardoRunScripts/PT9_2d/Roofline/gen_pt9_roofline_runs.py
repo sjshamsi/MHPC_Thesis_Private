@@ -96,7 +96,6 @@ def run_overrides(job_name, shape, data_workers):
             f"name={job_name}",
             f'logger.wandb_project_name="{WANDB_PROJECT}"',
             "trainer.log_interval=10",  # per-dataset timing sample; see the docstring
-            "seed=0",
             f"trainer.max_epoch={EPOCHS}",
             f"data_workers={data_workers}",
             "auto_resume=$AUTO_RESUME",

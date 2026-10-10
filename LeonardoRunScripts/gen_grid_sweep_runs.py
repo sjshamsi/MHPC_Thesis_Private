@@ -33,7 +33,7 @@ once the dependency resolves, per SCALING_STRATEGY.md's own sequencing (Section 
   (`noise_floor_run_0.sh`, run long specifically for this), and the data-repetition
   ceiling. Do not finalize EPOCHS here until §7.0 resolves -- and note
   `gen_star_search_runs.py` is also still centred on the 200M anchor rather than
-  fullDims and missing the §4.1 substrate pins (seed=, the n_states override, ...),
+  fullDims and missing the §4.1 substrate pins (the n_states override, ...),
   per §2.3 -- it needs its own pass, not just a duration fix.
 
 Usage (once the above are resolved and the placeholders below are edited for real):
@@ -172,7 +172,6 @@ srun python -u `which torchrun` \\
             model.processor.time_mixing.num_heads={heads} \\
             model.causal_in_time=True \\
             model.jitter_patches=True \\
-            seed=0 \\
             lr_scheduler=inv_sqrt_w_sqrt_ramps \\
             trainer.short_validation_length=20 \\
             trainer.val_frequency=2 \\

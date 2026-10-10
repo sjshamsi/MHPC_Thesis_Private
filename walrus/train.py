@@ -26,7 +26,6 @@ from walrus.utils.distribution_utils import (
 from walrus.utils.experiment_utils import (
     align_checkpoint_with_field_to_index_map,
     configure_experiment,
-    seed_all,
 )
 
 logger = logging.getLogger("walrus")
@@ -126,7 +125,6 @@ def train(
         cfg.data.module_parameters,
         world_size=world_size,
         rank=rank,
-        seed=cfg.seed,
         data_workers=cfg.data_workers,
         well_base_path=cfg.data.well_base_path,
         field_index_map_override=cfg.data.get("field_index_map_override", {}),
@@ -140,20 +138,10 @@ def train(
     logger.info(
         f"Instantiate model {cfg.model._target_}",
     )
-    # Seed identically on every rank, because weight init has to agree across them:
-    # `distribute_model` builds FSDP without `sync_module_states`, so nothing broadcasts
-    # rank 0's weights, and under DDP (ShardingStrategy.NO_SHARD) each rank keeps a full
-    # replica. Ranks that start from different weights receive the same averaged
-    # gradients forever after and never reconcile.
-    seed_all(cfg.seed)
     model: torch.nn.Module = instantiate(
         cfg.model,
         n_states=total_input_fields,
     )
-    # Now decorrelate the per-step draws again. Patch jittering exists to break the
-    # deterministic downsampling pattern (models/shared_utils/patch_jitterers.py); it is
-    # weaker if every rank happens to jitter its own micro-batch the same way.
-    seed_all(cfg.seed + 1_000_003 * rank)
     # Checkpointing is a bit of a mess due to adding a second code path to deal with a bug that was later fixed, but the second
     # path remained since things are generally working and neither path currently has all the capabilities of the other.
     # Short version of logic:
@@ -355,7 +343,6 @@ def train(
         distribution_type=cfg.distribution.distribution_type,
         rank=rank,
         world_size=world_size,
-        seed=cfg.seed,
         formatter=ChannelsFirstWithTimeFormatter,  # TODO change this to function of model
         wandb_logging=cfg.logger.wandb,
         start_epoch=start_epoch,

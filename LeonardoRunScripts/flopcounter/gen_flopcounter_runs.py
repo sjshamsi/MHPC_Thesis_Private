@@ -60,7 +60,6 @@ def overrides_for(auto_resume: bool, max_epoch: int) -> list:
         + [
             f"name={RUN_NAME}",
             f'logger.wandb_project_name="{WANDB_PROJECT}"',
-            "seed=0",
             f"data.module_parameters.max_samples={MAX_SAMPLES}",
             "checkpoint.checkpoint_frequency=1",
             "trainer.val_frequency=1000",
