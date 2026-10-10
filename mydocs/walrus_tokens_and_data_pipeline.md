@@ -2,6 +2,11 @@
 # WARUS: tokens and data ingestion
 The information in this document will be accompanied by locations in the repo or `the_well`. Parts marked **[verified]**, were checked by running the code rather than only reading it.
 
+> **Branch `fulldet`.** Window choice works differently here from what §2.1, §2.2, §2.8, §4.2 and
+> §4.4 describe (per-rank `RandomSampler`s, as on `flopcount` and earlier). Here all ranks follow
+> one shared epoch plan, with disjoint positions in a per-dataset window stream. For the current
+> behaviour, see [walrus_sampling_and_repetition.md](walrus_sampling_and_repetition.md) §1–3.
+
 ---
 
 ## 0. TL;DR for the scaling-law question

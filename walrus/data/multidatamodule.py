@@ -61,7 +61,7 @@ class MixedWellDataModule:
         min_dt_stride: int = 1,
         max_dt_stride: int = 1,
         world_size: int = 1,
-        rank: int = 1,
+        rank: int = 0,
         seed: int = 0,
         data_workers: int = 4,
         inner_dataset_type: WellDataset = BatchInflatedWellDataset,
@@ -166,8 +166,8 @@ class MixedWellDataModule:
         restriction_seed:
             Random seed to use when restricting the number of trajectories or samples in the training set.
         allow_sharding_in_train:
-            Whether to allow sharding in the training set. If True and dataset size ~ replication size,
-            drop indices can result in large percentage of data dropped.
+            Ignored: the training sampler's epoch plan already gives every rank disjoint windows
+            (see mixed_dset_sampler.epoch_plan).
         transform:
             Transformations to apply to the data.
         storage_kwargs:
@@ -411,22 +411,18 @@ class MixedWellDataModule:
     def is_distributed(self) -> bool:
         return self.world_size > 1
 
-    def train_dataloader(self, rank_override=None) -> DataLoader:
-        if self.allow_sharding_in_train and self.is_distributed:
-            base_sampler: type[Sampler] = DistributedSampler
-        else:
-            base_sampler = RandomSampler
-
+    def train_dataloader(self, sampling_ranks=None) -> DataLoader:
+        # sampling_ranks[r]: sampling rank of global rank r (ranks sharing one draw the same
+        # dataset each step). Default: every rank on its own.
         sampler = BatchedMultisetSampler(
             self.train_dataset,
-            base_sampler,
-            self.batch_size,
+            batch_size=self.batch_size,
             seed=self.seed,
             distributed=self.is_distributed,
             max_samples=self.max_samples,  # TODO Fix max_samples later
             recycle=self.recycle,
             drop_last=False,
-            rank=self.rank if rank_override is None else rank_override,
+            sampling_ranks=sampling_ranks or list(range(self.world_size)),
             global_rank=self.rank,
         )
 

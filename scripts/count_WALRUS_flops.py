@@ -139,35 +139,15 @@ def sampling_layout(cfg, world_size: int, gpus_per_node: int):
 
 
 # ------------------------------------------------------------------------ micro-batch counts
-def replay_epoch(seed, epoch, sampling_rank, dset_batch, windows, max_samples, recycle):
-    """Micro-batches per dataset for one sampler pass: BatchedMultisetSampler.__iter__
-    (mixed_dset_sampler.py), with sub-sampler exhaustion modelled from window counts."""
-    import torch
+def replay_epoch(seed, epoch, sampling_ranks, dset_batch, windows, max_samples, recycle):
+    """Micro-batches per dataset in one epoch, summed over all ranks: the training
+    sampler's own plan (mixed_dset_sampler.epoch_plan), computed without loading data."""
+    from walrus.data.mixed_dset_sampler import epoch_plan
 
-    from walrus.utils.experiment_utils import SEED_DATASET_CHOICE, seed_from
-
-    g = torch.Generator()
-    g.manual_seed(seed_from(SEED_DATASET_CHOICE, seed, epoch, sampling_rank))
-    k = len(windows)
-    remaining = list(windows)
-    counts = [0] * k
-    choices = list(range(k))
-    count = 0
-    while choices:
-        count += 1
-        i = int(torch.randint(0, len(choices), size=(1,), generator=g).item())
-        d = choices[i]
-        if remaining[d] < dset_batch[d]:  # StopIteration part-way through the batch
-            if recycle:
-                count -= 1
-                remaining[d] = windows[d]  # fresh RandomSampler pass
-            else:
-                choices.pop(i)
-            continue
-        remaining[d] -= dset_batch[d]
-        counts[d] += 1
-        if count >= max_samples:
-            break
+    counts = [0] * len(windows)
+    for rank_plan in epoch_plan(seed, epoch, sampling_ranks, windows, dset_batch, max_samples, recycle):
+        for d, _ in rank_plan:
+            counts[d] += 1
     return counts
 
 
@@ -179,11 +159,11 @@ def microbatch_counts(datasets, epochs, max_samples, world_size, streams, per_st
         return [max_samples * world_size * len(epochs) / k] * k
     dset_batch = [d["batch"] for d in datasets]
     windows = [d["windows"] for d in datasets]
+    sampling_ranks = [s for s in range(streams) for _ in range(per_stream)]
     totals = [0] * k
     for epoch in epochs:
-        for rank in range(streams):
-            for d, c in enumerate(replay_epoch(seed, epoch, rank, dset_batch, windows, max_samples, recycle)):
-                totals[d] += c * per_stream
+        for d, c in enumerate(replay_epoch(seed, epoch, sampling_ranks, dset_batch, windows, max_samples, recycle)):
+            totals[d] += c
     return totals
 
 

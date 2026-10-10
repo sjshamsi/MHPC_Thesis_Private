@@ -821,7 +821,8 @@ rolls; numpy for the periodic roll in `isotropic_model.py`; `random` for
 After construction the seed is re-derived per rank (`cfg.seed + 1_000_003 · rank`), and at the
 top of **every epoch** all RNGs are re-seeded from `(cfg.seed, rank, epoch)` (`Trainer.train`, via
 `seed_from` in `experiment_utils.py`). Every random stream of an epoch is therefore a function of
-the seed, the rank and the epoch, so a resumed epoch draws exactly what the uninterrupted run
+the seed, the rank and the epoch (on `fulldet`, window choice is a function of the seed, the epoch
+and the GPU layout, the same plan on every rank), so a resumed epoch draws exactly what the uninterrupted run
 would (`tests/test_determinism.py`; full inventory in
 [walrus_sampling_and_repetition.md](../../mydocs/walrus_sampling_and_repetition.md) §8).
 
@@ -1015,7 +1016,11 @@ order, not an init-only measurement. Since the per-epoch seeding change, a chain
 longer add noise of their own: a resumed epoch is identical to the uninterrupted one, provided
 `data_workers` and the GPU count stay the same across the chain's links. Sweep runs that share a
 seed also share their dataset order, so comparisons between them are not affected by dataset-order
-noise; comparisons across seeds are.
+noise; comparisons across seeds are. On branch `fulldet`, windows also never repeat across GPUs or
+nodes within an epoch: all ranks follow one epoch plan, with disjoint positions in a shared
+per-dataset stream ([walrus_sampling_and_repetition.md](../../mydocs/walrus_sampling_and_repetition.md)
+§3.4). For PT9 pretraining, this changes run-level repetition by at most 0.2 percentage points
+(§5 there), because the ranks rarely collided anyway.
 
 **Sequencing: all three seeds run to `max_epoch=100` and are read at the same epoch `E ≤ 90`.**
 The noise floor must be measured at the duration the sweeps will use, which is not yet known

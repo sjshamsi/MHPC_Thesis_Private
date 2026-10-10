@@ -123,6 +123,16 @@ def param_norm(parameters):
         return total_norm**0.5
 
 
+def sampling_ranks_for(strategy, world_size, sync_group_size):
+    """Sampling rank of every global rank. Ranks sharing one draw the same dataset each step;
+    the training sampler needs all of them to give every rank disjoint windows."""
+    if strategy == "gpu":  # different dataset per GPU
+        return list(range(world_size))
+    if strategy == "node":  # different dataset per sync (FSDP) group
+        return [r // sync_group_size for r in range(world_size)]
+    return [0] * world_size  # single dataset per step
+
+
 class Trainer:
     grad_scaler: GradScaler
 
@@ -369,16 +379,10 @@ class Trainer:
         self.sync_group_rank = self.rank // self.sync_group_size
         self.rank_in_sync_group = self.rank % self.sync_group_size
         self.num_sync_groups = self.world_size // self.sync_group_size
-        if (
-            self.sampling_rank_strategy == "gpu"
-        ):  # This means sample different dataset per GPU
-            self.sampling_rank = self.rank
-        elif (
-            self.sampling_rank_strategy == "node"
-        ):  # This means sample different dataset per node
-            self.sampling_rank = self.sync_group_rank
-        else:  # This means sample single dataset per step
-            self.sampling_rank = 0
+        self.sampling_ranks = sampling_ranks_for(
+            self.sampling_rank_strategy, self.world_size, self.sync_group_size
+        )
+        self.sampling_rank = self.sampling_ranks[self.rank]
 
         self.dset_metadata = self.datamodule.train_dataset.dset_to_metadata
         # Per-epoch compute accounting (SCALING_STRATEGY.md 5.1). Baseline wrappers are
@@ -1290,7 +1294,7 @@ class Trainer:
         """Run training, validation and test. The training is run for multiple epochs."""
         checkpoint_future = None
         val_loss = self.start_val_loss
-        train_dataloader = self.datamodule.train_dataloader(self.sampling_rank)
+        train_dataloader = self.datamodule.train_dataloader(self.sampling_ranks)
         epoch = self.start_epoch
         for epoch in range(
             self.start_epoch, self.max_epoch + 1

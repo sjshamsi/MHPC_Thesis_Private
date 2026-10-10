@@ -253,11 +253,114 @@ OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 python -m pytest tests/test_determinism.py::
   - `dt` and the rotation depend on the worker count, because batches are dealt to workers
     round-robin and each worker has its own numpy stream.
   - Every stream is keyed on the rank, so the rank layout matters too.
-- **Ranks are not partitioned.** Two GPUs can still draw the same window; this was accepted by
-  design (see the sampling doc §3.4 and §5.3 for the size of the overlap).
+- **Ranks are not partitioned** on `flopcount`. Two GPUs can still draw the same window; this was
+  accepted by design (see the sampling doc §3.4 and §5.3 for the size of the overlap). Branch
+  `fulldet` removes it (§5).
 - **`trainer.lr_scheduler_per_step=True`** still restarts the schedule at the wrong place on
   resume: it passes an epoch count as the scheduler's `last_epoch`, which counts steps. This
   predates the work and is unused (`False` in every trainer config).
+
+---
+
+## 5. Branch `fulldet`: one window plan per epoch, shared by all ranks
+
+Built on `flopcount` (`dd08774`). Goal: within an epoch, no two GPUs or nodes train on the same
+window of a dataset until all of its windows have been used. Recycling stays on. Repeats across
+epochs are still allowed.
+
+**Why not the built-in `allow_sharding_in_train=True` (`DistributedSampler`).** It gives each
+rank a fixed `1/R` slice. Under HSDP or DDP, rows use up a dataset at different rates, so a rank
+that empties its slice repeats it while other slices are untouched. A recycle within an epoch
+also replays the same order, and `drop_last=False` pads the slices with duplicates.
+
+| | `flopcount` | `fulldet` |
+|---|---|---|
+| Window streams | one permutation per rank, keyed on `(seed, global rank, epoch, dataset)` | one stream per dataset and epoch, keyed on `(seed, epoch, dataset, pass)`; no rank |
+| Which positions a rank takes | all of its own permutation | its share of the shared stream, fixed by `epoch_plan` (step, then row, then rank) |
+| Cross-rank overlap within an epoch | `≈ r²/W` per rank pair | 0 until the epoch's demand exceeds `W_d`; then every window `⌊N/W⌋` or `⌈N/W⌉` times |
+| Dataset running out mid-batch | partial batch dropped, new dataset drawn | the batch continues into the next permutation; nothing dropped |
+| `recycle=False` | each rank stops when its own samplers run out | a dataset that can't fill the next step is dropped for every rank; all ranks stop on the same step |
+| Dataset choice | `seed_from(SEED_DATASET_CHOICE, seed, epoch, sampling_rank)` | same key; one generator per row, replayed by every rank |
+
+### 5.1 Changes by file
+
+- **`walrus/data/mixed_dset_sampler.py`.** New module-level
+  `epoch_plan(seed, epoch, sampling_ranks, windows, dset_batch, max_samples, recycle)`. It returns
+  `plan[r] = [(dataset, stream start), ...]` for every global rank `r`. Every rank runs it, and
+  the result is identical everywhere.
+
+  `BatchedMultisetSampler` no longer builds per-dataset sub-samplers:
+  - its constructor takes `sampling_ranks` (the sampling rank of every global rank) and
+    `global_rank` in place of `rank`; `base_sampler` stays in the signature, unused;
+  - `__iter__` maps this rank's stream positions to window indices through lazily built
+    `randperm(W_d)`s, cached per `(dataset, pass)`;
+  - `__len__` is `max_samples` with recycling, and the plan's length without;
+  - `set_epoch` only stores the epoch.
+
+  The legacy `MultisetSampler` (unused) is untouched.
+- **`walrus/data/multidatamodule.py`.** `train_dataloader(sampling_ranks=None)` defaults to every
+  rank on its own row. The `DistributedSampler` branch is gone, and `allow_sharding_in_train` is
+  accepted but ignored (docstring). The default `rank` is now 0: it was 1 with `world_size=1`,
+  which the old sampler never used, and the plan indexes by it.
+- **`walrus/trainer/training.py`.** New module-level
+  `sampling_ranks_for(strategy, world_size, sync_group_size)`, the old gpu/node/world branches as
+  a list over all ranks. `Trainer` stores `self.sampling_ranks` (and `self.sampling_rank` as its
+  own entry) and passes the list to `train_dataloader`.
+- **`scripts/count_WALRUS_flops.py`.** `replay_epoch(seed, epoch, sampling_ranks, ...)` now calls
+  `epoch_plan` and returns micro-batches per dataset summed over all ranks. Its own copy of the
+  sampler simulation is deleted. `microbatch_counts` keeps its signature, so the CLI is unchanged.
+- **`tests/test_fulldet_sampler.py` (new, CPU).** Simulated 8-rank fsdp (1 row), HSDP (2×4) and
+  DDP (8 rows) layouts over a fake 3-dataset mixture. It checks that:
+  - every window is used once before any is used twice, within an epoch over all ranks, and there
+    are no repeats at all while demand ≤ `W_d`;
+  - ranks of a row train on the same dataset at every step;
+  - the draws follow `seed` and `epoch`;
+  - `recycle=False` stops every rank after the same number of steps.
+
+  The same disjointness check on `flopcount`'s sampler finds windows drawn up to 4 times in one
+  epoch, with demand well under `W_d`.
+- **`LeonardoRunScripts/PT9_2d/Determinism/`.**
+  - New `check_disjoint.py`: under torchrun, it builds the real PT9 datamodule, takes
+    `sampling_ranks` from `sampling_ranks_for`, iterates the sampler for 2 epochs without reading
+    data, gathers every rank's indices and asserts disjointness.
+  - The generator now also writes `p9_fulldet_check.sh` (debug QOS, 1 node, 30 min). It runs the
+    check under fsdp and under HSDP (2 groups of 2), then a 1-epoch tiny training as a smoke test.
+    The script runs the code of the tree that holds the generator.
+  - The generator skips the `656c00c` scripts when that worktree is absent, and leaves them as
+    last generated.
+- **Notebooks.**
+  - Notebook 5 has been rewritten for the plan: the E1 predictor for three layouts, E3 (streams
+    wrap, nothing dropped), E5 (disjoint under fsdp, HSDP and DDP, against `flopcount`'s `r²/W`),
+    E6 (now a note on `DistributedSampler`), E8 (new model, with a `flopcount` column) and the
+    finetune text.
+  - Notebook 3 has been updated: §2's hierarchy and trace, the §2.8 rank table, §3.6's coverage
+    formula, the coverage simulation and the cheat sheet.
+  - Both were re-run with every assert passing.
+- **Docs.**
+  - `walrus_sampling_and_repetition.md`: §1–3, §5–8;
+  - `SCALING_STRATEGY_2D.md`: the seed paragraph and §5.4;
+  - `walrus_tokens_and_data_pipeline.md`: a pointer note at the top, since its §2 and §4 describe
+    the `flopcount` sampler.
+
+### 5.2 Verification
+
+| check | result |
+|---|---|
+| `tests/test_fulldet_sampler.py` | 10 passed |
+| `tests/test_determinism.py` (resume equals the uninterrupted run, seed control) | 2 passed |
+| the other test files (dataset, seed, import, flops, jitterer, linear model, checkpoint, finetune, trainer) | all pass (2 + 1 skipped, as before) |
+| ruff, mypy on the touched files | no new findings beyond the `List` annotation style already used in the file; 3 fewer mypy errors than `flopcount` |
+| `check_disjoint.py` emulated on the login node (4 CPU ranks, gloo, real PT9 data config) | `DISJOINT OK` for both epochs under fsdp and HSDP |
+| notebooks 3 and 5 | execute, all asserts pass |
+| `p9_fulldet_check.sh` on GPU | generated, not yet submitted |
+
+### 5.3 What it does and doesn't buy
+
+For PT9 pretraining, each epoch draws about 1,780 windows per dataset over 4 GPUs, against
+`W_d ≥ 96 192`. Independent ranks rarely collided, so run-level repetition moves by at most 0.2
+percentage points (sampling doc §5.1–5.2). The difference is large when one epoch's demand is
+comparable to `W_d`. In the single-dataset finetunes, each epoch now uses 87–100 % of the windows
+with at most 1–3 uses each, against 63–100 % and up to 4 uses on `flopcount` (sampling doc §5.3).
 
 ---
 

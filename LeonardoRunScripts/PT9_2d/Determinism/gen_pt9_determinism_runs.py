@@ -29,6 +29,11 @@ the log is silent for WATCHDOG_IDLE seconds, so every thread's Python stack land
     python gen_pt9_determinism_runs.py
     sbatch p9_determinism_A.sh; sbatch p9_determinism_B.sh
     python compare.py            # on the login node, after both finish
+
+fulldet (p9_fulldet_check.sh): check_disjoint.py builds the real PT9 training sampler under fsdp
+and under HSDP (2 groups of 2 GPUs) and checks 2 epochs of windows across all ranks, reading no
+data; then a 1-epoch tiny training as a smoke test (one epoch has no epoch boundary, so it cannot
+hit the fork-after-async-save hang). It runs the code of the tree holding this generator.
 """
 
 import os
@@ -103,6 +108,8 @@ HANG_TESTS = [
 OLD_COMMIT = "656c00c"
 OLD_TREE = "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis_656c00c"
 REPO_TREE = "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis"
+# The worktree was removed after the hang investigation; its scripts stay as last generated.
+HAVE_OLD = os.path.isdir(OLD_TREE)
 OLD_TESTS = ["old_tiny_1", "old_tiny_2"]  # 320/6/768, 6 epochs: 5 exposed boundaries each
 # The same two jobs on the current code: with OLD_TESTS, the commit is the only difference.
 # No WALRUS_PG_TIMEOUT_SEC: 656c00c ignores it, so both groups build the process group the same way.
@@ -114,6 +121,11 @@ OLD_B_TESTS = ["old_B_1", "old_B_2"]
 # The same B script without TORCH_DISTRIBUTED_DEBUG=DETAIL, so the resume launch can load its checkpoint:
 # on the old code, and on the current code (the first GPU resume result for compare.py).
 B_NODETAIL = [("old_B_nd_1", True), ("old_B_nd_2", True), ("cur_B_nd_1", False), ("cur_B_nd_2", False)]
+
+
+# fulldet check: the repo tree holding this generator (a worktree on branch fulldet).
+FULLDET_TREE = os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR)))
+FULLDET_MESHES = [["distribution=fsdp"], ["distribution=hsdp", "distribution.local_size=2"]]
 
 
 def compose_in(tree, ovr):
@@ -190,7 +202,7 @@ def main():
         assert body.count("#SBATCH --qos=normal") == 1
         body = body.replace("#SBATCH --qos=normal", "#SBATCH --qos=boost_qos_dbg")
         write_script(SCRIPT_DIR, f"{job_name}.sh", job_name, body)
-    for name in OLD_TESTS:
+    for name in OLD_TESTS if HAVE_OLD else []:
         ovr = overrides(name, (320, 6, 768, 0), 100, 6, ckpt_freq=1)
         cfg = compose_in(OLD_TREE, ovr)
         assert (cfg.model.hidden_dim, cfg.trainer.max_epoch, cfg.checkpoint.checkpoint_frequency) == (320, 6, 1)
@@ -212,7 +224,7 @@ def main():
         assert body.count("#SBATCH --qos=normal") == 1
         body = body.replace("#SBATCH --qos=normal", "#SBATCH --qos=boost_qos_dbg")
         write_script(SCRIPT_DIR, f"{job_name}.sh", job_name, body)
-    for name in OLD_B_TESTS:
+    for name in OLD_B_TESTS if HAVE_OLD else []:
         ovr = overrides(name)  # B's defaults: tiny shape, max_samples=100, 2 epochs, checkpoint every epoch
         cfg = compose_in(OLD_TREE, ovr)
         assert (cfg.model.hidden_dim, cfg.trainer.max_epoch, cfg.checkpoint.checkpoint_frequency) == (320, 2, 1)
@@ -243,6 +255,8 @@ def main():
         body = body.replace("#SBATCH --qos=normal", "#SBATCH --qos=boost_qos_dbg")
         write_script(SCRIPT_DIR, f"{job_name}.sh", job_name, body)
     for name, old in B_NODETAIL:
+        if old and not HAVE_OLD:
+            continue
         ovr = overrides(name)
         tree = OLD_TREE if old else REPO_TREE
         cfg = compose_in(tree, ovr)
@@ -293,9 +307,38 @@ def main():
         assert body.count("#SBATCH --qos=normal") == 1
         body = body.replace("#SBATCH --qos=normal", "#SBATCH --qos=boost_qos_dbg")
         write_script(SCRIPT_DIR, f"{job_name}.sh", job_name, body)
-    print(f"Generated {PREFIX}_determinism_{{A,B}}.sh, {len(HANG_TESTS)} hang tests, "
-          f"{len(OLD_TESTS)} {OLD_COMMIT} tests, {len(NEW_TESTS)} current-code controls and "
-          f"{len(OLD_B_TESTS)} old-code B runs in {SCRIPT_DIR}; "
+    name = "fulldet_check"
+    job_name = f"{PREFIX}_{name}"
+    ovr = overrides(name, max_samples=100, epochs=1)
+    cfg = compose_in(FULLDET_TREE, ovr)
+    assert (cfg.model.hidden_dim, cfg.trainer.max_epoch, cfg.data.module_parameters.max_samples) == (320, 1, 100)
+    guard = (f"export PYTHONPATH={FULLDET_TREE}\n"
+             f"cd {FULLDET_TREE}/walrus\n"
+             "python -c 'from walrus.data.mixed_dset_sampler import epoch_plan'  # fulldet code\n")
+    checks = ""
+    for mesh in FULLDET_MESHES:
+        # The real PT9 epoch length: the check only draws indices, it trains nothing.
+        o = [x for x in overrides(name) if not x.startswith("distribution=")] + mesh
+        o = [x for x in o if not x.startswith("data.module_parameters.max_samples=")]
+        cfg = compose_in(FULLDET_TREE, o)
+        assert cfg.data.module_parameters.max_samples == 2000, cfg.data.module_parameters.max_samples
+        lines = " \\\n".join(f"            {x}" for x in o)
+        checks += TORCHRUN.format(overrides=lines).replace("train.py \\", f"{SCRIPT_DIR}/check_disjoint.py \\")
+    body = render_script(
+        job_name=job_name,
+        time="00:30:00",
+        description=f"# fulldet: cross-rank disjoint windows (fsdp + HSDP), then a 1-epoch smoke run: see {GENERATOR}.",
+        generator=GENERATOR,
+        overrides=ovr,
+        pre_train=diagnostics(name, job_name, pg_timeout=False, detail=False) + guard + checks,
+        post_train="\nkill $WATCHDOG_PID 2>/dev/null || true\n",
+    )
+    assert body.count("check_disjoint.py") == 2 and body.count("#SBATCH --qos=normal") == 1
+    body = body.replace("#SBATCH --qos=normal", "#SBATCH --qos=boost_qos_dbg")
+    write_script(SCRIPT_DIR, f"{job_name}.sh", job_name, body)
+    old = (f"{len(OLD_TESTS)} {OLD_COMMIT} tests, " if HAVE_OLD else f"(no {OLD_COMMIT} worktree: old-code scripts left as they are), ")
+    print(f"Generated {PREFIX}_determinism_{{A,B}}.sh, {len(HANG_TESTS)} hang tests, {old}"
+          f"{len(NEW_TESTS)} current-code controls and {job_name}.sh in {SCRIPT_DIR}; "
           f"runs write to {RUN_ROOT}/")
 
 
