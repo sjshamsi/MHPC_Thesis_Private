@@ -91,30 +91,138 @@ def seed_from(*keys: int) -> int:
 ### 2.5 `walrus/train.py`, seed plumbing and the LR resume fix
 
 - Passes `seed=cfg.seed` to the datamodule and to the `Trainer`.
-- **LR scheduler on resume.**
-  - **The bug:** `InverseSqrtLinearRamps.get_lr` (the upstream default `lr_scheduler`) is
-    recursive: it multiplies the optimizer's current lr. On resume, the checkpoint restores the
-    correct lr, and then the scheduler's constructor takes its initial `step()`, which multiplies
-    by the resumed epoch's factor a second time. Every later epoch inherits the inflation (1.9× in
-    the test, during warm-up).
-  - **The fix:** record the loaded lr just before building the scheduler, and when resuming
-    (`last_epoch > 0`) put it back afterwards, including `_last_lr`.
-  - For closed-form schedulers (e.g. PT9's `InverseSqrtLinearWarmupSqrtCooldown`) this is a
-    no-op, because the restored value equals what the scheduler computed. Finetuning loads don't
-    set `last_epoch`, so they're unaffected.
-  - **Rejected alternatives:**
-    - switching `get_lr` to the class's existing `_get_closed_form_lr` would change the default
-      schedule for every run, since that closed form indexes the decay step one off (about
-      0.5 % lower in the decay phase);
-    - saving the scheduler's `state_dict` would change the checkpoint format.
+- **LR scheduler on resume:** a real bug, for recursive schedulers only. Verified 2026-10-12; details
+  below.
+
+#### The change
+
+```python
+resumed_lrs = [group["lr"] for group in optimizer.param_groups]
+lr_scheduler = instantiate(cfg.lr_scheduler, optimizer=optimizer, max_epochs=cfg.trainer.max_epoch,
+                           step_mult_factor=step_mult_factor, last_epoch=max(-1, last_epoch - 1))
+if last_epoch > 0:
+    for group, lr in zip(optimizer.param_groups, resumed_lrs):
+        group["lr"] = lr
+    lr_scheduler._last_lr = resumed_lrs
+```
+
+It records the lr loaded from the checkpoint just before building the scheduler. On a resume
+(`last_epoch > 0`) it puts that lr back afterwards, including the scheduler's `_last_lr`, which
+is what `get_last_lr()` and the W&B `lr` log read. Finetuning loads don't set `last_epoch`, so
+they're unaffected.
+
+#### Why it is a bug
+
+The same structure is in upstream PolymathicAI `main`: `train.py:264`, `last_epoch=max(-1,
+last_epoch - 1)`, the `lr_scheduler.step()` before the save in `training.py`, and the default
+`inv_sqrt_w_linear_ramps` in `config.yaml`. Every link below was checked in the code (torch 2.5.1):
+
+1. **The saved lr is already the next epoch's.** `train_one_epoch` ends with
+   `lr_scheduler.step()` (`training.py:1217`), and the checkpoint is saved after that in the epoch
+   loop. So the optimizer state on disk holds the lr for epoch `E + 1`.
+2. **The resume restores it.** `optimizer.load_state_dict` copies each saved param group,
+   including `lr` and `initial_lr`. The FSDP path ends in the same call:
+   `CheckPointer.load_state_dict` → `set_state_dict` → `_load_optim_state_dict`, which calls
+   `optim.load_state_dict` (`torch/distributed/checkpoint/state_dict.py:960`).
+3. **The constructor steps once more.** The scheduler is rebuilt with `last_epoch = E − 1`, and
+   torch's `LRScheduler.__init__` always calls `_initial_step()` → `step()`
+   (`torch/optim/lr_scheduler.py:148-151`). That moves it to `last_epoch = E`, the right index
+   for epoch `E + 1`.
+4. **A recursive `get_lr` then applies epoch `E`'s factor twice.** `InverseSqrtLinearRamps.get_lr`
+   returns `group["lr"] × factor(last_epoch)`, the current lr times this epoch's factor. Here the
+   current lr already includes that factor.
+5. **The closed-form scheduler is immune.** `InverseSqrtLinearWarmupSqrtCooldown.get_lr` computes
+   the lr from `base_lrs` and `last_epoch` alone, ignoring the current lr. It gives the same value
+   whatever was loaded.
+
+#### Measured
+
+`mydocs/lr_resume_check.py` replays this logic in plain torch: base lr 2e-4, 100 epochs, warmup
+and cooldown 10, warmup factor 0.1. For each resume point it reports the resumed lr divided by the
+uninterrupted run's lr.
+
+| Resume after epoch | `InverseSqrtLinearRamps`, no fix: next epoch / epoch 100 | with fix | `InverseSqrtLinearWarmupSqrtCooldown`, no fix |
+|---|---|---|---|
+| 1 | **×1.900** / ×1.900 | exact | exact |
+| 5 | ×1.196 / ×1.196 | exact | exact |
+| 10 | ×1.099 / ×1.099 | exact | exact |
+| 11 | ×0.960 / ×0.960 | exact | exact |
+| 50 | ×0.986 / ×0.986 | exact | exact |
+| 90 | ×0.992 / ×0.992 | exact | exact |
+| 95 | ×0.857 / ×0.857 | exact | exact |
+
+- **The error is permanent.** Every later lr is computed from the wrong one, so the ratio holds to
+  the end of the run.
+- **The error is largest early in warm-up and early in the cooldown,** where the per-epoch factor
+  is furthest from 1.
+- **Chains compound it.** Each resume multiplies in its own factor. This follows from the
+  recursion and was not measured separately.
+- **The fix is exact.** With it, the resumed schedule equals the uninterrupted one at every epoch
+  (max |ratio − 1| = 0). For the closed-form scheduler it changes nothing.
+
+**End to end.** On a throwaway copy of `flopcount` (`dd08774`) with only these 8 lines removed,
+`tests/test_determinism.py::test_resume_equals_uninterrupted` **fails**: the resumed run ends with
+different weights. With the fix it passes. The test uses the repo's default scheduler, which is
+the recursive one. Earlier, a control showed that the per-epoch re-seeding and this fix are both
+needed for the test to pass.
+
+#### Who is affected
+
+- **Affected:** any training run that keeps the default `lr_scheduler=inv_sqrt_w_linear_ramps`
+  and resumes. That includes upstream WALRUS with its default config.
+- **Not this thesis's training runs.** All 79 training scripts in `LeonardoRunScripts/` set
+  `lr_scheduler=inv_sqrt_w_sqrt_ramps` (73) or `inv_sqrt_w_sqrt_ramps_longer` (6). Both are the
+  closed-form `InverseSqrtLinearWarmupSqrtCooldown`. The scripts without an override are
+  validation, smoke-test and benchmark scripts.
+
+#### Alternatives considered
+
+- **Switch `get_lr` to the class's existing `_get_closed_form_lr`.** Rejected: it changes the
+  default schedule for every run, because that closed form indexes the decay step one off (about
+  0.5 % lower in the decay phase; compare epoch 11 above, 1.919e-4 recursive against 1.916e-4
+  closed form).
+- **Save and load the scheduler's `state_dict`.** Rejected: it changes the checkpoint format, and
+  it wouldn't help, because the recursive lr lives in the optimizer's param groups, which are
+  already restored. What has to be stopped is the constructor's extra step.
+- **Known leftover:** `trainer.lr_scheduler_per_step=True` passes an epoch count where it needs a
+  step count (§4). It is unused, and the fix doesn't touch it.
 
 ### 2.5b `walrus/utils/distribution_utils.py`, opt-in collective timeout (diagnostic)
 
-`configure_distribution` reads `WALRUS_PG_TIMEOUT_SEC`. When it is set (and no process group
-exists yet), it calls `torch.distributed.init_process_group(timeout=timedelta(seconds=...))`
-before the device mesh. `init_device_mesh` would otherwise create the same default group
-(`cpu: gloo, cuda: nccl`, `device_mesh.py:465-467`), only with torch's default timeouts
-(30 min gloo / 10 min NCCL). When unset, behaviour is unchanged.
+This is the only code change made to diagnose the hang; everything else was job-script settings
+(below).
+
+```python
+timeout = os.environ.get("WALRUS_PG_TIMEOUT_SEC")
+if timeout and not torch.distributed.is_initialized():
+    torch.distributed.init_process_group(timeout=timedelta(seconds=int(timeout)))
+if cfg.distribution.distribution_type.upper() == "HSDP":   # was `elif`
+```
+
+`configure_distribution` reads `WALRUS_PG_TIMEOUT_SEC`. When it is set and no process group
+exists yet, it calls `torch.distributed.init_process_group(timeout=timedelta(seconds=...))`
+before the device mesh is built. `init_device_mesh` would otherwise create the same default group
+(`cpu: gloo, cuda: nccl`, `device_mesh.py:465-467`), only with torch's default timeouts. Torch
+documents 30 min for gloo and 10 min for NCCL, but the production log 52966529 shows
+`Timeout(ms)=1800000`, i.e. 30 min for NCCL as well
+(`dataloader_fork_hang/slurm_logs/52966529_*`). When unset, behaviour is unchanged.
+
+- **The `elif` → `if` change.** The first version put the knob inside the existing
+  `if LOCAL / elif HSDP / else` chain. That broke the chain: `mesh` was never assigned
+  (`UnboundLocalError`), and jobs 59845924 and 59845925 crashed at start-up. The knob now sits
+  before the chain as a separate `if`, and every branch (local, hsdp, fsdp, ddp; knob set and
+  unset) was checked with mocks.
+- **Job-script diagnostics, not code.** `gen_pt9_determinism_runs.py`'s `diagnostics()` sets:
+  - `TORCH_DISTRIBUTED_DEBUG=DETAIL`: cross-rank collective checks. It breaks FSDP checkpoint
+    loading (`Backend nccl does not support allgather_into_tensor_coalesced`) on both the old and
+    the current code, so a resume needs it off;
+  - the NCCL flight recorder (`TORCH_NCCL_TRACE_BUFFER_SIZE`, `TORCH_NCCL_DUMP_ON_TIMEOUT`), which
+    never produced a trace;
+  - `PYTHONFAULTHANDLER=1` with a shell watchdog. If the log is silent for N s, it sends SIGABRT
+    to every `train.py` process, which prints every thread's Python stack. All the stack dumps
+    in `dataloader_fork_hang/` come from this.
+
+  The settings each job used, and what they showed, are in `dataloader_fork_hang/README.md` §2–3.
 
 The knob was added because a first GPU run of the determinism check (B, job 59843238) hung in
 epoch 2 for 24 minutes with no timeout error. A short timeout turns such a hang into an error

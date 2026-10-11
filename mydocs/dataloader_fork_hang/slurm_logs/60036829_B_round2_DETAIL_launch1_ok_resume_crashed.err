@@ -1,0 +1,653 @@
+tput: No value for $TERM and no -T specified
+/leonardo/home/userexternal/sshamsi0/.bashrc: line 39: [: : integer expression expected
+Loading python/3.11.7
+  Loading requirement: bzip2/1.0.8-ib3znej libmd/1.0.4-2km2lxx
+    libbsd/0.12.1-oocs6an expat/2.6.2-p2t4wry ncurses/6.5-svfl57u
+    readline/8.2-zeda6mx gdbm/1.23-wiol7vk libiconv/1.17-nhc3mhm
+    xz/5.4.6-xxxg42c zlib-ng/2.1.6-jkgunjc libxml2/2.10.3-zbbe7lm
+    pigz/2.8-5bwzpml zstd/1.5.6-uq5yyux tar/1.34-jgektnv gettext/0.22.5-hsxgafg
+    libffi/3.4.6-4vs4jpp libxcrypt/4.4.35-7om46b5 sqlite/3.43.2-4kl5mnp
+    util-linux-uuid/2.38.1-5achpds
+wandb: WARNING `resume` will be ignored since W&B syncing is set to `offline`. Starting a new run with run id pmb6g74q.
+wandb: Tracking run with wandb version 0.28.0
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/wandb/offline-run-20261011_231138-pmb6g74q
+wandb: View this run in the terminal with `wandb leet`
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py:282: UserWarning: No last checkpoint found
+  warnings.warn("No last checkpoint found")
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py:282: UserWarning: No last checkpoint found
+  warnings.warn("No last checkpoint found")
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py:282: UserWarning: No last checkpoint found
+  warnings.warn("No last checkpoint found")
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py:282: UserWarning: No last checkpoint found
+  warnings.warn("No last checkpoint found")
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+wandb: 
+wandb: Run history:
+wandb:              avg_backward_time ▁█
+wandb:          avg_data_loading_time █▁
+wandb:               avg_forward_time █▁
+wandb:             avg_optimizer_time █▁
+wandb:              avg_time_per_step █▁
+wandb: cumulative_decoder_proj1_flops ▁█
+wandb: cumulative_decoder_proj2_flops ▁█
+wandb: cumulative_encoder_proj1_flops ▁█
+wandb: cumulative_encoder_proj2_flops ▁█
+wandb:               cumulative_flops ▁█
+wandb:                         +6,909 ...
+wandb: 
+wandb: Run summary:
+wandb:              avg_backward_time 0.15144
+wandb:          avg_data_loading_time 0.01509
+wandb:               avg_forward_time 0.20178
+wandb:             avg_optimizer_time 0.00654
+wandb:              avg_time_per_step 0.37485
+wandb: cumulative_decoder_proj1_flops 112764109455360.0
+wandb: cumulative_decoder_proj2_flops 56985185157120.0
+wandb: cumulative_encoder_proj1_flops 87794769199104.0
+wandb: cumulative_encoder_proj2_flops 110085836636160.0
+wandb:               cumulative_flops 1053301728190464.0
+wandb:                         +6,909 ...
+wandb: 
+wandb: You can sync this run to the cloud by running:
+wandb: wandb sync /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/wandb/offline-run-20261011_231138-pmb6g74q
+wandb: Find logs at: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/wandb/offline-run-20261011_231138-pmb6g74q/logs
+wandb: WARNING `resume` will be ignored since W&B syncing is set to `offline`. Starting a new run with run id pmb6g74q.
+wandb: Tracking run with wandb version 0.28.0
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/wandb/offline-run-20261011_231954-pmb6g74q
+wandb: View this run in the terminal with `wandb leet`
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+Error executing job with overrides: ['distribution=fsdp', 'model=isotropic_model', 'trainer=defaults', 'server=leonardo', 'data=Leonardo_pretrain9_2d', 'data/field_index_map_override=full_well_field_index', 'optimizer=adam', 'optimizer.lr=2.e-4', 'trainer.enable_amp=False', 'trainer.grad_acc_steps=4', 'trainer.clip_gradient=10', 'trainer.prediction_type=delta', 'data.module_parameters.batch_size=2', 'data.module_parameters.n_steps_input=6', 'data.module_parameters.n_steps_output=1', 'data.module_parameters.min_dt_stride=1', 'data.module_parameters.max_dt_stride=5', 'data.module_parameters.max_samples=2000', 'model.projection_dim=48', 'model.intermediate_dim=352', 'model.groups=16', 'model.override_dimensionality=3', 'model.drop_path=0.05', 'model/processor/space_mixing=full_spatial_attention', 'model.processor.space_mixing.num_heads=16', 'model.processor.time_mixing.num_heads=16', 'model.causal_in_time=True', 'model.jitter_patches=True', '++model.use_periodic_fixed_jitter=True', '++model.input_field_drop=0.0', 'lr_scheduler=inv_sqrt_w_sqrt_ramps', 'trainer.short_validation_length=20', 'trainer.val_frequency=2', 'trainer.rollout_val_frequency=5', 'trainer.max_rollout_steps=60', 'trainer.video_validation=False', '++trainer.skip_spectral_metrics=True', '++trainer.debug_mode=True', 'checkpoint=defaults', 'experiment=defaults', 'finetuning_mods=defaults', '++experiment_dir=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs', 'model.hidden_dim=320', 'model.processor_blocks=6', 'model.processor.space_mixing.mlp_dim=768', 'model.gradient_checkpointing_freq=0', 'name=p9_determinism_B', 'logger.wandb_project_name=p9_determinism', 'seed=0', 'trainer.max_epoch=2', 'data.module_parameters.max_samples=100', 'trainer.max_rollout_steps=2', 'trainer.short_validation_length=2', 'data_workers=10', 'checkpoint.checkpoint_frequency=1', 'folder_override=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/B', 'auto_resume=True']
+Error executing job with overrides: ['distribution=fsdp', 'model=isotropic_model', 'trainer=defaults', 'server=leonardo', 'data=Leonardo_pretrain9_2d', 'data/field_index_map_override=full_well_field_index', 'optimizer=adam', 'optimizer.lr=2.e-4', 'trainer.enable_amp=False', 'trainer.grad_acc_steps=4', 'trainer.clip_gradient=10', 'trainer.prediction_type=delta', 'data.module_parameters.batch_size=2', 'data.module_parameters.n_steps_input=6', 'data.module_parameters.n_steps_output=1', 'data.module_parameters.min_dt_stride=1', 'data.module_parameters.max_dt_stride=5', 'data.module_parameters.max_samples=2000', 'model.projection_dim=48', 'model.intermediate_dim=352', 'model.groups=16', 'model.override_dimensionality=3', 'model.drop_path=0.05', 'model/processor/space_mixing=full_spatial_attention', 'model.processor.space_mixing.num_heads=16', 'model.processor.time_mixing.num_heads=16', 'model.causal_in_time=True', 'model.jitter_patches=True', '++model.use_periodic_fixed_jitter=True', '++model.input_field_drop=0.0', 'lr_scheduler=inv_sqrt_w_sqrt_ramps', 'trainer.short_validation_length=20', 'trainer.val_frequency=2', 'trainer.rollout_val_frequency=5', 'trainer.max_rollout_steps=60', 'trainer.video_validation=False', '++trainer.skip_spectral_metrics=True', '++trainer.debug_mode=True', 'checkpoint=defaults', 'experiment=defaults', 'finetuning_mods=defaults', '++experiment_dir=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs', 'model.hidden_dim=320', 'model.processor_blocks=6', 'model.processor.space_mixing.mlp_dim=768', 'model.gradient_checkpointing_freq=0', 'name=p9_determinism_B', 'logger.wandb_project_name=p9_determinism', 'seed=0', 'trainer.max_epoch=2', 'data.module_parameters.max_samples=100', 'trainer.max_rollout_steps=2', 'trainer.short_validation_length=2', 'data_workers=10', 'checkpoint.checkpoint_frequency=1', 'folder_override=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/B', 'auto_resume=True']
+Error executing job with overrides: ['distribution=fsdp', 'model=isotropic_model', 'trainer=defaults', 'server=leonardo', 'data=Leonardo_pretrain9_2d', 'data/field_index_map_override=full_well_field_index', 'optimizer=adam', 'optimizer.lr=2.e-4', 'trainer.enable_amp=False', 'trainer.grad_acc_steps=4', 'trainer.clip_gradient=10', 'trainer.prediction_type=delta', 'data.module_parameters.batch_size=2', 'data.module_parameters.n_steps_input=6', 'data.module_parameters.n_steps_output=1', 'data.module_parameters.min_dt_stride=1', 'data.module_parameters.max_dt_stride=5', 'data.module_parameters.max_samples=2000', 'model.projection_dim=48', 'model.intermediate_dim=352', 'model.groups=16', 'model.override_dimensionality=3', 'model.drop_path=0.05', 'model/processor/space_mixing=full_spatial_attention', 'model.processor.space_mixing.num_heads=16', 'model.processor.time_mixing.num_heads=16', 'model.causal_in_time=True', 'model.jitter_patches=True', '++model.use_periodic_fixed_jitter=True', '++model.input_field_drop=0.0', 'lr_scheduler=inv_sqrt_w_sqrt_ramps', 'trainer.short_validation_length=20', 'trainer.val_frequency=2', 'trainer.rollout_val_frequency=5', 'trainer.max_rollout_steps=60', 'trainer.video_validation=False', '++trainer.skip_spectral_metrics=True', '++trainer.debug_mode=True', 'checkpoint=defaults', 'experiment=defaults', 'finetuning_mods=defaults', '++experiment_dir=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs', 'model.hidden_dim=320', 'model.processor_blocks=6', 'model.processor.space_mixing.mlp_dim=768', 'model.gradient_checkpointing_freq=0', 'name=p9_determinism_B', 'logger.wandb_project_name=p9_determinism', 'seed=0', 'trainer.max_epoch=2', 'data.module_parameters.max_samples=100', 'trainer.max_rollout_steps=2', 'trainer.short_validation_length=2', 'data_workers=10', 'checkpoint.checkpoint_frequency=1', 'folder_override=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/B', 'auto_resume=True']
+Error executing job with overrides: ['distribution=fsdp', 'model=isotropic_model', 'trainer=defaults', 'server=leonardo', 'data=Leonardo_pretrain9_2d', 'data/field_index_map_override=full_well_field_index', 'optimizer=adam', 'optimizer.lr=2.e-4', 'trainer.enable_amp=False', 'trainer.grad_acc_steps=4', 'trainer.clip_gradient=10', 'trainer.prediction_type=delta', 'data.module_parameters.batch_size=2', 'data.module_parameters.n_steps_input=6', 'data.module_parameters.n_steps_output=1', 'data.module_parameters.min_dt_stride=1', 'data.module_parameters.max_dt_stride=5', 'data.module_parameters.max_samples=2000', 'model.projection_dim=48', 'model.intermediate_dim=352', 'model.groups=16', 'model.override_dimensionality=3', 'model.drop_path=0.05', 'model/processor/space_mixing=full_spatial_attention', 'model.processor.space_mixing.num_heads=16', 'model.processor.time_mixing.num_heads=16', 'model.causal_in_time=True', 'model.jitter_patches=True', '++model.use_periodic_fixed_jitter=True', '++model.input_field_drop=0.0', 'lr_scheduler=inv_sqrt_w_sqrt_ramps', 'trainer.short_validation_length=20', 'trainer.val_frequency=2', 'trainer.rollout_val_frequency=5', 'trainer.max_rollout_steps=60', 'trainer.video_validation=False', '++trainer.skip_spectral_metrics=True', '++trainer.debug_mode=True', 'checkpoint=defaults', 'experiment=defaults', 'finetuning_mods=defaults', '++experiment_dir=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs', 'model.hidden_dim=320', 'model.processor_blocks=6', 'model.processor.space_mixing.mlp_dim=768', 'model.gradient_checkpointing_freq=0', 'name=p9_determinism_B', 'logger.wandb_project_name=p9_determinism', 'seed=0', 'trainer.max_epoch=2', 'data.module_parameters.max_samples=100', 'trainer.max_rollout_steps=2', 'trainer.short_validation_length=2', 'data_workers=10', 'checkpoint.checkpoint_frequency=1', 'folder_override=/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/B', 'auto_resume=True']
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 243, in load
+    dcp.load(
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/logger.py", line 83, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/utils.py", line 429, in inner_func
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict_loader.py", line 182, in load
+    elem.load_state_dict(statetful_sd[key])
+  File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 128, in load_state_dict
+    set_state_dict(
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict.py", line 1301, in set_state_dict
+    _load_optim_state_dict(model, optimizers, optim_state_dict, info)
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict.py", line 918, in _load_optim_state_dict
+    optim_state_dict = FSDP.optim_state_dict_to_load(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py", line 1979, in optim_state_dict_to_load
+    result = FullyShardedDataParallel._optim_state_dict_to_load_impl(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py", line 1357, in _optim_state_dict_to_load_impl
+    sharded_osd = _flatten_optim_state_dict(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_optim_utils.py", line 488, in _flatten_optim_state_dict
+    flat_state = _shard_orig_param_state(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_optim_utils.py", line 396, in _shard_orig_param_state
+    optim_state = _gather_state_dict(
+                  ^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 281, in _gather_state_dict
+    return _iterate_state_dict(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 145, in _iterate_state_dict
+    ret = {
+          ^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 146, in <dictcomp>
+    key: _iterate_state_dict(
+         ^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 125, in _iterate_state_dict
+    ret = dtensor_func(iter_object, pg, device, companion_obj)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 269, in dtensor_func
+    value = value.redistribute(
+            ^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_api.py", line 538, in redistribute
+    return Redistribute.apply(self, device_mesh, placements, async_op)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/autograd/function.py", line 575, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_redistribute.py", line 294, in forward
+    output = redistribute_local_tensor(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_redistribute.py", line 200, in redistribute_local_tensor
+    new_local_tensor = current_placement._to_replicate_tensor(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/placement_types.py", line 244, in _to_replicate_tensor
+    result = funcol.all_gather_tensor(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_functional_collectives.py", line 204, in all_gather_tensor
+    tensor = torch.ops._c10d_functional.all_gather_into_tensor(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/_ops.py", line 1116, in __call__
+    return self._op(*args, **(kwargs or {}))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 243, in load
+[rank3]:     dcp.load(
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/logger.py", line 83, in wrapper
+[rank3]:     result = func(*args, **kwargs)
+[rank3]:              ^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/utils.py", line 429, in inner_func
+[rank3]:     return func(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict_loader.py", line 182, in load
+[rank3]:     elem.load_state_dict(statetful_sd[key])
+[rank3]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 128, in load_state_dict
+[rank3]:     set_state_dict(
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict.py", line 1301, in set_state_dict
+[rank3]:     _load_optim_state_dict(model, optimizers, optim_state_dict, info)
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank3]:     return func(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict.py", line 918, in _load_optim_state_dict
+[rank3]:     optim_state_dict = FSDP.optim_state_dict_to_load(
+[rank3]:                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py", line 1979, in optim_state_dict_to_load
+[rank3]:     result = FullyShardedDataParallel._optim_state_dict_to_load_impl(
+[rank3]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py", line 1357, in _optim_state_dict_to_load_impl
+[rank3]:     sharded_osd = _flatten_optim_state_dict(
+[rank3]:                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_optim_utils.py", line 488, in _flatten_optim_state_dict
+[rank3]:     flat_state = _shard_orig_param_state(
+[rank3]:                  ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_optim_utils.py", line 396, in _shard_orig_param_state
+[rank3]:     optim_state = _gather_state_dict(
+[rank3]:                   ^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 281, in _gather_state_dict
+[rank3]:     return _iterate_state_dict(
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 145, in _iterate_state_dict
+[rank3]:     ret = {
+[rank3]:           ^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 146, in <dictcomp>
+[rank3]:     key: _iterate_state_dict(
+[rank3]:          ^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 125, in _iterate_state_dict
+[rank3]:     ret = dtensor_func(iter_object, pg, device, companion_obj)
+[rank3]:           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 269, in dtensor_func
+[rank3]:     value = value.redistribute(
+[rank3]:             ^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_api.py", line 538, in redistribute
+[rank3]:     return Redistribute.apply(self, device_mesh, placements, async_op)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/autograd/function.py", line 575, in apply
+[rank3]:     return super().apply(*args, **kwargs)  # type: ignore[misc]
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_redistribute.py", line 294, in forward
+[rank3]:     output = redistribute_local_tensor(
+[rank3]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_redistribute.py", line 200, in redistribute_local_tensor
+[rank3]:     new_local_tensor = current_placement._to_replicate_tensor(
+[rank3]:                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/placement_types.py", line 244, in _to_replicate_tensor
+[rank3]:     result = funcol.all_gather_tensor(
+[rank3]:              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_functional_collectives.py", line 204, in all_gather_tensor
+[rank3]:     tensor = torch.ops._c10d_functional.all_gather_into_tensor(
+[rank3]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/_ops.py", line 1116, in __call__
+[rank3]:     return self._op(*args, **(kwargs or {}))
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]: RuntimeError: Backend nccl does not support allgather_into_tensor_coalesced
+
+[rank3]: During handling of the above exception, another exception occurred:
+
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 452, in <module>
+[rank3]:     main()
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/main.py", line 94, in decorated_main
+[rank3]:     _run_hydra(
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 394, in _run_hydra
+[rank3]:     _run_app(
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 457, in _run_app
+[rank3]:     run_and_report(
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 223, in run_and_report
+[rank3]:     raise ex
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 220, in run_and_report
+[rank3]:     return func()
+[rank3]:            ^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 458, in <lambda>
+[rank3]:     lambda: hydra.run(
+[rank3]:             ^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/hydra.py", line 132, in run
+[rank3]:     _ = ret.return_value
+[rank3]:         ^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 260, in return_value
+[rank3]:     raise self._return_value
+[rank3]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 186, in run_job
+[rank3]:     ret.return_value = task_function(task_cfg)
+[rank3]:                        ^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 436, in main
+[rank3]:     train(
+[rank3]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 274, in train
+[rank3]:     epoch, val_loss = checkpointer.load(
+[rank3]:                       ^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 253, in load
+[rank3]:     raise RuntimeError(
+[rank3]: RuntimeError: Failed to load checkpoint from /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/B/checkpoints/step_1: Backend nccl does not support allgather_into_tensor_coalesced
+RuntimeError: Backend nccl does not support allgather_into_tensor_coalesced
+
+During handling of the above exception, another exception occurred:
+
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 243, in load
+[rank2]:     dcp.load(
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/logger.py", line 83, in wrapper
+[rank2]:     result = func(*args, **kwargs)
+[rank2]:              ^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/utils.py", line 429, in inner_func
+[rank2]:     return func(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict_loader.py", line 182, in load
+[rank2]:     elem.load_state_dict(statetful_sd[key])
+[rank2]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 128, in load_state_dict
+[rank2]:     set_state_dict(
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict.py", line 1301, in set_state_dict
+[rank2]:     _load_optim_state_dict(model, optimizers, optim_state_dict, info)
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank2]:     return func(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict.py", line 918, in _load_optim_state_dict
+[rank2]:     optim_state_dict = FSDP.optim_state_dict_to_load(
+[rank2]:                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py", line 1979, in optim_state_dict_to_load
+[rank2]:     result = FullyShardedDataParallel._optim_state_dict_to_load_impl(
+[rank2]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py", line 1357, in _optim_state_dict_to_load_impl
+[rank2]:     sharded_osd = _flatten_optim_state_dict(
+[rank2]:                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_optim_utils.py", line 488, in _flatten_optim_state_dict
+[rank2]:     flat_state = _shard_orig_param_state(
+[rank2]:                  ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_optim_utils.py", line 396, in _shard_orig_param_state
+[rank2]:     optim_state = _gather_state_dict(
+[rank2]:                   ^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 281, in _gather_state_dict
+[rank2]:     return _iterate_state_dict(
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 145, in _iterate_state_dict
+[rank2]:     ret = {
+[rank2]:           ^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 146, in <dictcomp>
+[rank2]:     key: _iterate_state_dict(
+[rank2]:          ^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 125, in _iterate_state_dict
+[rank2]:     ret = dtensor_func(iter_object, pg, device, companion_obj)
+[rank2]:           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 269, in dtensor_func
+[rank2]:     value = value.redistribute(
+[rank2]:             ^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_api.py", line 538, in redistribute
+[rank2]:     return Redistribute.apply(self, device_mesh, placements, async_op)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/autograd/function.py", line 575, in apply
+[rank2]:     return super().apply(*args, **kwargs)  # type: ignore[misc]
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_redistribute.py", line 294, in forward
+[rank2]:     output = redistribute_local_tensor(
+[rank2]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_redistribute.py", line 200, in redistribute_local_tensor
+[rank2]:     new_local_tensor = current_placement._to_replicate_tensor(
+[rank2]:                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/placement_types.py", line 244, in _to_replicate_tensor
+[rank2]:     result = funcol.all_gather_tensor(
+[rank2]:              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_functional_collectives.py", line 204, in all_gather_tensor
+[rank2]:     tensor = torch.ops._c10d_functional.all_gather_into_tensor(
+[rank2]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/_ops.py", line 1116, in __call__
+[rank2]:     return self._op(*args, **(kwargs or {}))
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]: RuntimeError: Backend nccl does not support allgather_into_tensor_coalesced
+
+[rank2]: During handling of the above exception, another exception occurred:
+
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 452, in <module>
+[rank2]:     main()
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/main.py", line 94, in decorated_main
+[rank2]:     _run_hydra(
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 394, in _run_hydra
+[rank2]:     _run_app(
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 457, in _run_app
+[rank2]:     run_and_report(
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 223, in run_and_report
+[rank2]:     raise ex
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 220, in run_and_report
+[rank2]:     return func()
+[rank2]:            ^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 458, in <lambda>
+[rank2]:     lambda: hydra.run(
+[rank2]:             ^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/hydra.py", line 132, in run
+[rank2]:     _ = ret.return_value
+[rank2]:         ^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 260, in return_value
+[rank2]:     raise self._return_value
+[rank2]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 186, in run_job
+[rank2]:     ret.return_value = task_function(task_cfg)
+[rank2]:                        ^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 436, in main
+[rank2]:     train(
+[rank2]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 274, in train
+[rank2]:     epoch, val_loss = checkpointer.load(
+[rank2]:                       ^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 253, in load
+[rank2]:     raise RuntimeError(
+[rank2]: RuntimeError: Failed to load checkpoint from /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/B/checkpoints/step_1: Backend nccl does not support allgather_into_tensor_coalesced
+Traceback (most recent call last):
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 243, in load
+[rank1]:     dcp.load(
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/logger.py", line 83, in wrapper
+[rank1]:     result = func(*args, **kwargs)
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/utils.py", line 429, in inner_func
+[rank1]:     return func(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict_loader.py", line 182, in load
+[rank1]:     elem.load_state_dict(statetful_sd[key])
+[rank1]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 128, in load_state_dict
+[rank1]:     set_state_dict(
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict.py", line 1301, in set_state_dict
+[rank1]:     _load_optim_state_dict(model, optimizers, optim_state_dict, info)
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank1]:     return func(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict.py", line 918, in _load_optim_state_dict
+[rank1]:     optim_state_dict = FSDP.optim_state_dict_to_load(
+[rank1]:                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py", line 1979, in optim_state_dict_to_load
+[rank1]:     result = FullyShardedDataParallel._optim_state_dict_to_load_impl(
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py", line 1357, in _optim_state_dict_to_load_impl
+[rank1]:     sharded_osd = _flatten_optim_state_dict(
+[rank1]:                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_optim_utils.py", line 488, in _flatten_optim_state_dict
+[rank1]:     flat_state = _shard_orig_param_state(
+[rank1]:                  ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_optim_utils.py", line 396, in _shard_orig_param_state
+[rank1]:     optim_state = _gather_state_dict(
+[rank1]:                   ^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 281, in _gather_state_dict
+[rank1]:     return _iterate_state_dict(
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 145, in _iterate_state_dict
+[rank1]:     ret = {
+[rank1]:           ^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 146, in <dictcomp>
+[rank1]:     key: _iterate_state_dict(
+[rank1]:          ^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 125, in _iterate_state_dict
+[rank1]:     ret = dtensor_func(iter_object, pg, device, companion_obj)
+[rank1]:           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 269, in dtensor_func
+[rank1]:     value = value.redistribute(
+[rank1]:             ^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_api.py", line 538, in redistribute
+[rank1]:     return Redistribute.apply(self, device_mesh, placements, async_op)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/autograd/function.py", line 575, in apply
+[rank1]:     return super().apply(*args, **kwargs)  # type: ignore[misc]
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_redistribute.py", line 294, in forward
+[rank1]:     output = redistribute_local_tensor(
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_redistribute.py", line 200, in redistribute_local_tensor
+[rank1]:     new_local_tensor = current_placement._to_replicate_tensor(
+[rank1]:                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/placement_types.py", line 244, in _to_replicate_tensor
+[rank1]:     result = funcol.all_gather_tensor(
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_functional_collectives.py", line 204, in all_gather_tensor
+[rank1]:     tensor = torch.ops._c10d_functional.all_gather_into_tensor(
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/_ops.py", line 1116, in __call__
+[rank1]:     return self._op(*args, **(kwargs or {}))
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]: RuntimeError: Backend nccl does not support allgather_into_tensor_coalesced
+
+[rank1]: During handling of the above exception, another exception occurred:
+
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 452, in <module>
+[rank1]:     main()
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/main.py", line 94, in decorated_main
+[rank1]:     _run_hydra(
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 394, in _run_hydra
+[rank1]:     _run_app(
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 457, in _run_app
+[rank1]:     run_and_report(
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 223, in run_and_report
+[rank1]:     raise ex
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 220, in run_and_report
+[rank1]:     return func()
+[rank1]:            ^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 458, in <lambda>
+[rank1]:     lambda: hydra.run(
+[rank1]:             ^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/hydra.py", line 132, in run
+[rank1]:     _ = ret.return_value
+[rank1]:         ^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 260, in return_value
+[rank1]:     raise self._return_value
+[rank1]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 186, in run_job
+[rank1]:     ret.return_value = task_function(task_cfg)
+[rank1]:                        ^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 436, in main
+[rank1]:     train(
+[rank1]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 274, in train
+[rank1]:     epoch, val_loss = checkpointer.load(
+[rank1]:                       ^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 253, in load
+[rank1]:     raise RuntimeError(
+[rank1]: RuntimeError: Failed to load checkpoint from /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/B/checkpoints/step_1: Backend nccl does not support allgather_into_tensor_coalesced
+  File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 452, in <module>
+    main()
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/main.py", line 94, in decorated_main
+    _run_hydra(
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 394, in _run_hydra
+    _run_app(
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 457, in _run_app
+    run_and_report(
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 223, in run_and_report
+    raise ex
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 220, in run_and_report
+    return func()
+           ^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 458, in <lambda>
+    lambda: hydra.run(
+            ^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/hydra.py", line 132, in run
+    _ = ret.return_value
+        ^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 260, in return_value
+    raise self._return_value
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 186, in run_job
+    ret.return_value = task_function(task_cfg)
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 436, in main
+    train(
+  File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 274, in train
+    epoch, val_loss = checkpointer.load(
+                      ^^^^^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 253, in load
+    raise RuntimeError(
+RuntimeError: Failed to load checkpoint from /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/B/checkpoints/step_1: Backend nccl does not support allgather_into_tensor_coalesced
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 243, in load
+[rank0]:     dcp.load(
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/logger.py", line 83, in wrapper
+[rank0]:     result = func(*args, **kwargs)
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/utils.py", line 429, in inner_func
+[rank0]:     return func(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict_loader.py", line 182, in load
+[rank0]:     elem.load_state_dict(statetful_sd[key])
+[rank0]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 128, in load_state_dict
+[rank0]:     set_state_dict(
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict.py", line 1301, in set_state_dict
+[rank0]:     _load_optim_state_dict(model, optimizers, optim_state_dict, info)
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank0]:     return func(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/state_dict.py", line 918, in _load_optim_state_dict
+[rank0]:     optim_state_dict = FSDP.optim_state_dict_to_load(
+[rank0]:                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py", line 1979, in optim_state_dict_to_load
+[rank0]:     result = FullyShardedDataParallel._optim_state_dict_to_load_impl(
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py", line 1357, in _optim_state_dict_to_load_impl
+[rank0]:     sharded_osd = _flatten_optim_state_dict(
+[rank0]:                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_optim_utils.py", line 488, in _flatten_optim_state_dict
+[rank0]:     flat_state = _shard_orig_param_state(
+[rank0]:                  ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/fsdp/_optim_utils.py", line 396, in _shard_orig_param_state
+[rank0]:     optim_state = _gather_state_dict(
+[rank0]:                   ^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 281, in _gather_state_dict
+[rank0]:     return _iterate_state_dict(
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 145, in _iterate_state_dict
+[rank0]:     ret = {
+[rank0]:           ^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 146, in <dictcomp>
+[rank0]:     key: _iterate_state_dict(
+[rank0]:          ^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 125, in _iterate_state_dict
+[rank0]:     ret = dtensor_func(iter_object, pg, device, companion_obj)
+[rank0]:           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_state_dict_utils.py", line 269, in dtensor_func
+[rank0]:     value = value.redistribute(
+[rank0]:             ^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_api.py", line 538, in redistribute
+[rank0]:     return Redistribute.apply(self, device_mesh, placements, async_op)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/autograd/function.py", line 575, in apply
+[rank0]:     return super().apply(*args, **kwargs)  # type: ignore[misc]
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_redistribute.py", line 294, in forward
+[rank0]:     output = redistribute_local_tensor(
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/_redistribute.py", line 200, in redistribute_local_tensor
+[rank0]:     new_local_tensor = current_placement._to_replicate_tensor(
+[rank0]:                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/tensor/placement_types.py", line 244, in _to_replicate_tensor
+[rank0]:     result = funcol.all_gather_tensor(
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/_functional_collectives.py", line 204, in all_gather_tensor
+[rank0]:     tensor = torch.ops._c10d_functional.all_gather_into_tensor(
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/_ops.py", line 1116, in __call__
+[rank0]:     return self._op(*args, **(kwargs or {}))
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]: RuntimeError: Backend nccl does not support allgather_into_tensor_coalesced
+
+[rank0]: During handling of the above exception, another exception occurred:
+
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 452, in <module>
+[rank0]:     main()
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/main.py", line 94, in decorated_main
+[rank0]:     _run_hydra(
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 394, in _run_hydra
+[rank0]:     _run_app(
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 457, in _run_app
+[rank0]:     run_and_report(
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 223, in run_and_report
+[rank0]:     raise ex
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 220, in run_and_report
+[rank0]:     return func()
+[rank0]:            ^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/utils.py", line 458, in <lambda>
+[rank0]:     lambda: hydra.run(
+[rank0]:             ^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/_internal/hydra.py", line 132, in run
+[rank0]:     _ = ret.return_value
+[rank0]:         ^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 260, in return_value
+[rank0]:     raise self._return_value
+[rank0]:   File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/hydra/core/utils.py", line 186, in run_job
+[rank0]:     ret.return_value = task_function(task_cfg)
+[rank0]:                        ^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 436, in main
+[rank0]:     train(
+[rank0]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/train.py", line 274, in train
+[rank0]:     epoch, val_loss = checkpointer.load(
+[rank0]:                       ^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py", line 253, in load
+[rank0]:     raise RuntimeError(
+[rank0]: RuntimeError: Failed to load checkpoint from /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/B/checkpoints/step_1: Backend nccl does not support allgather_into_tensor_coalesced
+W1011 23:21:10.569000 1119148 torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1119194 closing signal SIGTERM
+W1011 23:21:10.569000 1119148 torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1119195 closing signal SIGTERM
+W1011 23:21:10.570000 1119148 torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1119196 closing signal SIGTERM
+E1011 23:21:10.847000 1119148 torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 0 (pid: 1119193) of binary: /leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/bin/python
+Traceback (most recent call last):
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/bin/torchrun", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/run.py", line 919, in main
+    run(args)
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/run.py", line 910, in run
+    elastic_launch(
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+train.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-10-11_23:21:10
+  host      : lrdn2995-net9-3.leonardo.local
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 1119193)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
+srun: error: lrdn2995: task 0: Exited with exit code 1

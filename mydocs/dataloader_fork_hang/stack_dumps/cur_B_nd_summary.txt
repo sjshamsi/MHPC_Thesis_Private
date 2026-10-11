@@ -1,3 +1,10 @@
 Current code, B's exact script, TORCH_DISTRIBUTED_DEBUG off: watchdog stack dumps grouped by main-thread stack
 59856184 (cur_B_nd_1): 40 dumps: {'rank waiting in DataLoader.__next__': 1, 'idle worker / other': 38, 'STUCK WORKER frozen in worker.py:259 torch.set_num_threads(1)': 1}
 59856185 (cur_B_nd_2): 44 dumps: {'rank waiting in DataLoader.__next__': 1, 'idle worker / other': 42, 'STUCK WORKER frozen in worker.py:259 torch.set_num_threads(1)': 1}
+
+Round 2 (2026-10-11, same script and code, §7f):
+60037693 (cur_B_nd_1): 44 dumps: {'rank waiting in DataLoader.__next__': 1, 'idle worker / other': 42, 'STUCK WORKER frozen in worker.py:259 torch.set_num_threads(1)': 1}
+60040489 (cur_B_nd_2): 44 dumps: {'rank waiting in DataLoader.__next__': 1, 'idle worker / other': 42, 'STUCK WORKER frozen in worker.py:259 torch.set_num_threads(1)': 1}
+In both round-2 runs the 42 "idle worker / other" dumps are 39 idle workers (multiprocessing connection wait)
+plus the 3 other ranks, whose main thread is in the next micro-batch's forward
+(walrus/models/isotropic_model.py:235 _encoder_forward), blocked behind the FSDP collective the missing rank never joins.
