@@ -1,0 +1,2381 @@
+[2026-10-11 23:33:15,933][walrus.utils.experiment_utils][INFO] - Using override experiment folder /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A
+[2026-10-11 23:33:15,933][walrus.utils.experiment_utils][INFO] - Using override experiment folder /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A
+[2026-10-11 23:33:15,933][walrus.utils.experiment_utils][INFO] - Using override experiment folder /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A
+[2026-10-11 23:33:15,934][walrus.utils.experiment_utils][INFO] - Using override experiment folder /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A
+[2026-10-11 23:33:16,044][walrus.utils.experiment_utils][INFO] - Combining current field_index_map_override with previous config.
+[2026-10-11 23:33:16,044][walrus.utils.experiment_utils][INFO] - Combining current field_index_map_override with previous config.
+[2026-10-11 23:33:16,045][walrus.utils.experiment_utils][INFO] - Combining current field_index_map_override with previous config.
+[2026-10-11 23:33:16,047][walrus][INFO] - Run experiment p9_determinism_A-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+[2026-10-11 23:33:16,047][walrus][INFO] - Run experiment p9_determinism_A-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+[2026-10-11 23:33:16,047][walrus][INFO] - Run experiment p9_determinism_A-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+[2026-10-11 23:33:16,057][walrus.utils.experiment_utils][INFO] - Combining current field_index_map_override with previous config.
+[2026-10-11 23:33:16,059][walrus][INFO] - Configuration:
+data_workers: 10
+name: p9_determinism_A-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+finetune: false
+automatic_setup: true
+seed: 0
+trainer:
+  _target_: walrus.trainer.Trainer
+  max_epoch: 2
+  val_frequency: 2
+  rollout_val_frequency: 5
+  short_validation_length: 2
+  max_rollout_steps: 2
+  num_time_intervals: 5
+  enable_amp: false
+  loss_fn:
+    _target_: the_well.benchmark.metrics.MAE
+  formatter:
+    _target_: hydra.utils.get_class
+    path: walrus.data.well_to_multi_transformer.ChannelsFirstWithTimeFormatter
+  revin:
+    _target_: walrus.trainer.normalization_strat.SamplewiseRevNormalization
+    _partial_: true
+  prediction_type: delta
+  grad_acc_steps: 4
+  image_validation: true
+  video_validation: false
+  gradient_log_level: 0
+  clip_gradient: 10
+  log_interval: 10
+  loss_multiplier: 100.0
+  lr_scheduler_per_step: false
+  validation_suite:
+  - _target_: the_well.benchmark.metrics.NRMSE
+  - _target_: the_well.benchmark.metrics.VRMSE
+  - _target_: the_well.benchmark.metrics.binned_spectral_mse
+  - _target_: the_well.benchmark.metrics.PearsonR
+  batch_aggregation_fns:
+  - torch.mean
+  - torch.median
+  - torch.std
+  skip_spectral_metrics: true
+  debug_mode: true
+optimizer:
+  _target_: torch.optim.AdamW
+  weight_decay: 0.0001
+  eps: 1.0e-10
+  lr: 0.0002
+lr_scheduler:
+  _target_: walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+  warmup_epochs: 10
+  cooldown_epochs: 10
+  warmup_lr_factor: 0.1
+  cooldown_lr_factor: 0.001
+model:
+  encoder:
+    _partial_: true
+    _target_: walrus.models.encoders.vstride_encoder.SpaceBagAdaptiveDVstrideEncoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    kernel_scales_seq:
+    - - 2
+      - 2
+    - - 4
+      - 2
+    - - 4
+      - 4
+    - - 8
+      - 4
+    variable_downsample: true
+    variable_deterministic_ds: true
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  decoder:
+    _partial_: true
+    _target_: walrus.models.decoders.vstride_decoder.AdaptiveDVstrideDecoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  processor:
+    space_mixing:
+      _partial_: true
+      _target_: walrus.models.spatial_blocks.full_attention.FullAttention
+      num_heads: 16
+      mlp_dim: 768
+    time_mixing:
+      _partial_: true
+      _target_: walrus.models.temporal_blocks.axial_time_attention.AxialTimeAttention
+      num_heads: 16
+      bias_type: rel
+    channel_mixing:
+      _partial_: true
+      _target_: torch.nn.Identity
+    _partial_: true
+    _target_: walrus.models.spatiotemporal_blocks.space_time_split.SpaceTimeSplitBlock
+  norm_layer:
+    _partial_: true
+    _target_: walrus.models.shared_utils.normalization.RMSGroupNorm
+  _target_: walrus.models.IsotropicModel
+  hidden_dim: 320
+  projection_dim: 48
+  intermediate_dim: 352
+  processor_blocks: 6
+  drop_path: 0.05
+  groups: 16
+  max_d: 3
+  causal_in_time: true
+  include_d:
+  - 2
+  - 3
+  override_dimensionality: 3
+  jitter_patches: true
+  gradient_checkpointing_freq: 0
+  use_periodic_fixed_jitter: true
+  input_field_drop: 0.0
+data:
+  field_index_map_override:
+    closed_boundary: 0
+    open_boundary: 1
+    bias_correction: 2
+    pressure: 3
+    velocity_x: 4
+    velocity_y: 5
+    velocity_z: 6
+    zeros_like_density: 7
+    speed_of_sound: 8
+    concentration: 9
+    D_xx: 10
+    D_xy: 11
+    D_xz: 12
+    D_yx: 13
+    D_yy: 14
+    D_yz: 15
+    D_zx: 16
+    D_zy: 17
+    D_zz: 18
+    E_xx: 19
+    E_xy: 20
+    E_xz: 21
+    E_yx: 22
+    E_yy: 23
+    E_yz: 24
+    E_zx: 25
+    E_zy: 26
+    E_zz: 27
+    density: 28
+    energy: 29
+    velocity_r: 30
+    velocity_theta: 31
+    velocity_phi: 32
+    momentum_x: 33
+    momentum_y: 34
+    momentum_z: 35
+    pressure_re: 36
+    pressure_im: 37
+    mask: 38
+    magnetic_field_x: 39
+    magnetic_field_y: 40
+    magnetic_field_z: 41
+    A: 42
+    B: 43
+    height: 44
+    internal_energy: 45
+    temperature: 46
+    electron_fraction: 47
+    entropy: 48
+    magnetic_field_log_r: 49
+    magnetic_field_theta: 50
+    magnetic_field_phi: 51
+    velocity_log_r: 52
+    buoyancy: 53
+    tracer: 54
+    log10_density: 55
+    log10_temperature: 56
+    c_zz: 57
+    C_xx: 58
+    C_xy: 59
+    C_xz: 60
+    C_yx: 61
+    C_yy: 62
+    C_yz: 63
+    C_zx: 64
+    C_zy: 65
+    C_zz: 66
+  transform:
+    train:
+      _target_: the_well.data.augmentation.RandomRotation90
+      p: 1.0
+  well_base_path: /leonardo_work/ICT26_MHPC_0/sshamsi/datasets/
+  wandb_data_name: well_pretrain9_2d
+  module_parameters:
+    _target_: walrus.data.MixedWellDataModule
+    batch_size: 2
+    n_steps_input: 6
+    n_steps_output: 1
+    min_dt_stride: 1
+    max_dt_stride: 5
+    max_samples: 100
+    well_dataset_info:
+      acoustic_scattering_discontinuous:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_inclusions:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_maze:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      euler_multi_quadrants_openBC:
+        include_filters: []
+        exclude_filters: []
+      euler_multi_quadrants_periodicBC:
+        include_filters: []
+        exclude_filters: []
+      gray_scott_reaction_diffusion:
+        include_filters: []
+        exclude_filters: []
+      planetswe:
+        include_filters: []
+        exclude_filters: []
+      rayleigh_benard:
+        include_filters: []
+        exclude_filters: []
+      shear_flow:
+        include_filters: []
+        exclude_filters: []
+auto_resume: true
+folder_override: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A
+checkpoint_override: ''
+config_override: ''
+validation_mode: false
+frozen_components:
+- model
+distribution:
+  distribution_type: fsdp
+  local_size: null
+logger:
+  wandb: true
+  wandb_project_name: p9_determinism
+checkpoint:
+  _target_: walrus.trainer.checkpoints.CheckPointer
+  save_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints
+  load_checkpoint_path: null
+  coalesced_checkpoint_path: null
+  save_best: true
+  checkpoint_frequency: 1
+  align_fields: true
+  load_chkpt_after_finetuning_expansion: false
+finetuning_mods: {}
+experiment_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs
+
+[2026-10-11 23:33:16,059][walrus][INFO] - Configuration:
+data_workers: 10
+name: p9_determinism_A-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+finetune: false
+automatic_setup: true
+seed: 0
+trainer:
+  _target_: walrus.trainer.Trainer
+  max_epoch: 2
+  val_frequency: 2
+  rollout_val_frequency: 5
+  short_validation_length: 2
+  max_rollout_steps: 2
+  num_time_intervals: 5
+  enable_amp: false
+  loss_fn:
+    _target_: the_well.benchmark.metrics.MAE
+  formatter:
+    _target_: hydra.utils.get_class
+    path: walrus.data.well_to_multi_transformer.ChannelsFirstWithTimeFormatter
+  revin:
+    _target_: walrus.trainer.normalization_strat.SamplewiseRevNormalization
+    _partial_: true
+  prediction_type: delta
+  grad_acc_steps: 4
+  image_validation: true
+  video_validation: false
+  gradient_log_level: 0
+  clip_gradient: 10
+  log_interval: 10
+  loss_multiplier: 100.0
+  lr_scheduler_per_step: false
+  validation_suite:
+  - _target_: the_well.benchmark.metrics.NRMSE
+  - _target_: the_well.benchmark.metrics.VRMSE
+  - _target_: the_well.benchmark.metrics.binned_spectral_mse
+  - _target_: the_well.benchmark.metrics.PearsonR
+  batch_aggregation_fns:
+  - torch.mean
+  - torch.median
+  - torch.std
+  skip_spectral_metrics: true
+  debug_mode: true
+optimizer:
+  _target_: torch.optim.AdamW
+  weight_decay: 0.0001
+  eps: 1.0e-10
+  lr: 0.0002
+lr_scheduler:
+  _target_: walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+  warmup_epochs: 10
+  cooldown_epochs: 10
+  warmup_lr_factor: 0.1
+  cooldown_lr_factor: 0.001
+model:
+  encoder:
+    _partial_: true
+    _target_: walrus.models.encoders.vstride_encoder.SpaceBagAdaptiveDVstrideEncoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    kernel_scales_seq:
+    - - 2
+      - 2
+    - - 4
+      - 2
+    - - 4
+      - 4
+    - - 8
+      - 4
+    variable_downsample: true
+    variable_deterministic_ds: true
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  decoder:
+    _partial_: true
+    _target_: walrus.models.decoders.vstride_decoder.AdaptiveDVstrideDecoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  processor:
+    space_mixing:
+      _partial_: true
+      _target_: walrus.models.spatial_blocks.full_attention.FullAttention
+      num_heads: 16
+      mlp_dim: 768
+    time_mixing:
+      _partial_: true
+      _target_: walrus.models.temporal_blocks.axial_time_attention.AxialTimeAttention
+      num_heads: 16
+      bias_type: rel
+    channel_mixing:
+      _partial_: true
+      _target_: torch.nn.Identity
+    _partial_: true
+    _target_: walrus.models.spatiotemporal_blocks.space_time_split.SpaceTimeSplitBlock
+  norm_layer:
+    _partial_: true
+    _target_: walrus.models.shared_utils.normalization.RMSGroupNorm
+  _target_: walrus.models.IsotropicModel
+  hidden_dim: 320
+  projection_dim: 48
+  intermediate_dim: 352
+  processor_blocks: 6
+  drop_path: 0.05
+  groups: 16
+  max_d: 3
+  causal_in_time: true
+  include_d:
+  - 2
+  - 3
+  override_dimensionality: 3
+  jitter_patches: true
+  gradient_checkpointing_freq: 0
+  use_periodic_fixed_jitter: true
+  input_field_drop: 0.0
+data:
+  field_index_map_override:
+    closed_boundary: 0
+    open_boundary: 1
+    bias_correction: 2
+    pressure: 3
+    velocity_x: 4
+    velocity_y: 5
+    velocity_z: 6
+    zeros_like_density: 7
+    speed_of_sound: 8
+    concentration: 9
+    D_xx: 10
+    D_xy: 11
+    D_xz: 12
+    D_yx: 13
+    D_yy: 14
+    D_yz: 15
+    D_zx: 16
+    D_zy: 17
+    D_zz: 18
+    E_xx: 19
+    E_xy: 20
+    E_xz: 21
+    E_yx: 22
+    E_yy: 23
+    E_yz: 24
+    E_zx: 25
+    E_zy: 26
+    E_zz: 27
+    density: 28
+    energy: 29
+    velocity_r: 30
+    velocity_theta: 31
+    velocity_phi: 32
+    momentum_x: 33
+    momentum_y: 34
+    momentum_z: 35
+    pressure_re: 36
+    pressure_im: 37
+    mask: 38
+    magnetic_field_x: 39
+    magnetic_field_y: 40
+    magnetic_field_z: 41
+    A: 42
+    B: 43
+    height: 44
+    internal_energy: 45
+    temperature: 46
+    electron_fraction: 47
+    entropy: 48
+    magnetic_field_log_r: 49
+    magnetic_field_theta: 50
+    magnetic_field_phi: 51
+    velocity_log_r: 52
+    buoyancy: 53
+    tracer: 54
+    log10_density: 55
+    log10_temperature: 56
+    c_zz: 57
+    C_xx: 58
+    C_xy: 59
+    C_xz: 60
+    C_yx: 61
+    C_yy: 62
+    C_yz: 63
+    C_zx: 64
+    C_zy: 65
+    C_zz: 66
+  transform:
+    train:
+      _target_: the_well.data.augmentation.RandomRotation90
+      p: 1.0
+  well_base_path: /leonardo_work/ICT26_MHPC_0/sshamsi/datasets/
+  wandb_data_name: well_pretrain9_2d
+  module_parameters:
+    _target_: walrus.data.MixedWellDataModule
+    batch_size: 2
+    n_steps_input: 6
+    n_steps_output: 1
+    min_dt_stride: 1
+    max_dt_stride: 5
+    max_samples: 100
+    well_dataset_info:
+      acoustic_scattering_discontinuous:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_inclusions:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_maze:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      euler_multi_quadrants_openBC:
+        include_filters: []
+        exclude_filters: []
+      euler_multi_quadrants_periodicBC:
+        include_filters: []
+        exclude_filters: []
+      gray_scott_reaction_diffusion:
+        include_filters: []
+        exclude_filters: []
+      planetswe:
+        include_filters: []
+        exclude_filters: []
+      rayleigh_benard:
+        include_filters: []
+        exclude_filters: []
+      shear_flow:
+        include_filters: []
+        exclude_filters: []
+auto_resume: true
+folder_override: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A
+checkpoint_override: ''
+config_override: ''
+validation_mode: false
+frozen_components:
+- model
+distribution:
+  distribution_type: fsdp
+  local_size: null
+logger:
+  wandb: true
+  wandb_project_name: p9_determinism
+checkpoint:
+  _target_: walrus.trainer.checkpoints.CheckPointer
+  save_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints
+  load_checkpoint_path: null
+  coalesced_checkpoint_path: null
+  save_best: true
+  checkpoint_frequency: 1
+  align_fields: true
+  load_chkpt_after_finetuning_expansion: false
+finetuning_mods: {}
+experiment_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs
+
+[2026-10-11 23:33:16,059][walrus][INFO] - Configuration:
+data_workers: 10
+name: p9_determinism_A-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+finetune: false
+automatic_setup: true
+seed: 0
+trainer:
+  _target_: walrus.trainer.Trainer
+  max_epoch: 2
+  val_frequency: 2
+  rollout_val_frequency: 5
+  short_validation_length: 2
+  max_rollout_steps: 2
+  num_time_intervals: 5
+  enable_amp: false
+  loss_fn:
+    _target_: the_well.benchmark.metrics.MAE
+  formatter:
+    _target_: hydra.utils.get_class
+    path: walrus.data.well_to_multi_transformer.ChannelsFirstWithTimeFormatter
+  revin:
+    _target_: walrus.trainer.normalization_strat.SamplewiseRevNormalization
+    _partial_: true
+  prediction_type: delta
+  grad_acc_steps: 4
+  image_validation: true
+  video_validation: false
+  gradient_log_level: 0
+  clip_gradient: 10
+  log_interval: 10
+  loss_multiplier: 100.0
+  lr_scheduler_per_step: false
+  validation_suite:
+  - _target_: the_well.benchmark.metrics.NRMSE
+  - _target_: the_well.benchmark.metrics.VRMSE
+  - _target_: the_well.benchmark.metrics.binned_spectral_mse
+  - _target_: the_well.benchmark.metrics.PearsonR
+  batch_aggregation_fns:
+  - torch.mean
+  - torch.median
+  - torch.std
+  skip_spectral_metrics: true
+  debug_mode: true
+optimizer:
+  _target_: torch.optim.AdamW
+  weight_decay: 0.0001
+  eps: 1.0e-10
+  lr: 0.0002
+lr_scheduler:
+  _target_: walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+  warmup_epochs: 10
+  cooldown_epochs: 10
+  warmup_lr_factor: 0.1
+  cooldown_lr_factor: 0.001
+model:
+  encoder:
+    _partial_: true
+    _target_: walrus.models.encoders.vstride_encoder.SpaceBagAdaptiveDVstrideEncoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    kernel_scales_seq:
+    - - 2
+      - 2
+    - - 4
+      - 2
+    - - 4
+      - 4
+    - - 8
+      - 4
+    variable_downsample: true
+    variable_deterministic_ds: true
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  decoder:
+    _partial_: true
+    _target_: walrus.models.decoders.vstride_decoder.AdaptiveDVstrideDecoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  processor:
+    space_mixing:
+      _partial_: true
+      _target_: walrus.models.spatial_blocks.full_attention.FullAttention
+      num_heads: 16
+      mlp_dim: 768
+    time_mixing:
+      _partial_: true
+      _target_: walrus.models.temporal_blocks.axial_time_attention.AxialTimeAttention
+      num_heads: 16
+      bias_type: rel
+    channel_mixing:
+      _partial_: true
+      _target_: torch.nn.Identity
+    _partial_: true
+    _target_: walrus.models.spatiotemporal_blocks.space_time_split.SpaceTimeSplitBlock
+  norm_layer:
+    _partial_: true
+    _target_: walrus.models.shared_utils.normalization.RMSGroupNorm
+  _target_: walrus.models.IsotropicModel
+  hidden_dim: 320
+  projection_dim: 48
+  intermediate_dim: 352
+  processor_blocks: 6
+  drop_path: 0.05
+  groups: 16
+  max_d: 3
+  causal_in_time: true
+  include_d:
+  - 2
+  - 3
+  override_dimensionality: 3
+  jitter_patches: true
+  gradient_checkpointing_freq: 0
+  use_periodic_fixed_jitter: true
+  input_field_drop: 0.0
+data:
+  field_index_map_override:
+    closed_boundary: 0
+    open_boundary: 1
+    bias_correction: 2
+    pressure: 3
+    velocity_x: 4
+    velocity_y: 5
+    velocity_z: 6
+    zeros_like_density: 7
+    speed_of_sound: 8
+    concentration: 9
+    D_xx: 10
+    D_xy: 11
+    D_xz: 12
+    D_yx: 13
+    D_yy: 14
+    D_yz: 15
+    D_zx: 16
+    D_zy: 17
+    D_zz: 18
+    E_xx: 19
+    E_xy: 20
+    E_xz: 21
+    E_yx: 22
+    E_yy: 23
+    E_yz: 24
+    E_zx: 25
+    E_zy: 26
+    E_zz: 27
+    density: 28
+    energy: 29
+    velocity_r: 30
+    velocity_theta: 31
+    velocity_phi: 32
+    momentum_x: 33
+    momentum_y: 34
+    momentum_z: 35
+    pressure_re: 36
+    pressure_im: 37
+    mask: 38
+    magnetic_field_x: 39
+    magnetic_field_y: 40
+    magnetic_field_z: 41
+    A: 42
+    B: 43
+    height: 44
+    internal_energy: 45
+    temperature: 46
+    electron_fraction: 47
+    entropy: 48
+    magnetic_field_log_r: 49
+    magnetic_field_theta: 50
+    magnetic_field_phi: 51
+    velocity_log_r: 52
+    buoyancy: 53
+    tracer: 54
+    log10_density: 55
+    log10_temperature: 56
+    c_zz: 57
+    C_xx: 58
+    C_xy: 59
+    C_xz: 60
+    C_yx: 61
+    C_yy: 62
+    C_yz: 63
+    C_zx: 64
+    C_zy: 65
+    C_zz: 66
+  transform:
+    train:
+      _target_: the_well.data.augmentation.RandomRotation90
+      p: 1.0
+  well_base_path: /leonardo_work/ICT26_MHPC_0/sshamsi/datasets/
+  wandb_data_name: well_pretrain9_2d
+  module_parameters:
+    _target_: walrus.data.MixedWellDataModule
+    batch_size: 2
+    n_steps_input: 6
+    n_steps_output: 1
+    min_dt_stride: 1
+    max_dt_stride: 5
+    max_samples: 100
+    well_dataset_info:
+      acoustic_scattering_discontinuous:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_inclusions:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_maze:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      euler_multi_quadrants_openBC:
+        include_filters: []
+        exclude_filters: []
+      euler_multi_quadrants_periodicBC:
+        include_filters: []
+        exclude_filters: []
+      gray_scott_reaction_diffusion:
+        include_filters: []
+        exclude_filters: []
+      planetswe:
+        include_filters: []
+        exclude_filters: []
+      rayleigh_benard:
+        include_filters: []
+        exclude_filters: []
+      shear_flow:
+        include_filters: []
+        exclude_filters: []
+auto_resume: true
+folder_override: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A
+checkpoint_override: ''
+config_override: ''
+validation_mode: false
+frozen_components:
+- model
+distribution:
+  distribution_type: fsdp
+  local_size: null
+logger:
+  wandb: true
+  wandb_project_name: p9_determinism
+checkpoint:
+  _target_: walrus.trainer.checkpoints.CheckPointer
+  save_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints
+  load_checkpoint_path: null
+  coalesced_checkpoint_path: null
+  save_best: true
+  checkpoint_frequency: 1
+  align_fields: true
+  load_chkpt_after_finetuning_expansion: false
+finetuning_mods: {}
+experiment_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs
+
+[2026-10-11 23:33:16,060][walrus][INFO] - Run experiment p9_determinism_A-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+[2026-10-11 23:33:16,061][walrus][INFO] - Instantiate datamodule well_pretrain9_2d
+[2026-10-11 23:33:16,061][walrus][INFO] - Instantiate datamodule well_pretrain9_2d
+[2026-10-11 23:33:16,061][walrus][INFO] - Instantiate datamodule well_pretrain9_2d
+[2026-10-11 23:33:16,072][walrus][INFO] - Configuration:
+data_workers: 10
+name: p9_determinism_A-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+finetune: false
+automatic_setup: true
+seed: 0
+trainer:
+  _target_: walrus.trainer.Trainer
+  max_epoch: 2
+  val_frequency: 2
+  rollout_val_frequency: 5
+  short_validation_length: 2
+  max_rollout_steps: 2
+  num_time_intervals: 5
+  enable_amp: false
+  loss_fn:
+    _target_: the_well.benchmark.metrics.MAE
+  formatter:
+    _target_: hydra.utils.get_class
+    path: walrus.data.well_to_multi_transformer.ChannelsFirstWithTimeFormatter
+  revin:
+    _target_: walrus.trainer.normalization_strat.SamplewiseRevNormalization
+    _partial_: true
+  prediction_type: delta
+  grad_acc_steps: 4
+  image_validation: true
+  video_validation: false
+  gradient_log_level: 0
+  clip_gradient: 10
+  log_interval: 10
+  loss_multiplier: 100.0
+  lr_scheduler_per_step: false
+  validation_suite:
+  - _target_: the_well.benchmark.metrics.NRMSE
+  - _target_: the_well.benchmark.metrics.VRMSE
+  - _target_: the_well.benchmark.metrics.binned_spectral_mse
+  - _target_: the_well.benchmark.metrics.PearsonR
+  batch_aggregation_fns:
+  - torch.mean
+  - torch.median
+  - torch.std
+  skip_spectral_metrics: true
+  debug_mode: true
+optimizer:
+  _target_: torch.optim.AdamW
+  weight_decay: 0.0001
+  eps: 1.0e-10
+  lr: 0.0002
+lr_scheduler:
+  _target_: walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+  warmup_epochs: 10
+  cooldown_epochs: 10
+  warmup_lr_factor: 0.1
+  cooldown_lr_factor: 0.001
+model:
+  encoder:
+    _partial_: true
+    _target_: walrus.models.encoders.vstride_encoder.SpaceBagAdaptiveDVstrideEncoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    kernel_scales_seq:
+    - - 2
+      - 2
+    - - 4
+      - 2
+    - - 4
+      - 4
+    - - 8
+      - 4
+    variable_downsample: true
+    variable_deterministic_ds: true
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  decoder:
+    _partial_: true
+    _target_: walrus.models.decoders.vstride_decoder.AdaptiveDVstrideDecoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  processor:
+    space_mixing:
+      _partial_: true
+      _target_: walrus.models.spatial_blocks.full_attention.FullAttention
+      num_heads: 16
+      mlp_dim: 768
+    time_mixing:
+      _partial_: true
+      _target_: walrus.models.temporal_blocks.axial_time_attention.AxialTimeAttention
+      num_heads: 16
+      bias_type: rel
+    channel_mixing:
+      _partial_: true
+      _target_: torch.nn.Identity
+    _partial_: true
+    _target_: walrus.models.spatiotemporal_blocks.space_time_split.SpaceTimeSplitBlock
+  norm_layer:
+    _partial_: true
+    _target_: walrus.models.shared_utils.normalization.RMSGroupNorm
+  _target_: walrus.models.IsotropicModel
+  hidden_dim: 320
+  projection_dim: 48
+  intermediate_dim: 352
+  processor_blocks: 6
+  drop_path: 0.05
+  groups: 16
+  max_d: 3
+  causal_in_time: true
+  include_d:
+  - 2
+  - 3
+  override_dimensionality: 3
+  jitter_patches: true
+  gradient_checkpointing_freq: 0
+  use_periodic_fixed_jitter: true
+  input_field_drop: 0.0
+data:
+  field_index_map_override:
+    closed_boundary: 0
+    open_boundary: 1
+    bias_correction: 2
+    pressure: 3
+    velocity_x: 4
+    velocity_y: 5
+    velocity_z: 6
+    zeros_like_density: 7
+    speed_of_sound: 8
+    concentration: 9
+    D_xx: 10
+    D_xy: 11
+    D_xz: 12
+    D_yx: 13
+    D_yy: 14
+    D_yz: 15
+    D_zx: 16
+    D_zy: 17
+    D_zz: 18
+    E_xx: 19
+    E_xy: 20
+    E_xz: 21
+    E_yx: 22
+    E_yy: 23
+    E_yz: 24
+    E_zx: 25
+    E_zy: 26
+    E_zz: 27
+    density: 28
+    energy: 29
+    velocity_r: 30
+    velocity_theta: 31
+    velocity_phi: 32
+    momentum_x: 33
+    momentum_y: 34
+    momentum_z: 35
+    pressure_re: 36
+    pressure_im: 37
+    mask: 38
+    magnetic_field_x: 39
+    magnetic_field_y: 40
+    magnetic_field_z: 41
+    A: 42
+    B: 43
+    height: 44
+    internal_energy: 45
+    temperature: 46
+    electron_fraction: 47
+    entropy: 48
+    magnetic_field_log_r: 49
+    magnetic_field_theta: 50
+    magnetic_field_phi: 51
+    velocity_log_r: 52
+    buoyancy: 53
+    tracer: 54
+    log10_density: 55
+    log10_temperature: 56
+    c_zz: 57
+    C_xx: 58
+    C_xy: 59
+    C_xz: 60
+    C_yx: 61
+    C_yy: 62
+    C_yz: 63
+    C_zx: 64
+    C_zy: 65
+    C_zz: 66
+  transform:
+    train:
+      _target_: the_well.data.augmentation.RandomRotation90
+      p: 1.0
+  well_base_path: /leonardo_work/ICT26_MHPC_0/sshamsi/datasets/
+  wandb_data_name: well_pretrain9_2d
+  module_parameters:
+    _target_: walrus.data.MixedWellDataModule
+    batch_size: 2
+    n_steps_input: 6
+    n_steps_output: 1
+    min_dt_stride: 1
+    max_dt_stride: 5
+    max_samples: 100
+    well_dataset_info:
+      acoustic_scattering_discontinuous:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_inclusions:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_maze:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      euler_multi_quadrants_openBC:
+        include_filters: []
+        exclude_filters: []
+      euler_multi_quadrants_periodicBC:
+        include_filters: []
+        exclude_filters: []
+      gray_scott_reaction_diffusion:
+        include_filters: []
+        exclude_filters: []
+      planetswe:
+        include_filters: []
+        exclude_filters: []
+      rayleigh_benard:
+        include_filters: []
+        exclude_filters: []
+      shear_flow:
+        include_filters: []
+        exclude_filters: []
+auto_resume: true
+folder_override: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A
+checkpoint_override: ''
+config_override: ''
+validation_mode: false
+frozen_components:
+- model
+distribution:
+  distribution_type: fsdp
+  local_size: null
+logger:
+  wandb: true
+  wandb_project_name: p9_determinism
+checkpoint:
+  _target_: walrus.trainer.checkpoints.CheckPointer
+  save_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints
+  load_checkpoint_path: null
+  coalesced_checkpoint_path: null
+  save_best: true
+  checkpoint_frequency: 1
+  align_fields: true
+  load_chkpt_after_finetuning_expansion: false
+finetuning_mods: {}
+experiment_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs
+
+[2026-10-11 23:33:21,559][walrus][INFO] - Instantiate datamodule well_pretrain9_2d
+[2026-10-11 23:33:47,774][walrus.data.multidataset][WARNING] - Failed to load convective_envelope_rsg dataset
+[2026-10-11 23:33:47,774][walrus.data.multidataset][WARNING] - Failed to load convective_envelope_rsg dataset
+[2026-10-11 23:33:47,774][walrus.data.multidataset][WARNING] - Failed to load convective_envelope_rsg dataset
+[2026-10-11 23:33:47,774][walrus.data.multidataset][WARNING] - Failed to load convective_envelope_rsg dataset
+[2026-10-11 23:33:50,297][walrus.data.multidataset][WARNING] - Failed to load MHD_256 dataset
+[2026-10-11 23:33:50,297][walrus.data.multidataset][WARNING] - Failed to load MHD_256 dataset
+[2026-10-11 23:33:50,297][walrus.data.multidataset][WARNING] - Failed to load MHD_256 dataset
+[2026-10-11 23:33:50,297][walrus.data.multidataset][WARNING] - Failed to load MHD_256 dataset
+[2026-10-11 23:33:50,855][walrus.data.multidataset][WARNING] - Failed to load post_neutron_star_merger dataset
+[2026-10-11 23:33:50,855][walrus.data.multidataset][WARNING] - Failed to load post_neutron_star_merger dataset
+[2026-10-11 23:33:50,855][walrus.data.multidataset][WARNING] - Failed to load post_neutron_star_merger dataset
+[2026-10-11 23:33:50,855][walrus.data.multidataset][WARNING] - Failed to load post_neutron_star_merger dataset
+[2026-10-11 23:33:51,068][walrus.data.multidataset][WARNING] - Failed to load rayleigh_benard_uniform dataset
+[2026-10-11 23:33:51,068][walrus.data.multidataset][WARNING] - Failed to load rayleigh_benard_uniform dataset
+[2026-10-11 23:33:51,068][walrus.data.multidataset][WARNING] - Failed to load rayleigh_benard_uniform dataset
+[2026-10-11 23:33:51,068][walrus.data.multidataset][WARNING] - Failed to load rayleigh_benard_uniform dataset
+[2026-10-11 23:33:51,843][walrus.data.multidataset][WARNING] - Failed to load supernova_explosion_64 dataset
+[2026-10-11 23:33:51,843][walrus.data.multidataset][WARNING] - Failed to load supernova_explosion_64 dataset
+[2026-10-11 23:33:51,843][walrus.data.multidataset][WARNING] - Failed to load supernova_explosion_64 dataset
+[2026-10-11 23:33:51,843][walrus.data.multidataset][WARNING] - Failed to load supernova_explosion_64 dataset
+[2026-10-11 23:33:58,602][walrus.data.multidataset][WARNING] - Failed to load viscoelastic_instability_v2 dataset
+[2026-10-11 23:33:58,602][walrus.data.multidataset][WARNING] - Failed to load viscoelastic_instability_v2 dataset
+[2026-10-11 23:33:58,602][walrus.data.multidataset][WARNING] - Failed to load viscoelastic_instability_v2 dataset
+[2026-10-11 23:33:58,602][walrus.data.multidataset][WARNING] - Failed to load viscoelastic_instability_v2 dataset
+[2026-10-11 23:34:28,047][walrus][INFO] - Instantiate model walrus.models.IsotropicModel
+[2026-10-11 23:34:28,047][walrus][INFO] - Instantiate model walrus.models.IsotropicModel
+[2026-10-11 23:34:28,047][walrus][INFO] - Instantiate model walrus.models.IsotropicModel
+[2026-10-11 23:34:28,047][walrus][INFO] - Instantiate model walrus.models.IsotropicModel
+[2026-10-11 23:34:36,954][walrus][INFO] - Assigning distribution strategy: fsdp
+[2026-10-11 23:34:36,954][walrus][INFO] - Assigning distribution strategy: fsdp
+[2026-10-11 23:34:36,967][walrus][INFO] - Assigning distribution strategy: fsdp
+===========================================================================
+Layer (type:depth-idx)                             Param #
+===========================================================================
+IsotropicModel                                     1
+├─FixedPatchJittererBoundaryPad: 1-1               --
+├─ModuleDict: 1-2                                  --
+│    └─SpaceBagAdaptiveDVstrideEncoder: 2-1        --
+│    │    └─Conv3d: 3-1                            12,075,008
+│    │    └─RMSGroupNorm: 3-2                      352
+│    │    └─SiLU: 3-3                              --
+│    │    └─Conv3d: 3-4                            7,208,960
+│    │    └─RMSGroupNorm: 3-5                      320
+├─ModuleList: 1-3                                  --
+│    └─SpaceTimeSplitBlock: 2-2                    --
+│    │    └─FullAttention: 3-6                     --
+│    │    │    └─RMSGroupNorm: 4-1                 320
+│    │    │    └─Linear: 4-2                       554,688
+│    │    │    └─SwiGLU: 4-3                       --
+│    │    │    └─Linear: 4-4                       123,200
+│    │    │    └─Linear: 4-5                       102,400
+│    │    │    └─LayerNorm: 4-6                    40
+│    │    │    └─LayerNorm: 4-7                    40
+│    │    │    └─RotaryEmbedding: 4-8              --
+│    │    │    └─Identity: 4-9                     --
+│    │    └─AxialTimeAttention: 3-7                --
+│    │    │    └─RMSGroupNorm: 4-10                320
+│    │    │    └─Conv3d: 4-11                      308,160
+│    │    │    └─Conv3d: 4-12                      102,720
+│    │    │    └─LayerNorm: 4-13                   40
+│    │    │    └─LayerNorm: 4-14                   40
+│    │    │    └─RelativePositionBias: 4-15        --
+│    │    │    │    └─Embedding: 5-1               512
+│    │    │    └─Identity: 4-16                    --
+│    │    └─Identity: 3-8                          --
+│    └─SpaceTimeSplitBlock: 2-3                    --
+│    │    └─FullAttention: 3-9                     --
+│    │    │    └─RMSGroupNorm: 4-17                320
+│    │    │    └─Linear: 4-18                      554,688
+│    │    │    └─SwiGLU: 4-19                      --
+│    │    │    └─Linear: 4-20                      123,200
+│    │    │    └─Linear: 4-21                      102,400
+│    │    │    └─LayerNorm: 4-22                   40
+│    │    │    └─LayerNorm: 4-23                   40
+│    │    │    └─RotaryEmbedding: 4-24             --
+│    │    │    └─DropPath: 4-25                    --
+│    │    └─AxialTimeAttention: 3-10               --
+│    │    │    └─RMSGroupNorm: 4-26                320
+│    │    │    └─Conv3d: 4-27                      308,160
+│    │    │    └─Conv3d: 4-28                      102,720
+│    │    │    └─LayerNorm: 4-29                   40
+│    │    │    └─LayerNorm: 4-30                   40
+│    │    │    └─RelativePositionBias: 4-31        --
+│    │    │    │    └─Embedding: 5-2               512
+│    │    │    └─DropPath: 4-32                    --
+│    │    └─Identity: 3-11                         --
+│    └─SpaceTimeSplitBlock: 2-4                    --
+│    │    └─FullAttention: 3-12                    --
+│    │    │    └─RMSGroupNorm: 4-33                320
+│    │    │    └─Linear: 4-34                      554,688
+│    │    │    └─SwiGLU: 4-35                      --
+│    │    │    └─Linear: 4-36                      123,200
+│    │    │    └─Linear: 4-37                      102,400
+│    │    │    └─LayerNorm: 4-38                   40
+│    │    │    └─LayerNorm: 4-39                   40
+│    │    │    └─RotaryEmbedding: 4-40             --
+│    │    │    └─DropPath: 4-41                    --
+│    │    └─AxialTimeAttention: 3-13               --
+│    │    │    └─RMSGroupNorm: 4-42                320
+│    │    │    └─Conv3d: 4-43                      308,160
+│    │    │    └─Conv3d: 4-44                      102,720
+│    │    │    └─LayerNorm: 4-45                   40
+│    │    │    └─LayerNorm: 4-46                   40
+│    │    │    └─RelativePositionBias: 4-47        --
+│    │    │    │    └─Embedding: 5-3               512
+│    │    │    └─DropPath: 4-48                    --
+│    │    └─Identity: 3-14                         --
+│    └─SpaceTimeSplitBlock: 2-5                    --
+│    │    └─FullAttention: 3-15                    --
+│    │    │    └─RMSGroupNorm: 4-49                320
+│    │    │    └─Linear: 4-50                      554,688
+│    │    │    └─SwiGLU: 4-51                      --
+│    │    │    └─Linear: 4-52                      123,200
+│    │    │    └─Linear: 4-53                      102,400
+│    │    │    └─LayerNorm: 4-54                   40
+│    │    │    └─LayerNorm: 4-55                   40
+│    │    │    └─RotaryEmbedding: 4-56             --
+│    │    │    └─DropPath: 4-57                    --
+│    │    └─AxialTimeAttention: 3-16               --
+│    │    │    └─RMSGroupNorm: 4-58                320
+│    │    │    └─Conv3d: 4-59                      308,160
+│    │    │    └─Conv3d: 4-60                      102,720
+│    │    │    └─LayerNorm: 4-61                   40
+│    │    │    └─LayerNorm: 4-62                   40
+│    │    │    └─RelativePositionBias: 4-63        --
+│    │    │    │    └─Embedding: 5-4               512
+│    │    │    └─DropPath: 4-64                    --
+│    │    └─Identity: 3-17                         --
+│    └─SpaceTimeSplitBlock: 2-6                    --
+│    │    └─FullAttention: 3-18                    --
+│    │    │    └─RMSGroupNorm: 4-65                320
+│    │    │    └─Linear: 4-66                      554,688
+│    │    │    └─SwiGLU: 4-67                      --
+│    │    │    └─Linear: 4-68                      123,200
+│    │    │    └─Linear: 4-69                      102,400
+│    │    │    └─LayerNorm: 4-70                   40
+│    │    │    └─LayerNorm: 4-71                   40
+│    │    │    └─RotaryEmbedding: 4-72             --
+│    │    │    └─DropPath: 4-73                    --
+│    │    └─AxialTimeAttention: 3-19               --
+│    │    │    └─RMSGroupNorm: 4-74                320
+│    │    │    └─Conv3d: 4-75                      308,160
+│    │    │    └─Conv3d: 4-76                      102,720
+│    │    │    └─LayerNorm: 4-77                   40
+│    │    │    └─LayerNorm: 4-78                   40
+│    │    │    └─RelativePositionBias: 4-79        --
+│    │    │    │    └─Embedding: 5-5               512
+│    │    │    └─DropPath: 4-80                    --
+│    │    └─Identity: 3-20                         --
+│    └─SpaceTimeSplitBlock: 2-7                    --
+│    │    └─FullAttention: 3-21                    --
+│    │    │    └─RMSGroupNorm: 4-81                320
+│    │    │    └─Linear: 4-82                      554,688
+│    │    │    └─SwiGLU: 4-83                      --
+│    │    │    └─Linear: 4-84                      123,200
+│    │    │    └─Linear: 4-85                      102,400
+│    │    │    └─LayerNorm: 4-86                   40
+│    │    │    └─LayerNorm: 4-87                   40
+│    │    │    └─RotaryEmbedding: 4-88             --
+│    │    │    └─DropPath: 4-89                    --
+│    │    └─AxialTimeAttention: 3-22               --
+│    │    │    └─RMSGroupNorm: 4-90                320
+│    │    │    └─Conv3d: 4-91                      308,160
+│    │    │    └─Conv3d: 4-92                      102,720
+│    │    │    └─LayerNorm: 4-93                   40
+│    │    │    └─LayerNorm: 4-94                   40
+│    │    │    └─RelativePositionBias: 4-95        --
+│    │    │    │    └─Embedding: 5-6               512
+│    │    │    └─DropPath: 4-96                    --
+│    │    └─Identity: 3-23                         --
+├─ModuleDict: 1-4                                  --
+│    └─AdaptiveDVstrideDecoder: 2-8                --
+│    │    └─ConvTranspose3d: 3-24                  7,208,960
+│    │    └─RMSGroupNorm: 3-25                     352
+│    │    └─SiLU: 3-26                             --
+│    │    └─ConvTranspose3d: 3-27                  12,075,075
+===========================================================================
+Total params: 45,723,908
+Trainable params: 45,723,908
+Non-trainable params: 0
+===========================================================================
+[2026-10-11 23:34:36,969][walrus][INFO] - Assigning distribution strategy: fsdp
+[2026-10-11 23:34:38,899][walrus][INFO] - Instantiate optimizer torch.optim.AdamW
+[2026-10-11 23:34:38,899][walrus][INFO] - Instantiate optimizer torch.optim.AdamW
+[2026-10-11 23:34:38,900][walrus][INFO] - Instantiate optimizer torch.optim.AdamW
+[2026-10-11 23:34:38,900][walrus][INFO] - Instantiate optimizer torch.optim.AdamW
+[2026-10-11 23:34:38,902][walrus][INFO] - Instantiate checkpointer walrus.trainer.checkpoints.CheckPointer
+[2026-10-11 23:34:38,902][walrus][INFO] - Instantiate checkpointer walrus.trainer.checkpoints.CheckPointer
+[2026-10-11 23:34:38,902][walrus][INFO] - Instantiate checkpointer walrus.trainer.checkpoints.CheckPointer
+[2026-10-11 23:34:38,902][walrus][INFO] - Instantiate checkpointer walrus.trainer.checkpoints.CheckPointer
+[2026-10-11 23:34:38,912][walrus.trainer.checkpoints][INFO] - Source checkpoint path set to: None
+[2026-10-11 23:34:38,912][walrus.trainer.checkpoints][INFO] - Source checkpoint path set to: None
+[2026-10-11 23:34:38,912][walrus.trainer.checkpoints][INFO] - Source checkpoint path set to: None
+[2026-10-11 23:34:38,912][walrus.trainer.checkpoints][INFO] - Checkpointing to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints
+[2026-10-11 23:34:38,912][walrus.trainer.checkpoints][INFO] - Checkpointing to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints
+[2026-10-11 23:34:38,912][walrus.trainer.checkpoints][INFO] - Checkpointing to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints
+[2026-10-11 23:34:38,912][walrus][INFO] - Instantiate learning rate scheduler walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+[2026-10-11 23:34:38,912][walrus][INFO] - Instantiate learning rate scheduler walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+[2026-10-11 23:34:38,912][walrus.trainer.checkpoints][INFO] - Source checkpoint path set to: None
+[2026-10-11 23:34:38,912][walrus][INFO] - Instantiate learning rate scheduler walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+[2026-10-11 23:34:38,913][walrus.trainer.checkpoints][INFO] - Checkpointing to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints
+[2026-10-11 23:34:38,913][walrus][INFO] - Instantiate learning rate scheduler walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+[2026-10-11 23:34:38,918][walrus][INFO] - Instantiate trainer walrus.trainer.Trainer
+[2026-10-11 23:34:38,918][walrus][INFO] - Instantiate trainer walrus.trainer.Trainer
+[2026-10-11 23:34:38,918][walrus][INFO] - Instantiate trainer walrus.trainer.Trainer
+[2026-10-11 23:34:38,930][walrus][INFO] - Final configuration:
+data_workers: 10
+name: p9_determinism_A-wellp-delta-Isotr[Space-Adapt-]-AdamW-0.0002
+finetune: false
+automatic_setup: true
+seed: 0
+trainer:
+  _target_: walrus.trainer.Trainer
+  max_epoch: 2
+  val_frequency: 2
+  rollout_val_frequency: 5
+  short_validation_length: 2
+  max_rollout_steps: 2
+  num_time_intervals: 5
+  enable_amp: false
+  loss_fn:
+    _target_: the_well.benchmark.metrics.MAE
+  formatter:
+    _target_: hydra.utils.get_class
+    path: walrus.data.well_to_multi_transformer.ChannelsFirstWithTimeFormatter
+  revin:
+    _target_: walrus.trainer.normalization_strat.SamplewiseRevNormalization
+    _partial_: true
+  prediction_type: delta
+  grad_acc_steps: 4
+  image_validation: true
+  video_validation: false
+  gradient_log_level: 0
+  clip_gradient: 10
+  log_interval: 10
+  loss_multiplier: 100.0
+  lr_scheduler_per_step: false
+  validation_suite:
+  - _target_: the_well.benchmark.metrics.NRMSE
+  - _target_: the_well.benchmark.metrics.VRMSE
+  - _target_: the_well.benchmark.metrics.binned_spectral_mse
+  - _target_: the_well.benchmark.metrics.PearsonR
+  batch_aggregation_fns:
+  - torch.mean
+  - torch.median
+  - torch.std
+  skip_spectral_metrics: true
+  debug_mode: true
+optimizer:
+  _target_: torch.optim.AdamW
+  weight_decay: 0.0001
+  eps: 1.0e-10
+  lr: 0.0002
+lr_scheduler:
+  _target_: walrus.optim.schedulers.InverseSqrtLinearWarmupSqrtCooldown
+  warmup_epochs: 10
+  cooldown_epochs: 10
+  warmup_lr_factor: 0.1
+  cooldown_lr_factor: 0.001
+model:
+  encoder:
+    _partial_: true
+    _target_: walrus.models.encoders.vstride_encoder.SpaceBagAdaptiveDVstrideEncoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    kernel_scales_seq:
+    - - 2
+      - 2
+    - - 4
+      - 2
+    - - 4
+      - 4
+    - - 8
+      - 4
+    variable_downsample: true
+    variable_deterministic_ds: true
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  decoder:
+    _partial_: true
+    _target_: walrus.models.decoders.vstride_decoder.AdaptiveDVstrideDecoder
+    learned_pad: true
+    base_kernel_size1d:
+    - - 4
+      - 4
+    base_kernel_size2d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    base_kernel_size3d:
+    - - 8
+      - 4
+    - - 8
+      - 4
+    - - 8
+      - 4
+    groups: 12
+    activation:
+      _partial_: true
+      _target_: torch.nn.SiLU
+  processor:
+    space_mixing:
+      _partial_: true
+      _target_: walrus.models.spatial_blocks.full_attention.FullAttention
+      num_heads: 16
+      mlp_dim: 768
+    time_mixing:
+      _partial_: true
+      _target_: walrus.models.temporal_blocks.axial_time_attention.AxialTimeAttention
+      num_heads: 16
+      bias_type: rel
+    channel_mixing:
+      _partial_: true
+      _target_: torch.nn.Identity
+    _partial_: true
+    _target_: walrus.models.spatiotemporal_blocks.space_time_split.SpaceTimeSplitBlock
+  norm_layer:
+    _partial_: true
+    _target_: walrus.models.shared_utils.normalization.RMSGroupNorm
+  _target_: walrus.models.IsotropicModel
+  hidden_dim: 320
+  projection_dim: 48
+  intermediate_dim: 352
+  processor_blocks: 6
+  drop_path: 0.05
+  groups: 16
+  max_d: 3
+  causal_in_time: true
+  include_d:
+  - 2
+  - 3
+  override_dimensionality: 3
+  jitter_patches: true
+  gradient_checkpointing_freq: 0
+  use_periodic_fixed_jitter: true
+  input_field_drop: 0.0
+data:
+  field_index_map_override:
+    closed_boundary: 0
+    open_boundary: 1
+    bias_correction: 2
+    pressure: 3
+    velocity_x: 4
+    velocity_y: 5
+    velocity_z: 6
+    zeros_like_density: 7
+    speed_of_sound: 8
+    concentration: 9
+    D_xx: 10
+    D_xy: 11
+    D_xz: 12
+    D_yx: 13
+    D_yy: 14
+    D_yz: 15
+    D_zx: 16
+    D_zy: 17
+    D_zz: 18
+    E_xx: 19
+    E_xy: 20
+    E_xz: 21
+    E_yx: 22
+    E_yy: 23
+    E_yz: 24
+    E_zx: 25
+    E_zy: 26
+    E_zz: 27
+    density: 28
+    energy: 29
+    velocity_r: 30
+    velocity_theta: 31
+    velocity_phi: 32
+    momentum_x: 33
+    momentum_y: 34
+    momentum_z: 35
+    pressure_re: 36
+    pressure_im: 37
+    mask: 38
+    magnetic_field_x: 39
+    magnetic_field_y: 40
+    magnetic_field_z: 41
+    A: 42
+    B: 43
+    height: 44
+    internal_energy: 45
+    temperature: 46
+    electron_fraction: 47
+    entropy: 48
+    magnetic_field_log_r: 49
+    magnetic_field_theta: 50
+    magnetic_field_phi: 51
+    velocity_log_r: 52
+    buoyancy: 53
+    tracer: 54
+    log10_density: 55
+    log10_temperature: 56
+    c_zz: 57
+    C_xx: 58
+    C_xy: 59
+    C_xz: 60
+    C_yx: 61
+    C_yy: 62
+    C_yz: 63
+    C_zx: 64
+    C_zy: 65
+    C_zz: 66
+  transform:
+    train:
+      _target_: the_well.data.augmentation.RandomRotation90
+      p: 1.0
+  well_base_path: /leonardo_work/ICT26_MHPC_0/sshamsi/datasets/
+  wandb_data_name: well_pretrain9_2d
+  module_parameters:
+    _target_: walrus.data.MixedWellDataModule
+    batch_size: 2
+    n_steps_input: 6
+    n_steps_output: 1
+    min_dt_stride: 1
+    max_dt_stride: 5
+    max_samples: 100
+    well_dataset_info:
+      acoustic_scattering_discontinuous:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_inclusions:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      acoustic_scattering_maze:
+        include_filters: []
+        exclude_filters: []
+        field_transforms:
+          density: torch.zeros_like
+      euler_multi_quadrants_openBC:
+        include_filters: []
+        exclude_filters: []
+      euler_multi_quadrants_periodicBC:
+        include_filters: []
+        exclude_filters: []
+      gray_scott_reaction_diffusion:
+        include_filters: []
+        exclude_filters: []
+      planetswe:
+        include_filters: []
+        exclude_filters: []
+      rayleigh_benard:
+        include_filters: []
+        exclude_filters: []
+      shear_flow:
+        include_filters: []
+        exclude_filters: []
+auto_resume: true
+folder_override: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A
+checkpoint_override: ''
+config_override: ''
+validation_mode: false
+frozen_components:
+- model
+distribution:
+  distribution_type: fsdp
+  local_size: null
+logger:
+  wandb: true
+  wandb_project_name: p9_determinism
+checkpoint:
+  _target_: walrus.trainer.checkpoints.CheckPointer
+  save_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints
+  load_checkpoint_path: null
+  coalesced_checkpoint_path: null
+  save_best: true
+  checkpoint_frequency: 1
+  align_fields: true
+  load_chkpt_after_finetuning_expansion: false
+finetuning_mods: {}
+experiment_dir: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs
+
+[2026-10-11 23:34:38,930][walrus][INFO] - Instantiate trainer walrus.trainer.Trainer
+[2026-10-11 23:34:39,198][walrus.trainer.training][INFO] - Epoch 1/2: starting training
+[2026-10-11 23:34:39,198][walrus.trainer.training][INFO] - Epoch 1/2: starting training
+[2026-10-11 23:34:39,199][walrus.trainer.training][INFO] - Epoch 1/2: starting training
+[2026-10-11 23:34:39,214][walrus.trainer.training][INFO] - Epoch 1/2: starting training
+NCCL version 2.21.5+cuda12.4
+[2026-10-11 23:35:09,306][walrus.trainer.training][INFO] - Epoch    1, Batch 1/100, Rank   1, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.7539, mem  3.34 GB, total_time 3.007s, data 1.6657s, fwd 25.873s, bw 2.526s, opt 0.000s
+[2026-10-11 23:35:09,311][walrus.trainer.training][INFO] - Epoch    1, Batch 1/100, Rank   0, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.8148, mem  3.34 GB, total_time 3.005s, data 2.0567s, fwd 25.466s, bw 2.526s, opt 0.000s
+[2026-10-11 23:35:09,312][walrus.trainer.training][INFO] - Epoch    1, Batch 1/100, Rank   3, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.1784, mem  3.41 GB, total_time 3.007s, data 2.0098s, fwd 24.728s, bw 3.328s, opt 0.000s
+[2026-10-11 23:35:09,313][walrus.trainer.training][INFO] - Epoch    1, Batch 1/100, Rank   2, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.2154, mem  3.41 GB, total_time 3.007s, data 2.0099s, fwd 24.727s, bw 3.328s, opt 0.000s
+[2026-10-11 23:35:14,137][walrus.trainer.training][INFO] - Epoch    1, Batch 11/100, Rank   3, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.8111, mem  3.59 GB, total_time 0.482s, data 0.0109s, fwd 0.177s, bw 0.140s, opt 0.000s
+[2026-10-11 23:35:14,138][walrus.trainer.training][INFO] - Epoch    1, Batch 11/100, Rank   2, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.6990, mem  3.60 GB, total_time 0.482s, data 0.0007s, fwd 0.188s, bw 0.140s, opt 0.000s
+[2026-10-11 23:35:14,143][walrus.trainer.training][INFO] - Epoch    1, Batch 11/100, Rank   0, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.4676, mem  3.67 GB, total_time 0.482s, data 0.0057s, fwd 0.182s, bw 0.139s, opt 0.000s
+[2026-10-11 23:35:14,148][walrus.trainer.training][INFO] - Epoch    1, Batch 11/100, Rank   1, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  7.2236, mem  3.67 GB, total_time 0.482s, data 0.0006s, fwd 0.231s, bw 0.097s, opt 0.000s
+[2026-10-11 23:35:16,848][walrus.trainer.training][INFO] - Epoch    1, Batch 21/100, Rank   2, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.1359, mem  5.70 GB, total_time 0.270s, data 0.0017s, fwd 0.131s, bw 0.129s, opt 0.000s
+[2026-10-11 23:35:16,865][walrus.trainer.training][INFO] - Epoch    1, Batch 21/100, Rank   1, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.5354, mem  5.95 GB, total_time 0.270s, data 0.0005s, fwd 0.143s, bw 0.129s, opt 0.000s
+[2026-10-11 23:35:16,865][walrus.trainer.training][INFO] - Epoch    1, Batch 21/100, Rank   3, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.9771, mem  5.95 GB, total_time 0.270s, data 0.0006s, fwd 0.142s, bw 0.128s, opt 0.000s
+[2026-10-11 23:35:16,868][walrus.trainer.training][INFO] - Epoch    1, Batch 21/100, Rank   0, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.0224, mem  5.95 GB, total_time 0.270s, data 0.0005s, fwd 0.144s, bw 0.128s, opt 0.000s
+[2026-10-11 23:35:19,241][walrus.trainer.training][INFO] - Epoch    1, Batch 31/100, Rank   1, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.7496, mem  3.65 GB, total_time 0.240s, data 0.0005s, fwd 0.132s, bw 0.102s, opt 0.000s
+[2026-10-11 23:35:19,241][walrus.trainer.training][INFO] - Epoch    1, Batch 31/100, Rank   0, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.1359, mem  3.60 GB, total_time 0.240s, data 0.0135s, fwd 0.120s, bw 0.102s, opt 0.000s
+[2026-10-11 23:35:19,242][walrus.trainer.training][INFO] - Epoch    1, Batch 31/100, Rank   2, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.3374, mem  3.65 GB, total_time 0.240s, data 0.0005s, fwd 0.133s, bw 0.102s, opt 0.000s
+[2026-10-11 23:35:19,248][walrus.trainer.training][INFO] - Epoch    1, Batch 31/100, Rank   3, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.7913, mem  3.67 GB, total_time 0.240s, data 0.0007s, fwd 0.133s, bw 0.102s, opt 0.000s
+[2026-10-11 23:35:21,623][walrus.trainer.training][INFO] - Epoch    1, Batch 41/100, Rank   1, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.3092, mem  4.00 GB, total_time 0.239s, data 0.0136s, fwd 0.135s, bw 0.110s, opt 0.000s
+[2026-10-11 23:35:21,628][walrus.trainer.training][INFO] - Epoch    1, Batch 41/100, Rank   0, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.9295, mem  4.00 GB, total_time 0.239s, data 0.0006s, fwd 0.148s, bw 0.111s, opt 0.000s
+[2026-10-11 23:35:21,632][walrus.trainer.training][INFO] - Epoch    1, Batch 41/100, Rank   2, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.3989, mem  4.05 GB, total_time 0.239s, data 0.0016s, fwd 0.145s, bw 0.110s, opt 0.000s
+[2026-10-11 23:35:21,640][walrus.trainer.training][INFO] - Epoch    1, Batch 41/100, Rank   3, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.3161, mem  4.05 GB, total_time 0.239s, data 0.0109s, fwd 0.137s, bw 0.110s, opt 0.000s
+[2026-10-11 23:35:24,243][walrus.trainer.training][INFO] - Epoch    1, Batch 51/100, Rank   1, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.7124, mem  3.65 GB, total_time 0.261s, data 0.0005s, fwd 0.126s, bw 0.099s, opt 0.000s
+[2026-10-11 23:35:24,245][walrus.trainer.training][INFO] - Epoch    1, Batch 51/100, Rank   0, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.6088, mem  3.66 GB, total_time 0.261s, data 0.0006s, fwd 0.126s, bw 0.099s, opt 0.000s
+[2026-10-11 23:35:24,250][walrus.trainer.training][INFO] - Epoch    1, Batch 51/100, Rank   3, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.5449, mem  3.67 GB, total_time 0.261s, data 0.0166s, fwd 0.108s, bw 0.099s, opt 0.000s
+[2026-10-11 23:35:24,250][walrus.trainer.training][INFO] - Epoch    1, Batch 51/100, Rank   2, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.2174, mem  3.67 GB, total_time 0.261s, data 0.0118s, fwd 0.113s, bw 0.099s, opt 0.000s
+[2026-10-11 23:35:27,116][walrus.trainer.training][INFO] - Epoch    1, Batch 61/100, Rank   1, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.0904, mem  5.70 GB, total_time 0.287s, data 0.0006s, fwd 0.158s, bw 0.131s, opt 0.000s
+[2026-10-11 23:35:27,121][walrus.trainer.training][INFO] - Epoch    1, Batch 61/100, Rank   0, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.4732, mem  5.95 GB, total_time 0.287s, data 0.0006s, fwd 0.158s, bw 0.130s, opt 0.000s
+[2026-10-11 23:35:27,117][walrus.trainer.training][INFO] - Epoch    1, Batch 61/100, Rank   2, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.0356, mem  5.95 GB, total_time 0.287s, data 0.0006s, fwd 0.157s, bw 0.134s, opt 0.000s
+[2026-10-11 23:35:27,132][walrus.trainer.training][INFO] - Epoch    1, Batch 61/100, Rank   3, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.5614, mem  5.95 GB, total_time 0.287s, data 0.0131s, fwd 0.145s, bw 0.130s, opt 0.000s
+[2026-10-11 23:35:31,402][walrus.trainer.training][INFO] - Epoch    1, Batch 71/100, Rank   1, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  6.4303, mem  3.40 GB, total_time 0.435s, data 0.0006s, fwd 0.110s, bw 2.159s, opt 0.000s
+[2026-10-11 23:35:31,402][walrus.trainer.training][INFO] - Epoch    1, Batch 71/100, Rank   0, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  4.5163, mem  3.40 GB, total_time 0.435s, data 0.0085s, fwd 0.059s, bw 2.159s, opt 0.000s
+[2026-10-11 23:35:31,403][walrus.trainer.training][INFO] - Epoch    1, Batch 71/100, Rank   3, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  7.9736, mem  3.42 GB, total_time 0.435s, data 0.0006s, fwd 0.110s, bw 2.159s, opt 0.000s
+[2026-10-11 23:35:31,403][walrus.trainer.training][INFO] - Epoch    1, Batch 71/100, Rank   2, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  8.4496, mem  3.42 GB, total_time 0.434s, data 0.0011s, fwd 0.110s, bw 2.158s, opt 0.000s
+[2026-10-11 23:35:36,170][walrus.trainer.training][INFO] - Epoch    1, Batch 81/100, Rank   1, SyncStep: False:
+	 Data: planetswe                       , loss  8.5975, mem  4.01 GB, total_time 0.472s, data 0.0436s, fwd 0.107s, bw 0.677s, opt 0.000s
+[2026-10-11 23:35:36,170][walrus.trainer.training][INFO] - Epoch    1, Batch 81/100, Rank   3, SyncStep: False:
+	 Data: planetswe                       , loss  8.6236, mem  4.01 GB, total_time 0.472s, data 0.0261s, fwd 0.124s, bw 0.678s, opt 0.000s
+[2026-10-11 23:35:36,171][walrus.trainer.training][INFO] - Epoch    1, Batch 81/100, Rank   0, SyncStep: False:
+	 Data: planetswe                       , loss  8.7477, mem  4.01 GB, total_time 0.472s, data 0.0258s, fwd 0.125s, bw 0.677s, opt 0.000s
+[2026-10-11 23:35:36,171][walrus.trainer.training][INFO] - Epoch    1, Batch 81/100, Rank   2, SyncStep: False:
+	 Data: planetswe                       , loss  8.4779, mem  4.01 GB, total_time 0.472s, data 0.0257s, fwd 0.124s, bw 0.678s, opt 0.000s
+[2026-10-11 23:35:38,847][walrus.trainer.training][INFO] - Epoch    1, Batch 91/100, Rank   3, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.4379, mem  4.18 GB, total_time 0.268s, data 0.0089s, fwd 0.383s, bw 0.128s, opt 0.000s
+[2026-10-11 23:35:38,849][walrus.trainer.training][INFO] - Epoch    1, Batch 91/100, Rank   1, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.3075, mem  4.22 GB, total_time 0.268s, data 0.0004s, fwd 0.393s, bw 0.128s, opt 0.000s
+[2026-10-11 23:35:38,850][walrus.trainer.training][INFO] - Epoch    1, Batch 91/100, Rank   0, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.5605, mem  4.22 GB, total_time 0.268s, data 0.0004s, fwd 0.392s, bw 0.128s, opt 0.000s
+[2026-10-11 23:35:38,857][walrus.trainer.training][INFO] - Epoch    1, Batch 91/100, Rank   2, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.1234, mem  4.22 GB, total_time 0.268s, data 0.0004s, fwd 0.392s, bw 0.128s, opt 0.000s
+[2026-10-11 23:35:41,059][walrus.trainer.training][INFO] - Epoch 1/2: training loss 47.1332
+[2026-10-11 23:35:41,059][walrus.trainer.training][INFO] - Epoch 1/2: training loss 47.0956
+[2026-10-11 23:35:41,061][walrus.trainer.training][INFO] - Epoch 1/2: training loss 45.7218
+[2026-10-11 23:35:41,062][walrus.trainer.training][INFO] - Epoch 1/2: training loss 46.9825
+[2026-10-11 23:35:48,931][walrus.trainer.checkpoints][INFO] - Save checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/step_1
+[2026-10-11 23:35:48,931][walrus.trainer.checkpoints][INFO] - Save checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/step_1
+[2026-10-11 23:35:48,931][walrus.trainer.checkpoints][INFO] - Save checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/step_1
+[2026-10-11 23:35:48,931][walrus.trainer.checkpoints][INFO] - Save checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/step_1
+[2026-10-11 23:35:49,713][walrus.trainer.training][INFO] - Epoch 2/2: starting training
+[2026-10-11 23:35:49,719][walrus.trainer.training][INFO] - Epoch 2/2: starting training
+[2026-10-11 23:35:49,730][walrus.trainer.training][INFO] - Epoch 2/2: starting training
+[2026-10-11 23:35:49,741][walrus.trainer.training][INFO] - Epoch 2/2: starting training
+[2026-10-11 23:35:50,773][walrus.trainer.training][INFO] - Epoch    2, Batch 1/100, Rank   1, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  5.1784, mem  3.26 GB, total_time 0.101s, data 0.6691s, fwd 0.248s, bw 0.090s, opt 0.000s
+[2026-10-11 23:35:50,773][walrus.trainer.training][INFO] - Epoch    2, Batch 1/100, Rank   3, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  8.1981, mem  3.25 GB, total_time 0.100s, data 0.6611s, fwd 0.244s, bw 0.092s, opt 0.000s
+[2026-10-11 23:35:50,774][walrus.trainer.training][INFO] - Epoch    2, Batch 1/100, Rank   2, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  7.4936, mem  3.26 GB, total_time 0.101s, data 0.6983s, fwd 0.217s, bw 0.092s, opt 0.000s
+[2026-10-11 23:35:50,788][walrus.trainer.training][INFO] - Epoch    2, Batch 1/100, Rank   0, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  6.0727, mem  3.25 GB, total_time 0.102s, data 0.6835s, fwd 0.209s, bw 0.131s, opt 0.000s
+[2026-10-11 23:35:50,813][walrus.trainer.checkpoints][INFO] - Link checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/best to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/step_1
+[2026-10-11 23:35:50,815][walrus.trainer.checkpoints][INFO] - Link checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/last to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/step_1
+[2026-10-11 23:35:55,487][walrus.trainer.training][INFO] - Epoch    2, Batch 11/100, Rank   1, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.3590, mem  3.59 GB, total_time 0.470s, data 0.0006s, fwd 0.126s, bw 0.099s, opt 0.000s
+[2026-10-11 23:35:55,488][walrus.trainer.training][INFO] - Epoch    2, Batch 11/100, Rank   2, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.5856, mem  3.60 GB, total_time 0.470s, data 0.0050s, fwd 0.121s, bw 0.099s, opt 0.000s
+[2026-10-11 23:35:55,488][walrus.trainer.training][INFO] - Epoch    2, Batch 11/100, Rank   0, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.5196, mem  3.65 GB, total_time 0.467s, data 0.0005s, fwd 0.126s, bw 0.099s, opt 0.000s
+[2026-10-11 23:35:55,493][walrus.trainer.training][INFO] - Epoch    2, Batch 11/100, Rank   3, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.4859, mem  3.67 GB, total_time 0.471s, data 0.0005s, fwd 0.128s, bw 0.097s, opt 0.000s
+[2026-10-11 23:35:58,073][walrus.trainer.training][INFO] - Epoch    2, Batch 21/100, Rank   3, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.1019, mem  3.42 GB, total_time 0.259s, data 0.0141s, fwd 0.132s, bw 0.104s, opt 0.000s
+[2026-10-11 23:35:58,079][walrus.trainer.training][INFO] - Epoch    2, Batch 21/100, Rank   1, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.5971, mem  3.50 GB, total_time 0.259s, data 0.0006s, fwd 0.151s, bw 0.104s, opt 0.000s
+[2026-10-11 23:35:58,080][walrus.trainer.training][INFO] - Epoch    2, Batch 21/100, Rank   2, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.5254, mem  3.50 GB, total_time 0.259s, data 0.0007s, fwd 0.145s, bw 0.104s, opt 0.000s
+[2026-10-11 23:35:58,080][walrus.trainer.training][INFO] - Epoch    2, Batch 21/100, Rank   0, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.0635, mem  3.50 GB, total_time 0.259s, data 0.0006s, fwd 0.151s, bw 0.104s, opt 0.000s
+[2026-10-11 23:36:00,316][walrus.trainer.training][INFO] - Epoch    2, Batch 31/100, Rank   3, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  5.7926, mem  3.59 GB, total_time 0.224s, data 0.0005s, fwd 0.113s, bw 0.101s, opt 0.000s
+[2026-10-11 23:36:00,317][walrus.trainer.training][INFO] - Epoch    2, Batch 31/100, Rank   0, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.6353, mem  3.65 GB, total_time 0.224s, data 0.0006s, fwd 0.114s, bw 0.101s, opt 0.000s
+[2026-10-11 23:36:00,322][walrus.trainer.training][INFO] - Epoch    2, Batch 31/100, Rank   1, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.1005, mem  3.67 GB, total_time 0.224s, data 0.0006s, fwd 0.113s, bw 0.101s, opt 0.000s
+[2026-10-11 23:36:00,323][walrus.trainer.training][INFO] - Epoch    2, Batch 31/100, Rank   2, SyncStep: False:
+	 Data: acoustic_scattering_discontinuous, loss  6.1847, mem  3.67 GB, total_time 0.224s, data 0.0005s, fwd 0.114s, bw 0.101s, opt 0.000s
+[2026-10-11 23:36:03,406][walrus.trainer.training][INFO] - Epoch    2, Batch 41/100, Rank   1, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.3052, mem  3.42 GB, total_time 0.309s, data 0.0006s, fwd 0.133s, bw 0.100s, opt 0.000s
+[2026-10-11 23:36:03,407][walrus.trainer.training][INFO] - Epoch    2, Batch 41/100, Rank   0, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  4.6854, mem  3.43 GB, total_time 0.309s, data 0.0007s, fwd 0.132s, bw 0.101s, opt 0.000s
+[2026-10-11 23:36:03,412][walrus.trainer.training][INFO] - Epoch    2, Batch 41/100, Rank   3, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.6944, mem  3.50 GB, total_time 0.309s, data 0.0005s, fwd 0.131s, bw 0.100s, opt 0.000s
+[2026-10-11 23:36:03,413][walrus.trainer.training][INFO] - Epoch    2, Batch 41/100, Rank   2, SyncStep: False:
+	 Data: acoustic_scattering_maze        , loss  5.8057, mem  3.50 GB, total_time 0.309s, data 0.0007s, fwd 0.118s, bw 0.101s, opt 0.000s
+[2026-10-11 23:36:05,906][walrus.trainer.training][INFO] - Epoch    2, Batch 51/100, Rank   1, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.1346, mem  5.87 GB, total_time 0.249s, data 0.0009s, fwd 0.154s, bw 0.129s, opt 0.000s
+[2026-10-11 23:36:05,925][walrus.trainer.training][INFO] - Epoch    2, Batch 51/100, Rank   3, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.4862, mem  6.12 GB, total_time 0.249s, data 0.0197s, fwd 0.136s, bw 0.129s, opt 0.000s
+[2026-10-11 23:36:05,925][walrus.trainer.training][INFO] - Epoch    2, Batch 51/100, Rank   2, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  6.0790, mem  6.12 GB, total_time 0.249s, data 0.0006s, fwd 0.155s, bw 0.129s, opt 0.000s
+[2026-10-11 23:36:05,925][walrus.trainer.training][INFO] - Epoch    2, Batch 51/100, Rank   0, SyncStep: False:
+	 Data: euler_multi_quadrants_openBC    , loss  5.9378, mem  6.12 GB, total_time 0.249s, data 0.0006s, fwd 0.155s, bw 0.130s, opt 0.000s
+[2026-10-11 23:36:09,251][walrus.trainer.training][INFO] - Epoch    2, Batch 61/100, Rank   3, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  4.3716, mem  3.26 GB, total_time 0.336s, data 0.0065s, fwd 0.101s, bw 0.090s, opt 0.000s
+[2026-10-11 23:36:09,252][walrus.trainer.training][INFO] - Epoch    2, Batch 61/100, Rank   0, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  6.9940, mem  3.26 GB, total_time 0.336s, data 0.0006s, fwd 0.116s, bw 0.090s, opt 0.000s
+[2026-10-11 23:36:09,258][walrus.trainer.training][INFO] - Epoch    2, Batch 61/100, Rank   1, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  6.1182, mem  3.24 GB, total_time 0.336s, data 0.0006s, fwd 0.116s, bw 0.089s, opt 0.000s
+[2026-10-11 23:36:09,258][walrus.trainer.training][INFO] - Epoch    2, Batch 61/100, Rank   2, SyncStep: False:
+	 Data: gray_scott_reaction_diffusion   , loss  8.0228, mem  3.24 GB, total_time 0.336s, data 0.0008s, fwd 0.107s, bw 0.089s, opt 0.000s
+[2026-10-11 23:36:14,761][walrus.trainer.training][INFO] - Epoch    2, Batch 71/100, Rank   2, SyncStep: False:
+	 Data: acoustic_scattering_inclusions  , loss  6.0716, mem  3.66 GB, total_time 0.550s, data 0.0092s, fwd 0.117s, bw 0.102s, opt 0.000s
+[2026-10-11 23:36:14,761][walrus.trainer.training][INFO] - Epoch    2, Batch 71/100, Rank   1, SyncStep: False:
+	 Data: acoustic_scattering_inclusions  , loss  6.0745, mem  3.65 GB, total_time 0.550s, data 0.0004s, fwd 0.126s, bw 0.103s, opt 0.000s
+[2026-10-11 23:36:14,762][walrus.trainer.training][INFO] - Epoch    2, Batch 71/100, Rank   3, SyncStep: False:
+	 Data: acoustic_scattering_inclusions  , loss  5.6193, mem  3.65 GB, total_time 0.550s, data 0.0004s, fwd 0.126s, bw 0.102s, opt 0.000s
+[2026-10-11 23:36:14,773][walrus.trainer.training][INFO] - Epoch    2, Batch 71/100, Rank   0, SyncStep: False:
+	 Data: acoustic_scattering_inclusions  , loss  6.5357, mem  3.67 GB, total_time 0.550s, data 0.0005s, fwd 0.126s, bw 0.102s, opt 0.000s
+[2026-10-11 23:36:17,933][walrus.trainer.training][INFO] - Epoch    2, Batch 81/100, Rank   2, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.4100, mem  4.01 GB, total_time 0.319s, data 0.0269s, fwd 0.105s, bw 0.544s, opt 0.000s
+[2026-10-11 23:36:17,939][walrus.trainer.training][INFO] - Epoch    2, Batch 81/100, Rank   3, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.2031, mem  4.06 GB, total_time 0.319s, data 0.0359s, fwd 0.096s, bw 0.544s, opt 0.000s
+[2026-10-11 23:36:17,943][walrus.trainer.training][INFO] - Epoch    2, Batch 81/100, Rank   1, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.4905, mem  4.05 GB, total_time 0.319s, data 0.0263s, fwd 0.106s, bw 0.544s, opt 0.000s
+[2026-10-11 23:36:17,943][walrus.trainer.training][INFO] - Epoch    2, Batch 81/100, Rank   0, SyncStep: False:
+	 Data: rayleigh_benard                 , loss  7.7329, mem  4.05 GB, total_time 0.319s, data 0.0274s, fwd 0.105s, bw 0.544s, opt 0.000s
+[2026-10-11 23:36:20,432][walrus.trainer.training][INFO] - Epoch    2, Batch 91/100, Rank   3, SyncStep: False:
+	 Data: planetswe                       , loss  8.5447, mem  4.18 GB, total_time 0.248s, data 0.0090s, fwd 0.151s, bw 0.082s, opt 0.000s
+[2026-10-11 23:36:20,432][walrus.trainer.training][INFO] - Epoch    2, Batch 91/100, Rank   1, SyncStep: False:
+	 Data: planetswe                       , loss  8.4598, mem  4.18 GB, total_time 0.248s, data 0.0004s, fwd 0.160s, bw 0.082s, opt 0.000s
+[2026-10-11 23:36:20,432][walrus.trainer.training][INFO] - Epoch    2, Batch 91/100, Rank   0, SyncStep: False:
+	 Data: planetswe                       , loss  8.7348, mem  4.18 GB, total_time 0.248s, data 0.0004s, fwd 0.160s, bw 0.082s, opt 0.000s
+[2026-10-11 23:36:20,437][walrus.trainer.training][INFO] - Epoch    2, Batch 91/100, Rank   2, SyncStep: False:
+	 Data: planetswe                       , loss  8.4944, mem  4.18 GB, total_time 0.248s, data 0.0004s, fwd 0.160s, bw 0.082s, opt 0.000s
+[2026-10-11 23:36:22,651][walrus.trainer.training][INFO] - Epoch 2/2: training loss 44.7849
+[2026-10-11 23:36:22,651][walrus.trainer.training][INFO] - Epoch 2/2: training loss 45.0625
+[2026-10-11 23:36:22,651][walrus.trainer.training][INFO] - Epoch 2/2: training loss 46.2826
+[2026-10-11 23:36:22,651][walrus.trainer.training][INFO] - Epoch 2/2: training loss 46.2324
+[2026-10-11 23:36:22,903][walrus.trainer.training][INFO] - Epoch 2/2: starting valid validation
+[2026-10-11 23:36:22,903][walrus.trainer.training][INFO] - Epoch 2/2: starting valid validation
+[2026-10-11 23:36:22,905][walrus.trainer.training][INFO] - Epoch 2/2: starting valid validation
+[2026-10-11 23:36:23,081][walrus.trainer.training][INFO] - Epoch 2/2: starting valid validation
+[2026-10-11 23:36:23,084][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=False on rank 0
+[2026-10-11 23:36:23,084][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=False on rank 2
+[2026-10-11 23:36:23,084][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=False on rank 3
+[2026-10-11 23:36:23,084][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=False on rank 1
+[2026-10-11 23:36:24,333][walrus.trainer.training][INFO] - valid: acoustic_scattering_discontinuous, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.1903, mem  0.61 GB, total_time 0.268s, model 0.1436s
+[2026-10-11 23:36:24,333][walrus.trainer.training][INFO] - valid: acoustic_scattering_discontinuous, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.2542, mem  0.61 GB, total_time 0.292s, model 0.1663s
+[2026-10-11 23:36:24,334][walrus.trainer.training][INFO] - valid: acoustic_scattering_discontinuous, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.2392, mem  0.62 GB, total_time 0.352s, model 0.2267s
+[2026-10-11 23:36:24,334][walrus.trainer.training][INFO] - valid: acoustic_scattering_discontinuous, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.1633, mem  0.62 GB, total_time 0.287s, model 0.1626s
+[2026-10-11 23:36:24,497][walrus.trainer.training][INFO] - valid: acoustic_scattering_discontinuous, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.2518, mem  0.62 GB, total_time 0.144s, model 0.1336s
+[2026-10-11 23:36:24,501][walrus.trainer.training][INFO] - valid: acoustic_scattering_discontinuous, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.3140, mem  0.62 GB, total_time 0.166s, model 0.1562s
+[2026-10-11 23:36:24,501][walrus.trainer.training][INFO] - valid: acoustic_scattering_discontinuous, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.3478, mem  0.62 GB, total_time 0.166s, model 0.1588s
+[2026-10-11 23:36:24,504][walrus.trainer.training][INFO] - valid: acoustic_scattering_discontinuous, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.1874, mem  0.62 GB, total_time 0.170s, model 0.1579s
+[2026-10-11 23:36:24,574][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=False on rank 3
+[2026-10-11 23:36:24,644][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=False on rank 2
+[2026-10-11 23:36:24,690][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=False on rank 1
+[2026-10-11 23:36:26,521][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=False on rank 0
+[2026-10-11 23:36:27,073][walrus.trainer.training][INFO] - valid: acoustic_scattering_inclusions, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.2177, mem  0.62 GB, total_time 1.734s, model 1.7201s
+[2026-10-11 23:36:27,073][walrus.trainer.training][INFO] - valid: acoustic_scattering_inclusions, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.2231, mem  0.62 GB, total_time 1.648s, model 1.6335s
+[2026-10-11 23:36:27,074][walrus.trainer.training][INFO] - valid: acoustic_scattering_inclusions, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.3023, mem  0.62 GB, total_time 1.731s, model 1.7161s
+[2026-10-11 23:36:27,082][walrus.trainer.training][INFO] - valid: acoustic_scattering_inclusions, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.2449, mem  0.62 GB, total_time 0.096s, model 0.0731s
+[2026-10-11 23:36:27,209][walrus.trainer.training][INFO] - valid: acoustic_scattering_inclusions, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.1919, mem  0.62 GB, total_time 0.135s, model 0.1188s
+[2026-10-11 23:36:27,209][walrus.trainer.training][INFO] - valid: acoustic_scattering_inclusions, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.2724, mem  0.62 GB, total_time 0.135s, model 0.1189s
+[2026-10-11 23:36:27,209][walrus.trainer.training][INFO] - valid: acoustic_scattering_inclusions, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.2785, mem  0.62 GB, total_time 0.125s, model 0.1090s
+[2026-10-11 23:36:27,209][walrus.trainer.training][INFO] - valid: acoustic_scattering_inclusions, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.2848, mem  0.62 GB, total_time 0.134s, model 0.1176s
+[2026-10-11 23:36:27,378][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=False on rank 1
+[2026-10-11 23:36:27,430][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=False on rank 2
+[2026-10-11 23:36:27,453][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=False on rank 3
+[2026-10-11 23:36:27,830][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=False on rank 0
+[2026-10-11 23:36:28,767][walrus.trainer.training][INFO] - valid: acoustic_scattering_maze, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.7292, mem  0.62 GB, total_time 0.714s, model 0.6987s
+[2026-10-11 23:36:28,767][walrus.trainer.training][INFO] - valid: acoustic_scattering_maze, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.7005, mem  0.62 GB, total_time 0.684s, model 0.6689s
+[2026-10-11 23:36:28,768][walrus.trainer.training][INFO] - valid: acoustic_scattering_maze, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.6029, mem  0.62 GB, total_time 0.582s, model 0.5656s
+[2026-10-11 23:36:28,769][walrus.trainer.training][INFO] - valid: acoustic_scattering_maze, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.8480, mem  0.62 GB, total_time 0.085s, model 0.0692s
+[2026-10-11 23:36:28,890][walrus.trainer.training][INFO] - valid: acoustic_scattering_maze, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.8018, mem  0.62 GB, total_time 0.122s, model 0.1070s
+[2026-10-11 23:36:28,890][walrus.trainer.training][INFO] - valid: acoustic_scattering_maze, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.7782, mem  0.62 GB, total_time 0.118s, model 0.1022s
+[2026-10-11 23:36:28,891][walrus.trainer.training][INFO] - valid: acoustic_scattering_maze, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.6754, mem  0.62 GB, total_time 0.119s, model 0.1022s
+[2026-10-11 23:36:28,891][walrus.trainer.training][INFO] - valid: acoustic_scattering_maze, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.7204, mem  0.62 GB, total_time 0.105s, model 0.0889s
+[2026-10-11 23:36:28,960][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=False on rank 1
+[2026-10-11 23:36:28,980][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=False on rank 2
+[2026-10-11 23:36:29,025][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=False on rank 3
+[2026-10-11 23:36:29,420][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=False on rank 0
+[2026-10-11 23:36:33,501][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_openBC, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.2791, mem  1.49 GB, total_time 2.786s, model 2.7603s
+[2026-10-11 23:36:33,501][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_openBC, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.1359, mem  1.49 GB, total_time 2.645s, model 2.6190s
+[2026-10-11 23:36:33,501][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_openBC, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.2214, mem  1.49 GB, total_time 2.837s, model 2.8116s
+[2026-10-11 23:36:33,501][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_openBC, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.1624, mem  1.49 GB, total_time 3.048s, model 3.0221s
+[2026-10-11 23:36:33,635][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_openBC, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.3325, mem  1.52 GB, total_time 0.128s, model 0.1096s
+[2026-10-11 23:36:33,638][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_openBC, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.2436, mem  1.52 GB, total_time 0.136s, model 0.1156s
+[2026-10-11 23:36:33,640][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_openBC, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.2557, mem  1.52 GB, total_time 0.139s, model 0.1156s
+[2026-10-11 23:36:33,642][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_openBC, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.1223, mem  1.52 GB, total_time 0.130s, model 0.1053s
+[2026-10-11 23:36:34,051][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=False on rank 3
+[2026-10-11 23:36:34,106][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=False on rank 2
+[2026-10-11 23:36:34,155][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=False on rank 1
+[2026-10-11 23:36:35,285][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=False on rank 0
+[2026-10-11 23:36:37,706][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.3492, mem  1.47 GB, total_time 1.968s, model 1.9493s
+[2026-10-11 23:36:37,706][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.3899, mem  1.47 GB, total_time 1.887s, model 1.8675s
+[2026-10-11 23:36:37,706][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.3112, mem  1.47 GB, total_time 2.069s, model 2.0500s
+[2026-10-11 23:36:37,706][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.4320, mem  1.47 GB, total_time 1.073s, model 1.0536s
+[2026-10-11 23:36:37,838][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.5489, mem  1.47 GB, total_time 0.131s, model 0.1124s
+[2026-10-11 23:36:37,839][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.4885, mem  1.47 GB, total_time 0.131s, model 0.1115s
+[2026-10-11 23:36:37,840][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.3907, mem  1.47 GB, total_time 0.134s, model 0.1123s
+[2026-10-11 23:36:37,840][walrus.trainer.training][INFO] - valid: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.4233, mem  1.47 GB, total_time 0.118s, model 0.0959s
+[2026-10-11 23:36:38,272][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=False on rank 3
+[2026-10-11 23:36:38,280][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=False on rank 2
+[2026-10-11 23:36:38,388][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=False on rank 1
+[2026-10-11 23:36:38,965][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=False on rank 0
+[2026-10-11 23:36:39,724][walrus.trainer.training][INFO] - valid: gray_scott_reaction_diffusion, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.0754, mem  0.58 GB, total_time 0.888s, model 0.8628s
+[2026-10-11 23:36:39,725][walrus.trainer.training][INFO] - valid: gray_scott_reaction_diffusion, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.0703, mem  0.58 GB, total_time 0.095s, model 0.0701s
+[2026-10-11 23:36:39,725][walrus.trainer.training][INFO] - valid: gray_scott_reaction_diffusion, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.0032, mem  0.58 GB, total_time 0.815s, model 0.7903s
+[2026-10-11 23:36:39,725][walrus.trainer.training][INFO] - valid: gray_scott_reaction_diffusion, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.0007, mem  0.58 GB, total_time 0.256s, model 0.2312s
+[2026-10-11 23:36:39,853][walrus.trainer.training][INFO] - valid: gray_scott_reaction_diffusion, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.0704, mem  0.54 GB, total_time 0.127s, model 0.1139s
+[2026-10-11 23:36:39,853][walrus.trainer.training][INFO] - valid: gray_scott_reaction_diffusion, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.0019, mem  0.54 GB, total_time 0.127s, model 0.1136s
+[2026-10-11 23:36:39,853][walrus.trainer.training][INFO] - valid: gray_scott_reaction_diffusion, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.0018, mem  0.54 GB, total_time 0.115s, model 0.1012s
+[2026-10-11 23:36:39,853][walrus.trainer.training][INFO] - valid: gray_scott_reaction_diffusion, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.0022, mem  0.54 GB, total_time 0.127s, model 0.1154s
+[2026-10-11 23:36:39,925][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=False on rank 2
+[2026-10-11 23:36:39,939][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=False on rank 1
+[2026-10-11 23:36:39,947][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=False on rank 3
+[2026-10-11 23:36:40,224][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=False on rank 0
+[2026-10-11 23:36:43,263][walrus.trainer.training][INFO] - valid: planetswe, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.0262, mem  0.81 GB, total_time 1.335s, model 1.2846s
+[2026-10-11 23:36:43,263][walrus.trainer.training][INFO] - valid: planetswe, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.0304, mem  0.81 GB, total_time 1.335s, model 1.2845s
+[2026-10-11 23:36:43,263][walrus.trainer.training][INFO] - valid: planetswe, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.0244, mem  0.81 GB, total_time 1.335s, model 1.2846s
+[2026-10-11 23:36:43,263][walrus.trainer.training][INFO] - valid: planetswe, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.0218, mem  0.81 GB, total_time 1.335s, model 1.2845s
+[2026-10-11 23:36:43,382][walrus.trainer.training][INFO] - valid: planetswe, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.0342, mem  0.82 GB, total_time 0.119s, model 0.1028s
+[2026-10-11 23:36:43,382][walrus.trainer.training][INFO] - valid: planetswe, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.0239, mem  0.82 GB, total_time 0.097s, model 0.0814s
+[2026-10-11 23:36:43,382][walrus.trainer.training][INFO] - valid: planetswe, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.0328, mem  0.82 GB, total_time 0.119s, model 0.1028s
+[2026-10-11 23:36:43,383][walrus.trainer.training][INFO] - valid: planetswe, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.0375, mem  0.82 GB, total_time 0.114s, model 0.0973s
+[2026-10-11 23:36:43,497][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=False on rank 2
+[2026-10-11 23:36:43,509][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=False on rank 3
+[2026-10-11 23:36:43,548][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=False on rank 1
+[2026-10-11 23:36:43,920][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=False on rank 0
+[2026-10-11 23:36:44,696][walrus.trainer.training][INFO] - valid: rayleigh_benard, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.1867, mem  0.80 GB, total_time 0.281s, model 0.2657s
+[2026-10-11 23:36:44,696][walrus.trainer.training][INFO] - valid: rayleigh_benard, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.3187, mem  0.80 GB, total_time 0.485s, model 0.4702s
+[2026-10-11 23:36:44,701][walrus.trainer.training][INFO] - valid: rayleigh_benard, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.1535, mem  0.80 GB, total_time 0.415s, model 0.3995s
+[2026-10-11 23:36:44,696][walrus.trainer.training][INFO] - valid: rayleigh_benard, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.1472, mem  0.80 GB, total_time 0.097s, model 0.0814s
+[2026-10-11 23:36:44,839][walrus.trainer.training][INFO] - valid: rayleigh_benard, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.3128, mem  0.80 GB, total_time 0.143s, model 0.1285s
+[2026-10-11 23:36:44,840][walrus.trainer.training][INFO] - valid: rayleigh_benard, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.1289, mem  0.79 GB, total_time 0.144s, model 0.1281s
+[2026-10-11 23:36:44,866][walrus.trainer.training][INFO] - valid: rayleigh_benard, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.2309, mem  0.80 GB, total_time 0.139s, model 0.0981s
+[2026-10-11 23:36:44,867][walrus.trainer.training][INFO] - valid: rayleigh_benard, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.1351, mem  0.80 GB, total_time 0.165s, model 0.1225s
+[2026-10-11 23:36:45,022][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=False on rank 1
+[2026-10-11 23:36:45,116][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=False on rank 3
+[2026-10-11 23:36:45,120][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=False on rank 2
+[2026-10-11 23:36:45,510][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=False on rank 0
+[2026-10-11 23:36:46,637][walrus.trainer.training][INFO] - valid: shear_flow, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.0866, mem  0.86 GB, total_time 0.597s, model 0.5893s
+[2026-10-11 23:36:46,638][walrus.trainer.training][INFO] - valid: shear_flow, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.0526, mem  0.86 GB, total_time 0.743s, model 0.7357s
+[2026-10-11 23:36:46,638][walrus.trainer.training][INFO] - valid: shear_flow, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.1337, mem  0.86 GB, total_time 0.196s, model 0.1882s
+[2026-10-11 23:36:46,671][walrus.trainer.training][INFO] - valid: shear_flow, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.0536, mem  0.86 GB, total_time 0.644s, model 0.6043s
+[2026-10-11 23:36:46,816][walrus.trainer.training][INFO] - valid: shear_flow, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.0734, mem  0.87 GB, total_time 0.176s, model 0.1653s
+[2026-10-11 23:36:46,816][walrus.trainer.training][INFO] - valid: shear_flow, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.0255, mem  0.87 GB, total_time 0.178s, model 0.1664s
+[2026-10-11 23:36:46,816][walrus.trainer.training][INFO] - valid: shear_flow, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.0754, mem  0.87 GB, total_time 0.171s, model 0.1600s
+[2026-10-11 23:36:46,816][walrus.trainer.training][INFO] - valid: shear_flow, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.1319, mem  0.87 GB, total_time 0.143s, model 0.1317s
+[2026-10-11 23:36:47,080][walrus.trainer.training][INFO] - Rank 2 waiting for barrier
+[2026-10-11 23:36:47,088][walrus.trainer.training][INFO] - Rank 3 waiting for barrier
+[2026-10-11 23:36:47,234][walrus.trainer.training][INFO] - Rank 1 waiting for barrier
+[2026-10-11 23:36:47,562][walrus.trainer.training][INFO] - Rank 0 waiting for barrier
+[2026-10-11 23:36:47,564][walrus.trainer.training][INFO] - Rank 0 passed barrier
+[2026-10-11 23:36:47,564][walrus.trainer.training][INFO] - Rank 1 passed barrier
+[2026-10-11 23:36:47,564][walrus.trainer.training][INFO] - Rank 2 passed barrier
+[2026-10-11 23:36:47,564][walrus.trainer.training][INFO] - Rank 3 passed barrier
+[2026-10-11 23:36:48,038][walrus.trainer.training][INFO] - Epoch 2/2: valid loss 0.16234405923427808
+[2026-10-11 23:36:48,038][walrus.trainer.training][INFO] - Epoch 2/2: valid loss 0.16234405923427808
+[2026-10-11 23:36:48,038][walrus.trainer.training][INFO] - Epoch 2/2: valid loss 0.16234405923427808
+[2026-10-11 23:36:48,039][walrus.trainer.training][INFO] - Epoch 2/2: starting rollout valid validation
+[2026-10-11 23:36:48,039][walrus.trainer.training][INFO] - Epoch 2/2: starting rollout valid validation
+[2026-10-11 23:36:48,039][walrus.trainer.training][INFO] - Epoch 2/2: starting rollout valid validation
+[2026-10-11 23:36:48,054][walrus.trainer.training][INFO] - Wrote out loss dict to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/loss_dicts/valid_loss_dict_epoch2_rank0.pkl
+[2026-10-11 23:36:48,059][walrus.trainer.training][INFO] - Epoch 2/2: valid loss 0.16234405923427808
+[2026-10-11 23:36:48,065][walrus.trainer.training][INFO] - Epoch 2/2: starting rollout valid validation
+[2026-10-11 23:36:48,067][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=True on rank 0
+[2026-10-11 23:36:48,067][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=True on rank 3
+[2026-10-11 23:36:48,067][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=True on rank 2
+[2026-10-11 23:36:48,067][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=True on rank 1
+[2026-10-11 23:36:51,092][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_discontinuous, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.7323, mem  0.66 GB, total_time 0.938s, model 0.9259s
+[2026-10-11 23:36:51,092][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_discontinuous, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.6637, mem  0.66 GB, total_time 1.734s, model 1.7214s
+[2026-10-11 23:36:51,092][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_discontinuous, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.7488, mem  0.66 GB, total_time 1.191s, model 1.1780s
+[2026-10-11 23:36:51,092][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_discontinuous, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.6608, mem  0.66 GB, total_time 1.286s, model 1.2734s
+[2026-10-11 23:36:51,376][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_discontinuous, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.7769, mem  0.77 GB, total_time 0.284s, model 0.2774s
+[2026-10-11 23:36:51,376][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_discontinuous, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.6625, mem  0.77 GB, total_time 0.226s, model 0.2193s
+[2026-10-11 23:36:51,377][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_discontinuous, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.8036, mem  0.77 GB, total_time 0.283s, model 0.2772s
+[2026-10-11 23:36:51,377][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_discontinuous, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.7609, mem  0.77 GB, total_time 0.284s, model 0.2773s
+[2026-10-11 23:36:51,613][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=True on rank 3
+[2026-10-11 23:36:51,680][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=True on rank 1
+[2026-10-11 23:36:51,692][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=True on rank 2
+[2026-10-11 23:36:52,063][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=True on rank 0
+[2026-10-11 23:36:54,237][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_inclusions, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.6933, mem  0.77 GB, total_time 0.793s, model 0.7874s
+[2026-10-11 23:36:54,238][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_inclusions, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.7460, mem  0.77 GB, total_time 1.205s, model 1.1991s
+[2026-10-11 23:36:54,238][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_inclusions, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.6100, mem  0.77 GB, total_time 1.044s, model 1.0374s
+[2026-10-11 23:36:54,238][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_inclusions, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.7250, mem  0.77 GB, total_time 0.810s, model 0.8044s
+[2026-10-11 23:36:54,491][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_inclusions, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.8838, mem  0.77 GB, total_time 0.252s, model 0.2455s
+[2026-10-11 23:36:54,491][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_inclusions, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.5196, mem  0.77 GB, total_time 0.252s, model 0.2463s
+[2026-10-11 23:36:54,491][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_inclusions, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.7055, mem  0.77 GB, total_time 0.252s, model 0.2463s
+[2026-10-11 23:36:54,491][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_inclusions, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.6556, mem  0.77 GB, total_time 0.250s, model 0.2437s
+[2026-10-11 23:36:54,831][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=True on rank 2
+[2026-10-11 23:36:54,840][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=True on rank 1
+[2026-10-11 23:36:54,848][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=True on rank 3
+[2026-10-11 23:36:55,194][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=True on rank 0
+[2026-10-11 23:36:57,597][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_maze, Batch 1/2, Rank   2: Field-time-averaged VRMSE  1.2476, mem  0.78 GB, total_time 1.072s, model 1.0666s
+[2026-10-11 23:36:57,597][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_maze, Batch 1/2, Rank   1: Field-time-averaged VRMSE  1.1460, mem  0.78 GB, total_time 0.785s, model 0.7794s
+[2026-10-11 23:36:57,597][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_maze, Batch 1/2, Rank   3: Field-time-averaged VRMSE  1.2181, mem  0.78 GB, total_time 0.529s, model 0.5233s
+[2026-10-11 23:36:57,597][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_maze, Batch 1/2, Rank   0: Field-time-averaged VRMSE  1.2574, mem  0.78 GB, total_time 0.538s, model 0.5324s
+[2026-10-11 23:36:57,850][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_maze, Batch 2/2, Rank   3: Field-time-averaged VRMSE  1.1463, mem  0.78 GB, total_time 0.252s, model 0.2460s
+[2026-10-11 23:36:57,850][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_maze, Batch 2/2, Rank   1: Field-time-averaged VRMSE  1.1478, mem  0.78 GB, total_time 0.252s, model 0.2461s
+[2026-10-11 23:36:57,850][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_maze, Batch 2/2, Rank   2: Field-time-averaged VRMSE  1.2303, mem  0.78 GB, total_time 0.252s, model 0.2462s
+[2026-10-11 23:36:57,850][walrus.trainer.training][INFO] - rollout_valid: acoustic_scattering_maze, Batch 2/2, Rank   0: Field-time-averaged VRMSE  1.2538, mem  0.78 GB, total_time 0.250s, model 0.2439s
+[2026-10-11 23:36:58,123][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=True on rank 2
+[2026-10-11 23:36:58,193][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=True on rank 1
+[2026-10-11 23:36:58,252][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=True on rank 3
+[2026-10-11 23:36:59,709][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=True on rank 0
+[2026-10-11 23:37:18,829][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_openBC, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.9602, mem  2.18 GB, total_time 8.289s, model 7.5701s
+[2026-10-11 23:37:18,829][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_openBC, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.6089, mem  2.18 GB, total_time 9.420s, model 8.7001s
+[2026-10-11 23:37:18,829][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_openBC, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.6657, mem  2.18 GB, total_time 6.344s, model 5.6240s
+[2026-10-11 23:37:18,829][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_openBC, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.6275, mem  2.18 GB, total_time 5.793s, model 5.0737s
+[2026-10-11 23:37:19,124][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_openBC, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.6714, mem  2.73 GB, total_time 0.293s, model 0.2816s
+[2026-10-11 23:37:19,125][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_openBC, Batch 2/2, Rank   3: Field-time-averaged VRMSE  1.1210, mem  2.73 GB, total_time 0.295s, model 0.2830s
+[2026-10-11 23:37:19,125][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_openBC, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.7146, mem  2.73 GB, total_time 0.295s, model 0.2829s
+[2026-10-11 23:37:19,125][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_openBC, Batch 2/2, Rank   2: Field-time-averaged VRMSE  1.0086, mem  2.73 GB, total_time 0.295s, model 0.2831s
+[2026-10-11 23:37:21,524][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=True on rank 1
+[2026-10-11 23:37:21,524][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=True on rank 3
+[2026-10-11 23:37:21,557][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=True on rank 2
+[2026-10-11 23:37:24,599][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=True on rank 0
+[2026-10-11 23:37:37,451][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.5917, mem  2.70 GB, total_time 9.020s, model 8.2455s
+[2026-10-11 23:37:37,451][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   3: Field-time-averaged VRMSE  1.0910, mem  2.70 GB, total_time 8.193s, model 7.4185s
+[2026-10-11 23:37:37,451][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.7623, mem  2.70 GB, total_time 6.950s, model 6.1755s
+[2026-10-11 23:37:37,685][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.6814, mem  2.70 GB, total_time 3.975s, model 2.9657s
+[2026-10-11 23:37:38,016][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.8432, mem  2.70 GB, total_time 0.565s, model 0.5066s
+[2026-10-11 23:37:38,016][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.7415, mem  2.70 GB, total_time 0.565s, model 0.5066s
+[2026-10-11 23:37:38,016][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.6385, mem  2.70 GB, total_time 0.329s, model 0.2710s
+[2026-10-11 23:37:38,016][walrus.trainer.training][INFO] - rollout_valid: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   3: Field-time-averaged VRMSE  1.1431, mem  2.70 GB, total_time 0.564s, model 0.5064s
+[2026-10-11 23:37:39,896][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=True on rank 2
+[2026-10-11 23:37:40,061][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=True on rank 1
+[2026-10-11 23:37:40,126][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=True on rank 3
+[2026-10-11 23:37:41,643][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=True on rank 0
+[2026-10-11 23:37:43,468][walrus.trainer.training][INFO] - rollout_valid: gray_scott_reaction_diffusion, Batch 1/2, Rank   2: Field-time-averaged VRMSE  1.1611, mem  1.11 GB, total_time 2.972s, model 2.9561s
+[2026-10-11 23:37:43,468][walrus.trainer.training][INFO] - rollout_valid: gray_scott_reaction_diffusion, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.5034, mem  1.11 GB, total_time 2.285s, model 2.2687s
+[2026-10-11 23:37:43,468][walrus.trainer.training][INFO] - rollout_valid: gray_scott_reaction_diffusion, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.0958, mem  1.11 GB, total_time 2.965s, model 2.9491s
+[2026-10-11 23:37:43,468][walrus.trainer.training][INFO] - rollout_valid: gray_scott_reaction_diffusion, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.5696, mem  1.11 GB, total_time 1.413s, model 1.3970s
+[2026-10-11 23:37:43,711][walrus.trainer.training][INFO] - rollout_valid: gray_scott_reaction_diffusion, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.4881, mem  0.45 GB, total_time 0.243s, model 0.2381s
+[2026-10-11 23:37:43,711][walrus.trainer.training][INFO] - rollout_valid: gray_scott_reaction_diffusion, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.0972, mem  0.46 GB, total_time 0.242s, model 0.2371s
+[2026-10-11 23:37:43,711][walrus.trainer.training][INFO] - rollout_valid: gray_scott_reaction_diffusion, Batch 2/2, Rank   1: Field-time-averaged VRMSE  1.2909, mem  0.45 GB, total_time 0.243s, model 0.2380s
+[2026-10-11 23:37:43,711][walrus.trainer.training][INFO] - rollout_valid: gray_scott_reaction_diffusion, Batch 2/2, Rank   3: Field-time-averaged VRMSE  2.0469, mem  0.45 GB, total_time 0.243s, model 0.2380s
+[2026-10-11 23:37:43,777][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=True on rank 2
+[2026-10-11 23:37:43,779][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=True on rank 3
+[2026-10-11 23:37:43,779][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=True on rank 1
+[2026-10-11 23:37:43,997][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=True on rank 0
+[2026-10-11 23:37:45,847][walrus.trainer.training][INFO] - rollout_valid: planetswe, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.0878, mem  0.87 GB, total_time 0.377s, model 0.3708s
+[2026-10-11 23:37:45,847][walrus.trainer.training][INFO] - rollout_valid: planetswe, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.1057, mem  0.87 GB, total_time 0.462s, model 0.4556s
+[2026-10-11 23:37:45,847][walrus.trainer.training][INFO] - rollout_valid: planetswe, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.1018, mem  0.88 GB, total_time 0.701s, model 0.6937s
+[2026-10-11 23:37:45,848][walrus.trainer.training][INFO] - rollout_valid: planetswe, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.1190, mem  0.87 GB, total_time 0.278s, model 0.2712s
+[2026-10-11 23:37:46,067][walrus.trainer.training][INFO] - rollout_valid: planetswe, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.0874, mem  1.04 GB, total_time 0.219s, model 0.2129s
+[2026-10-11 23:37:46,067][walrus.trainer.training][INFO] - rollout_valid: planetswe, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.1382, mem  1.04 GB, total_time 0.220s, model 0.2130s
+[2026-10-11 23:37:46,067][walrus.trainer.training][INFO] - rollout_valid: planetswe, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.0827, mem  1.04 GB, total_time 0.219s, model 0.2127s
+[2026-10-11 23:37:46,067][walrus.trainer.training][INFO] - rollout_valid: planetswe, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.1014, mem  1.04 GB, total_time 0.218s, model 0.2112s
+[2026-10-11 23:37:46,125][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=True on rank 2
+[2026-10-11 23:37:46,125][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=True on rank 3
+[2026-10-11 23:37:46,139][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=True on rank 1
+[2026-10-11 23:37:48,396][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=True on rank 0
+[2026-10-11 23:37:51,713][walrus.trainer.training][INFO] - rollout_valid: rayleigh_benard, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.0435, mem  0.98 GB, total_time 4.233s, model 4.2254s
+[2026-10-11 23:37:51,713][walrus.trainer.training][INFO] - rollout_valid: rayleigh_benard, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.0379, mem  0.98 GB, total_time 3.675s, model 3.6679s
+[2026-10-11 23:37:51,713][walrus.trainer.training][INFO] - rollout_valid: rayleigh_benard, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.0255, mem  0.98 GB, total_time 4.181s, model 4.1739s
+[2026-10-11 23:37:51,713][walrus.trainer.training][INFO] - rollout_valid: rayleigh_benard, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.0638, mem  0.98 GB, total_time 2.165s, model 2.1570s
+[2026-10-11 23:37:51,953][walrus.trainer.training][INFO] - rollout_valid: rayleigh_benard, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.0252, mem  0.94 GB, total_time 0.239s, model 0.2314s
+[2026-10-11 23:37:51,953][walrus.trainer.training][INFO] - rollout_valid: rayleigh_benard, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.0426, mem  0.94 GB, total_time 0.239s, model 0.2315s
+[2026-10-11 23:37:51,953][walrus.trainer.training][INFO] - rollout_valid: rayleigh_benard, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.0262, mem  0.94 GB, total_time 0.238s, model 0.2309s
+[2026-10-11 23:37:51,953][walrus.trainer.training][INFO] - rollout_valid: rayleigh_benard, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.0541, mem  0.94 GB, total_time 0.238s, model 0.2302s
+[2026-10-11 23:37:52,325][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=True on rank 3
+[2026-10-11 23:37:52,348][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=True on rank 2
+[2026-10-11 23:37:52,404][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=True on rank 1
+[2026-10-11 23:37:53,657][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=True on rank 0
+[2026-10-11 23:38:00,566][walrus.trainer.training][INFO] - rollout_valid: shear_flow, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.4128, mem  1.23 GB, total_time 2.487s, model 2.3185s
+[2026-10-11 23:38:00,566][walrus.trainer.training][INFO] - rollout_valid: shear_flow, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.4308, mem  1.23 GB, total_time 2.511s, model 2.3422s
+[2026-10-11 23:38:00,566][walrus.trainer.training][INFO] - rollout_valid: shear_flow, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.2862, mem  1.23 GB, total_time 2.592s, model 2.4239s
+[2026-10-11 23:38:00,566][walrus.trainer.training][INFO] - rollout_valid: shear_flow, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.4328, mem  1.23 GB, total_time 2.838s, model 2.6698s
+[2026-10-11 23:38:00,946][walrus.trainer.training][INFO] - rollout_valid: shear_flow, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.5321, mem  1.38 GB, total_time 0.379s, model 0.3709s
+[2026-10-11 23:38:00,946][walrus.trainer.training][INFO] - rollout_valid: shear_flow, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.5327, mem  1.37 GB, total_time 0.378s, model 0.3708s
+[2026-10-11 23:38:00,946][walrus.trainer.training][INFO] - rollout_valid: shear_flow, Batch 2/2, Rank   3: Field-time-averaged VRMSE  1.1190, mem  1.38 GB, total_time 0.379s, model 0.3708s
+[2026-10-11 23:38:00,946][walrus.trainer.training][INFO] - rollout_valid: shear_flow, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.2834, mem  1.38 GB, total_time 0.377s, model 0.3692s
+[2026-10-11 23:38:01,944][walrus.trainer.training][INFO] - Rank 2 waiting for barrier
+[2026-10-11 23:38:01,977][walrus.trainer.training][INFO] - Rank 3 waiting for barrier
+[2026-10-11 23:38:01,993][walrus.trainer.training][INFO] - Rank 1 waiting for barrier
+[2026-10-11 23:38:02,302][walrus.trainer.training][INFO] - Rank 0 waiting for barrier
+[2026-10-11 23:38:02,304][walrus.trainer.training][INFO] - Rank 0 passed barrier
+[2026-10-11 23:38:02,304][walrus.trainer.training][INFO] - Rank 3 passed barrier
+[2026-10-11 23:38:02,304][walrus.trainer.training][INFO] - Rank 1 passed barrier
+[2026-10-11 23:38:02,304][walrus.trainer.training][INFO] - Rank 2 passed barrier
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/acoustic_scattering_discontinuous/rollout_losses/epoch_2_rank0_rollout_valid
+[2026-10-11 23:38:03,036][walrus.trainer.training][INFO] - Epoch 2/2: rollout valid loss 0.5795492780550072
+[2026-10-11 23:38:03,036][walrus.trainer.training][INFO] - Epoch 2/2: rollout valid loss 0.5795492780550072
+[2026-10-11 23:38:03,036][walrus.trainer.training][INFO] - Epoch 2/2: rollout valid loss 0.5795492780550072
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/acoustic_scattering_inclusions/rollout_losses/epoch_2_rank0_rollout_valid
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/acoustic_scattering_maze/rollout_losses/epoch_2_rank0_rollout_valid
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/euler_multi_quadrants_openBC/rollout_losses/epoch_2_rank0_rollout_valid
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/euler_multi_quadrants_periodicBC/rollout_losses/epoch_2_rank0_rollout_valid
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/gray_scott_reaction_diffusion/rollout_losses/epoch_2_rank0_rollout_valid
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/planetswe/rollout_losses/epoch_2_rank0_rollout_valid
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/rayleigh_benard/rollout_losses/epoch_2_rank0_rollout_valid
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/shear_flow/rollout_losses/epoch_2_rank0_rollout_valid
+[2026-10-11 23:38:03,470][walrus.trainer.training][INFO] - Wrote out time logs to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/loss_dicts/rollout_valid_time_logs_epoch2_rank0.pkl
+[2026-10-11 23:38:03,613][walrus.trainer.training][INFO] - Wrote out loss dict to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/loss_dicts/rollout_valid_loss_dict_epoch2_rank0.pkl
+[2026-10-11 23:38:03,624][walrus.trainer.training][INFO] - Epoch 2/2: rollout valid loss 0.5795492780550072
+[2026-10-11 23:38:04,278][walrus.trainer.checkpoints][INFO] - Save checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/step_2
+[2026-10-11 23:38:04,278][walrus.trainer.checkpoints][INFO] - Save checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/step_2
+[2026-10-11 23:38:04,278][walrus.trainer.checkpoints][INFO] - Save checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/step_2
+[2026-10-11 23:38:04,278][walrus.trainer.checkpoints][INFO] - Save checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/step_2
+[2026-10-11 23:38:05,873][walrus.trainer.checkpoints][INFO] - Link checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/best to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/step_2
+[2026-10-11 23:38:05,876][walrus.trainer.training][INFO] - Epoch 2/2: starting test validation
+[2026-10-11 23:38:05,878][walrus.trainer.checkpoints][INFO] - Link checkpoint /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/last to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/checkpoints/step_2
+[2026-10-11 23:38:05,892][walrus.trainer.training][INFO] - Epoch 2/2: starting test validation
+[2026-10-11 23:38:05,892][walrus.trainer.training][INFO] - Epoch 2/2: starting test validation
+[2026-10-11 23:38:05,892][walrus.trainer.training][INFO] - Epoch 2/2: starting test validation
+[2026-10-11 23:38:05,898][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=False on rank 0
+[2026-10-11 23:38:05,898][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=False on rank 1
+[2026-10-11 23:38:05,898][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=False on rank 3
+[2026-10-11 23:38:05,898][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=False on rank 2
+[2026-10-11 23:38:07,395][walrus.trainer.training][INFO] - test: acoustic_scattering_discontinuous, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.3642, mem  0.64 GB, total_time 0.140s, model 0.1260s
+[2026-10-11 23:38:07,396][walrus.trainer.training][INFO] - test: acoustic_scattering_discontinuous, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.2821, mem  0.64 GB, total_time 0.192s, model 0.1789s
+[2026-10-11 23:38:07,401][walrus.trainer.training][INFO] - test: acoustic_scattering_discontinuous, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.3569, mem  0.64 GB, total_time 0.141s, model 0.1263s
+[2026-10-11 23:38:07,401][walrus.trainer.training][INFO] - test: acoustic_scattering_discontinuous, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.2628, mem  0.64 GB, total_time 0.146s, model 0.1312s
+[2026-10-11 23:38:07,553][walrus.trainer.training][INFO] - test: acoustic_scattering_discontinuous, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.2692, mem  0.62 GB, total_time 0.157s, model 0.1441s
+[2026-10-11 23:38:07,553][walrus.trainer.training][INFO] - test: acoustic_scattering_discontinuous, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.2138, mem  0.62 GB, total_time 0.157s, model 0.1447s
+[2026-10-11 23:38:07,555][walrus.trainer.training][INFO] - test: acoustic_scattering_discontinuous, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.2448, mem  0.62 GB, total_time 0.148s, model 0.1340s
+[2026-10-11 23:38:07,555][walrus.trainer.training][INFO] - test: acoustic_scattering_discontinuous, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.3983, mem  0.62 GB, total_time 0.153s, model 0.1384s
+[2026-10-11 23:38:07,714][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=False on rank 3
+[2026-10-11 23:38:07,721][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=False on rank 2
+[2026-10-11 23:38:07,759][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=False on rank 1
+[2026-10-11 23:38:08,070][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=False on rank 0
+[2026-10-11 23:38:08,911][walrus.trainer.training][INFO] - test: acoustic_scattering_inclusions, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.3945, mem  0.62 GB, total_time 0.126s, model 0.1168s
+[2026-10-11 23:38:08,911][walrus.trainer.training][INFO] - test: acoustic_scattering_inclusions, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.2072, mem  0.62 GB, total_time 0.363s, model 0.3545s
+[2026-10-11 23:38:08,912][walrus.trainer.training][INFO] - test: acoustic_scattering_inclusions, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.2739, mem  0.62 GB, total_time 0.484s, model 0.4746s
+[2026-10-11 23:38:08,912][walrus.trainer.training][INFO] - test: acoustic_scattering_inclusions, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.2862, mem  0.62 GB, total_time 0.306s, model 0.2985s
+[2026-10-11 23:38:09,080][walrus.trainer.training][INFO] - test: acoustic_scattering_inclusions, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.2298, mem  0.62 GB, total_time 0.167s, model 0.1513s
+[2026-10-11 23:38:09,080][walrus.trainer.training][INFO] - test: acoustic_scattering_inclusions, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.2671, mem  0.62 GB, total_time 0.168s, model 0.1516s
+[2026-10-11 23:38:09,081][walrus.trainer.training][INFO] - test: acoustic_scattering_inclusions, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.3402, mem  0.62 GB, total_time 0.168s, model 0.1522s
+[2026-10-11 23:38:09,081][walrus.trainer.training][INFO] - test: acoustic_scattering_inclusions, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.2334, mem  0.62 GB, total_time 0.155s, model 0.1388s
+[2026-10-11 23:38:09,188][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=False on rank 2
+[2026-10-11 23:38:09,250][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=False on rank 1
+[2026-10-11 23:38:09,310][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=False on rank 3
+[2026-10-11 23:38:09,851][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=False on rank 0
+[2026-10-11 23:38:10,610][walrus.trainer.training][INFO] - test: acoustic_scattering_maze, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.7547, mem  0.62 GB, total_time 0.663s, model 0.6486s
+[2026-10-11 23:38:10,610][walrus.trainer.training][INFO] - test: acoustic_scattering_maze, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.8087, mem  0.62 GB, total_time 0.745s, model 0.7306s
+[2026-10-11 23:38:10,610][walrus.trainer.training][INFO] - test: acoustic_scattering_maze, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.5654, mem  0.62 GB, total_time 0.634s, model 0.6189s
+[2026-10-11 23:38:10,611][walrus.trainer.training][INFO] - test: acoustic_scattering_maze, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.8606, mem  0.62 GB, total_time 0.097s, model 0.0807s
+[2026-10-11 23:38:10,738][walrus.trainer.training][INFO] - test: acoustic_scattering_maze, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.6738, mem  0.62 GB, total_time 0.128s, model 0.1126s
+[2026-10-11 23:38:10,738][walrus.trainer.training][INFO] - test: acoustic_scattering_maze, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.8462, mem  0.62 GB, total_time 0.128s, model 0.1124s
+[2026-10-11 23:38:10,738][walrus.trainer.training][INFO] - test: acoustic_scattering_maze, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.7180, mem  0.62 GB, total_time 0.119s, model 0.1038s
+[2026-10-11 23:38:10,740][walrus.trainer.training][INFO] - test: acoustic_scattering_maze, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.7206, mem  0.62 GB, total_time 0.127s, model 0.1104s
+[2026-10-11 23:38:10,943][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=False on rank 1
+[2026-10-11 23:38:10,978][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=False on rank 3
+[2026-10-11 23:38:10,986][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=False on rank 2
+[2026-10-11 23:38:11,448][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=False on rank 0
+[2026-10-11 23:38:13,965][walrus.trainer.training][INFO] - test: euler_multi_quadrants_openBC, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.3044, mem  1.49 GB, total_time 0.765s, model 0.7441s
+[2026-10-11 23:38:13,965][walrus.trainer.training][INFO] - test: euler_multi_quadrants_openBC, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.1658, mem  1.49 GB, total_time 1.280s, model 1.2599s
+[2026-10-11 23:38:13,966][walrus.trainer.training][INFO] - test: euler_multi_quadrants_openBC, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.3142, mem  1.49 GB, total_time 0.280s, model 0.2580s
+[2026-10-11 23:38:13,973][walrus.trainer.training][INFO] - test: euler_multi_quadrants_openBC, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.2659, mem  1.49 GB, total_time 1.286s, model 1.2638s
+[2026-10-11 23:38:14,138][walrus.trainer.training][INFO] - test: euler_multi_quadrants_openBC, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.1969, mem  1.52 GB, total_time 0.164s, model 0.1473s
+[2026-10-11 23:38:14,139][walrus.trainer.training][INFO] - test: euler_multi_quadrants_openBC, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.2021, mem  1.52 GB, total_time 0.173s, model 0.1549s
+[2026-10-11 23:38:14,141][walrus.trainer.training][INFO] - test: euler_multi_quadrants_openBC, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.2514, mem  1.52 GB, total_time 0.173s, model 0.1529s
+[2026-10-11 23:38:14,144][walrus.trainer.training][INFO] - test: euler_multi_quadrants_openBC, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.1280, mem  1.52 GB, total_time 0.178s, model 0.1549s
+[2026-10-11 23:38:14,582][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=False on rank 3
+[2026-10-11 23:38:14,585][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=False on rank 1
+[2026-10-11 23:38:14,679][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=False on rank 2
+[2026-10-11 23:38:15,401][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=False on rank 0
+[2026-10-11 23:38:17,573][walrus.trainer.training][INFO] - test: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.3736, mem  1.47 GB, total_time 1.859s, model 1.8402s
+[2026-10-11 23:38:17,574][walrus.trainer.training][INFO] - test: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.3606, mem  1.47 GB, total_time 1.514s, model 1.4952s
+[2026-10-11 23:38:17,574][walrus.trainer.training][INFO] - test: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.5153, mem  1.47 GB, total_time 1.316s, model 1.2967s
+[2026-10-11 23:38:17,575][walrus.trainer.training][INFO] - test: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.4007, mem  1.47 GB, total_time 0.123s, model 0.1039s
+[2026-10-11 23:38:20,859][walrus.trainer.training][INFO] - test: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.3248, mem  1.47 GB, total_time 3.084s, model 3.0420s
+[2026-10-11 23:38:20,859][walrus.trainer.training][INFO] - test: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.4113, mem  1.47 GB, total_time 3.284s, model 3.2422s
+[2026-10-11 23:38:20,859][walrus.trainer.training][INFO] - test: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.3930, mem  1.47 GB, total_time 2.402s, model 2.3601s
+[2026-10-11 23:38:20,859][walrus.trainer.training][INFO] - test: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.4186, mem  1.47 GB, total_time 2.966s, model 2.9241s
+[2026-10-11 23:38:20,960][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=False on rank 1
+[2026-10-11 23:38:20,960][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=False on rank 2
+[2026-10-11 23:38:20,962][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=False on rank 3
+[2026-10-11 23:38:21,661][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=False on rank 0
+[2026-10-11 23:38:22,292][walrus.trainer.training][INFO] - test: gray_scott_reaction_diffusion, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.0710, mem  0.58 GB, total_time 0.317s, model 0.3049s
+[2026-10-11 23:38:22,292][walrus.trainer.training][INFO] - test: gray_scott_reaction_diffusion, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.0039, mem  0.58 GB, total_time 0.464s, model 0.4515s
+[2026-10-11 23:38:22,292][walrus.trainer.training][INFO] - test: gray_scott_reaction_diffusion, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.0007, mem  0.58 GB, total_time 0.447s, model 0.4340s
+[2026-10-11 23:38:22,292][walrus.trainer.training][INFO] - test: gray_scott_reaction_diffusion, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.0700, mem  0.58 GB, total_time 0.103s, model 0.0900s
+[2026-10-11 23:38:22,413][walrus.trainer.training][INFO] - test: gray_scott_reaction_diffusion, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.0019, mem  0.54 GB, total_time 0.120s, model 0.1073s
+[2026-10-11 23:38:22,413][walrus.trainer.training][INFO] - test: gray_scott_reaction_diffusion, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.0704, mem  0.54 GB, total_time 0.120s, model 0.1074s
+[2026-10-11 23:38:22,414][walrus.trainer.training][INFO] - test: gray_scott_reaction_diffusion, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.0015, mem  0.54 GB, total_time 0.120s, model 0.1072s
+[2026-10-11 23:38:22,414][walrus.trainer.training][INFO] - test: gray_scott_reaction_diffusion, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.0021, mem  0.54 GB, total_time 0.112s, model 0.0985s
+[2026-10-11 23:38:22,482][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=False on rank 3
+[2026-10-11 23:38:22,489][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=False on rank 1
+[2026-10-11 23:38:22,554][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=False on rank 2
+[2026-10-11 23:38:22,810][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=False on rank 0
+[2026-10-11 23:38:23,721][walrus.trainer.training][INFO] - test: planetswe, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.0207, mem  0.81 GB, total_time 0.333s, model 0.3308s
+[2026-10-11 23:38:23,721][walrus.trainer.training][INFO] - test: planetswe, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.0231, mem  0.81 GB, total_time 0.488s, model 0.4854s
+[2026-10-11 23:38:23,722][walrus.trainer.training][INFO] - test: planetswe, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.0188, mem  0.81 GB, total_time 0.105s, model 0.1017s
+[2026-10-11 23:38:23,722][walrus.trainer.training][INFO] - test: planetswe, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.0275, mem  0.81 GB, total_time 0.581s, model 0.5774s
+[2026-10-11 23:38:23,854][walrus.trainer.training][INFO] - test: planetswe, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.0313, mem  0.82 GB, total_time 0.132s, model 0.1167s
+[2026-10-11 23:38:23,854][walrus.trainer.training][INFO] - test: planetswe, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.0247, mem  0.82 GB, total_time 0.132s, model 0.1166s
+[2026-10-11 23:38:23,855][walrus.trainer.training][INFO] - test: planetswe, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.0272, mem  0.82 GB, total_time 0.117s, model 0.1009s
+[2026-10-11 23:38:23,855][walrus.trainer.training][INFO] - test: planetswe, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.0331, mem  0.82 GB, total_time 0.132s, model 0.1162s
+[2026-10-11 23:38:23,938][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=False on rank 2
+[2026-10-11 23:38:23,986][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=False on rank 1
+[2026-10-11 23:38:23,988][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=False on rank 3
+[2026-10-11 23:38:24,370][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=False on rank 0
+[2026-10-11 23:38:26,978][walrus.trainer.training][INFO] - test: rayleigh_benard, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.2123, mem  0.80 GB, total_time 1.574s, model 1.5386s
+[2026-10-11 23:38:26,978][walrus.trainer.training][INFO] - test: rayleigh_benard, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.1127, mem  0.80 GB, total_time 1.574s, model 1.5385s
+[2026-10-11 23:38:26,978][walrus.trainer.training][INFO] - test: rayleigh_benard, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.2539, mem  0.80 GB, total_time 1.574s, model 1.5386s
+[2026-10-11 23:38:26,978][walrus.trainer.training][INFO] - test: rayleigh_benard, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.1988, mem  0.80 GB, total_time 1.574s, model 1.5386s
+[2026-10-11 23:38:27,126][walrus.trainer.training][INFO] - test: rayleigh_benard, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.1232, mem  0.79 GB, total_time 0.148s, model 0.1312s
+[2026-10-11 23:38:27,126][walrus.trainer.training][INFO] - test: rayleigh_benard, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.3086, mem  0.80 GB, total_time 0.148s, model 0.1312s
+[2026-10-11 23:38:27,127][walrus.trainer.training][INFO] - test: rayleigh_benard, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.2390, mem  0.80 GB, total_time 0.075s, model 0.0579s
+[2026-10-11 23:38:27,127][walrus.trainer.training][INFO] - test: rayleigh_benard, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.1260, mem  0.80 GB, total_time 0.149s, model 0.1311s
+[2026-10-11 23:38:27,264][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=False on rank 2
+[2026-10-11 23:38:27,275][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=False on rank 1
+[2026-10-11 23:38:27,325][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=False on rank 3
+[2026-10-11 23:38:27,791][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=False on rank 0
+[2026-10-11 23:38:28,907][walrus.trainer.training][INFO] - test: shear_flow, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.0463, mem  0.86 GB, total_time 0.514s, model 0.4997s
+[2026-10-11 23:38:28,907][walrus.trainer.training][INFO] - test: shear_flow, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.0445, mem  0.86 GB, total_time 0.538s, model 0.5220s
+[2026-10-11 23:38:28,908][walrus.trainer.training][INFO] - test: shear_flow, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.1090, mem  0.86 GB, total_time 0.316s, model 0.2992s
+[2026-10-11 23:38:28,908][walrus.trainer.training][INFO] - test: shear_flow, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.0395, mem  0.86 GB, total_time 0.254s, model 0.2378s
+[2026-10-11 23:38:29,028][walrus.trainer.training][INFO] - test: shear_flow, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.0569, mem  0.87 GB, total_time 0.120s, model 0.1040s
+[2026-10-11 23:38:29,028][walrus.trainer.training][INFO] - test: shear_flow, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.1525, mem  0.87 GB, total_time 0.120s, model 0.1034s
+[2026-10-11 23:38:29,028][walrus.trainer.training][INFO] - test: shear_flow, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.0085, mem  0.87 GB, total_time 0.120s, model 0.1032s
+[2026-10-11 23:38:29,029][walrus.trainer.training][INFO] - test: shear_flow, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.0736, mem  0.87 GB, total_time 0.120s, model 0.1023s
+[2026-10-11 23:38:29,603][walrus.trainer.training][INFO] - Rank 3 waiting for barrier
+[2026-10-11 23:38:29,679][walrus.trainer.training][INFO] - Rank 2 waiting for barrier
+[2026-10-11 23:38:29,696][walrus.trainer.training][INFO] - Rank 1 waiting for barrier
+[2026-10-11 23:38:30,136][walrus.trainer.training][INFO] - Rank 0 waiting for barrier
+[2026-10-11 23:38:30,166][walrus.trainer.training][INFO] - Rank 0 passed barrier
+[2026-10-11 23:38:30,166][walrus.trainer.training][INFO] - Rank 2 passed barrier
+[2026-10-11 23:38:30,166][walrus.trainer.training][INFO] - Rank 1 passed barrier
+[2026-10-11 23:38:30,166][walrus.trainer.training][INFO] - Rank 3 passed barrier
+[2026-10-11 23:38:30,631][walrus.trainer.training][INFO] - Wrote out loss dict to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/loss_dicts/test_loss_dict_epoch2_rank0.pkl
+[2026-10-11 23:38:30,631][walrus.trainer.training][INFO] - Epoch 2/2: test loss 0.16427083111678562
+[2026-10-11 23:38:30,631][walrus.trainer.training][INFO] - Epoch 2/2: test loss 0.16427083111678562
+[2026-10-11 23:38:30,631][walrus.trainer.training][INFO] - Epoch 2/2: test loss 0.16427083111678562
+[2026-10-11 23:38:30,632][walrus.trainer.training][INFO] - Epoch 2/2: starting rollout test validation
+[2026-10-11 23:38:30,632][walrus.trainer.training][INFO] - Epoch 2/2: starting rollout test validation
+[2026-10-11 23:38:30,632][walrus.trainer.training][INFO] - Epoch 2/2: starting rollout test validation
+[2026-10-11 23:38:30,637][walrus.trainer.training][INFO] - Epoch 2/2: test loss 0.16427083111678562
+[2026-10-11 23:38:30,995][walrus.trainer.training][INFO] - Epoch 2/2: starting rollout test validation
+[2026-10-11 23:38:30,997][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=True on rank 0
+[2026-10-11 23:38:30,997][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=True on rank 1
+[2026-10-11 23:38:30,997][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=True on rank 3
+[2026-10-11 23:38:30,997][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_discontinuous with full_trajectory_mode=True on rank 2
+[2026-10-11 23:38:34,202][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_discontinuous, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.6747, mem  0.66 GB, total_time 0.931s, model 0.9158s
+[2026-10-11 23:38:34,202][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_discontinuous, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.5343, mem  0.66 GB, total_time 0.992s, model 0.9768s
+[2026-10-11 23:38:34,202][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_discontinuous, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.7353, mem  0.66 GB, total_time 0.845s, model 0.8306s
+[2026-10-11 23:38:34,202][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_discontinuous, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.4935, mem  0.66 GB, total_time 1.117s, model 1.1013s
+[2026-10-11 23:38:34,464][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_discontinuous, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.6483, mem  0.77 GB, total_time 0.261s, model 0.2546s
+[2026-10-11 23:38:34,464][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_discontinuous, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.5052, mem  0.77 GB, total_time 0.261s, model 0.2546s
+[2026-10-11 23:38:34,464][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_discontinuous, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.5527, mem  0.77 GB, total_time 0.261s, model 0.2548s
+[2026-10-11 23:38:34,464][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_discontinuous, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.7180, mem  0.77 GB, total_time 0.259s, model 0.2529s
+[2026-10-11 23:38:34,721][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=True on rank 3
+[2026-10-11 23:38:34,734][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=True on rank 2
+[2026-10-11 23:38:34,739][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=True on rank 1
+[2026-10-11 23:38:35,089][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_inclusions with full_trajectory_mode=True on rank 0
+[2026-10-11 23:38:37,426][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_inclusions, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.7270, mem  0.77 GB, total_time 0.827s, model 0.8210s
+[2026-10-11 23:38:37,427][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_inclusions, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.8562, mem  0.77 GB, total_time 1.198s, model 1.1925s
+[2026-10-11 23:38:37,428][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_inclusions, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.6017, mem  0.77 GB, total_time 0.744s, model 0.7371s
+[2026-10-11 23:38:37,428][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_inclusions, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.5875, mem  0.77 GB, total_time 0.512s, model 0.5045s
+[2026-10-11 23:38:37,677][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_inclusions, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.8593, mem  0.77 GB, total_time 0.250s, model 0.2438s
+[2026-10-11 23:38:37,677][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_inclusions, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.6075, mem  0.77 GB, total_time 0.248s, model 0.2420s
+[2026-10-11 23:38:37,677][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_inclusions, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.7038, mem  0.77 GB, total_time 0.250s, model 0.2437s
+[2026-10-11 23:38:37,677][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_inclusions, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.6006, mem  0.77 GB, total_time 0.246s, model 0.2403s
+[2026-10-11 23:38:37,947][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=True on rank 2
+[2026-10-11 23:38:37,978][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=True on rank 1
+[2026-10-11 23:38:37,989][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=True on rank 3
+[2026-10-11 23:38:38,433][walrus.trainer.training][INFO] - Validating dataset acoustic_scattering_maze with full_trajectory_mode=True on rank 0
+[2026-10-11 23:38:40,708][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_maze, Batch 1/2, Rank   2: Field-time-averaged VRMSE  1.1946, mem  0.78 GB, total_time 1.774s, model 1.7684s
+[2026-10-11 23:38:40,708][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_maze, Batch 1/2, Rank   1: Field-time-averaged VRMSE  1.1502, mem  0.78 GB, total_time 1.247s, model 1.2412s
+[2026-10-11 23:38:40,708][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_maze, Batch 1/2, Rank   3: Field-time-averaged VRMSE  1.1881, mem  0.78 GB, total_time 1.160s, model 1.1545s
+[2026-10-11 23:38:40,710][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_maze, Batch 1/2, Rank   0: Field-time-averaged VRMSE  1.1621, mem  0.78 GB, total_time 0.408s, model 0.4023s
+[2026-10-11 23:38:41,004][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_maze, Batch 2/2, Rank   2: Field-time-averaged VRMSE  1.1895, mem  0.78 GB, total_time 0.295s, model 0.2889s
+[2026-10-11 23:38:41,004][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_maze, Batch 2/2, Rank   1: Field-time-averaged VRMSE  1.1890, mem  0.78 GB, total_time 0.295s, model 0.2890s
+[2026-10-11 23:38:41,004][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_maze, Batch 2/2, Rank   3: Field-time-averaged VRMSE  1.1761, mem  0.78 GB, total_time 0.295s, model 0.2890s
+[2026-10-11 23:38:41,004][walrus.trainer.training][INFO] - rollout_test: acoustic_scattering_maze, Batch 2/2, Rank   0: Field-time-averaged VRMSE  1.2483, mem  0.78 GB, total_time 0.292s, model 0.2859s
+[2026-10-11 23:38:41,180][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=True on rank 3
+[2026-10-11 23:38:41,210][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=True on rank 2
+[2026-10-11 23:38:41,326][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=True on rank 1
+[2026-10-11 23:38:42,129][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_openBC with full_trajectory_mode=True on rank 0
+[2026-10-11 23:38:51,735][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_openBC, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.8279, mem  2.18 GB, total_time 2.548s, model 2.5068s
+[2026-10-11 23:38:51,735][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_openBC, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.8835, mem  2.18 GB, total_time 2.609s, model 2.5677s
+[2026-10-11 23:38:51,736][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_openBC, Batch 1/2, Rank   2: Field-time-averaged VRMSE  1.0063, mem  2.18 GB, total_time 0.812s, model 0.7686s
+[2026-10-11 23:38:51,736][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_openBC, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.4437, mem  2.18 GB, total_time 1.557s, model 1.5159s
+[2026-10-11 23:38:53,064][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_openBC, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.5620, mem  2.73 GB, total_time 1.327s, model 1.3065s
+[2026-10-11 23:38:53,095][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_openBC, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.7558, mem  2.73 GB, total_time 1.356s, model 1.3050s
+[2026-10-11 23:38:53,108][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_openBC, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.6725, mem  2.73 GB, total_time 1.363s, model 1.3418s
+[2026-10-11 23:38:53,118][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_openBC, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.7327, mem  2.73 GB, total_time 1.382s, model 1.3461s
+[2026-10-11 23:38:54,900][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=True on rank 1
+[2026-10-11 23:38:54,927][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=True on rank 2
+[2026-10-11 23:38:55,119][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=True on rank 3
+[2026-10-11 23:38:57,279][walrus.trainer.training][INFO] - Validating dataset euler_multi_quadrants_periodicBC with full_trajectory_mode=True on rank 0
+[2026-10-11 23:39:11,412][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.5887, mem  2.70 GB, total_time 4.536s, model 4.1108s
+[2026-10-11 23:39:11,412][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   0: Field-time-averaged VRMSE  1.2694, mem  2.70 GB, total_time 4.536s, model 4.1107s
+[2026-10-11 23:39:11,412][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.8137, mem  2.70 GB, total_time 4.010s, model 3.5856s
+[2026-10-11 23:39:11,412][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_periodicBC, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.5364, mem  2.70 GB, total_time 3.259s, model 2.8345s
+[2026-10-11 23:39:12,695][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   2: Field-time-averaged VRMSE  1.1610, mem  2.70 GB, total_time 1.277s, model 1.2469s
+[2026-10-11 23:39:12,703][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.7269, mem  2.70 GB, total_time 1.285s, model 1.2671s
+[2026-10-11 23:39:12,705][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.9123, mem  2.70 GB, total_time 1.287s, model 1.2468s
+[2026-10-11 23:39:12,706][walrus.trainer.training][INFO] - rollout_test: euler_multi_quadrants_periodicBC, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.9468, mem  2.70 GB, total_time 1.288s, model 1.2542s
+[2026-10-11 23:39:13,420][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=True on rank 3
+[2026-10-11 23:39:15,304][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=True on rank 2
+[2026-10-11 23:39:15,785][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=True on rank 1
+[2026-10-11 23:39:16,934][walrus.trainer.training][INFO] - Validating dataset gray_scott_reaction_diffusion with full_trajectory_mode=True on rank 0
+[2026-10-11 23:39:17,576][walrus.trainer.training][INFO] - rollout_test: gray_scott_reaction_diffusion, Batch 1/2, Rank   2: Field-time-averaged VRMSE  1.2222, mem  1.11 GB, total_time 1.907s, model 1.9027s
+[2026-10-11 23:39:17,576][walrus.trainer.training][INFO] - rollout_test: gray_scott_reaction_diffusion, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.6183, mem  1.11 GB, total_time 3.024s, model 3.0196s
+[2026-10-11 23:39:17,576][walrus.trainer.training][INFO] - rollout_test: gray_scott_reaction_diffusion, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.0860, mem  1.11 GB, total_time 1.293s, model 1.2889s
+[2026-10-11 23:39:17,576][walrus.trainer.training][INFO] - rollout_test: gray_scott_reaction_diffusion, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.5340, mem  1.11 GB, total_time 0.240s, model 0.2355s
+[2026-10-11 23:39:17,788][walrus.trainer.training][INFO] - rollout_test: gray_scott_reaction_diffusion, Batch 2/2, Rank   1: Field-time-averaged VRMSE  1.4633, mem  0.45 GB, total_time 0.211s, model 0.2063s
+[2026-10-11 23:39:17,788][walrus.trainer.training][INFO] - rollout_test: gray_scott_reaction_diffusion, Batch 2/2, Rank   3: Field-time-averaged VRMSE  2.0070, mem  0.45 GB, total_time 0.211s, model 0.2063s
+[2026-10-11 23:39:17,788][walrus.trainer.training][INFO] - rollout_test: gray_scott_reaction_diffusion, Batch 2/2, Rank   2: Field-time-averaged VRMSE  1.1812, mem  0.45 GB, total_time 0.211s, model 0.2064s
+[2026-10-11 23:39:17,788][walrus.trainer.training][INFO] - rollout_test: gray_scott_reaction_diffusion, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.0919, mem  0.46 GB, total_time 0.211s, model 0.2059s
+[2026-10-11 23:39:17,845][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=True on rank 1
+[2026-10-11 23:39:17,847][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=True on rank 2
+[2026-10-11 23:39:17,864][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=True on rank 3
+[2026-10-11 23:39:18,126][walrus.trainer.training][INFO] - Validating dataset planetswe with full_trajectory_mode=True on rank 0
+[2026-10-11 23:39:19,715][walrus.trainer.training][INFO] - rollout_test: planetswe, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.0882, mem  0.87 GB, total_time 0.476s, model 0.4697s
+[2026-10-11 23:39:19,715][walrus.trainer.training][INFO] - rollout_test: planetswe, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.0995, mem  0.87 GB, total_time 0.783s, model 0.7760s
+[2026-10-11 23:39:19,715][walrus.trainer.training][INFO] - rollout_test: planetswe, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.1039, mem  0.88 GB, total_time 0.464s, model 0.4571s
+[2026-10-11 23:39:19,715][walrus.trainer.training][INFO] - rollout_test: planetswe, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.0942, mem  0.87 GB, total_time 0.382s, model 0.3751s
+[2026-10-11 23:39:19,935][walrus.trainer.training][INFO] - rollout_test: planetswe, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.0890, mem  1.04 GB, total_time 0.220s, model 0.2132s
+[2026-10-11 23:39:19,935][walrus.trainer.training][INFO] - rollout_test: planetswe, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.0764, mem  1.04 GB, total_time 0.219s, model 0.2129s
+[2026-10-11 23:39:19,935][walrus.trainer.training][INFO] - rollout_test: planetswe, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.1172, mem  1.04 GB, total_time 0.218s, model 0.2117s
+[2026-10-11 23:39:19,935][walrus.trainer.training][INFO] - rollout_test: planetswe, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.1197, mem  1.04 GB, total_time 0.220s, model 0.2135s
+[2026-10-11 23:39:19,976][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=True on rank 1
+[2026-10-11 23:39:19,977][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=True on rank 3
+[2026-10-11 23:39:19,995][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=True on rank 2
+[2026-10-11 23:39:20,663][walrus.trainer.training][INFO] - Validating dataset rayleigh_benard with full_trajectory_mode=True on rank 0
+[2026-10-11 23:39:25,885][walrus.trainer.training][INFO] - rollout_test: rayleigh_benard, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.0696, mem  0.98 GB, total_time 2.916s, model 2.8458s
+[2026-10-11 23:39:25,885][walrus.trainer.training][INFO] - rollout_test: rayleigh_benard, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.0538, mem  0.98 GB, total_time 3.572s, model 3.5024s
+[2026-10-11 23:39:25,885][walrus.trainer.training][INFO] - rollout_test: rayleigh_benard, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.0240, mem  0.98 GB, total_time 3.181s, model 3.1112s
+[2026-10-11 23:39:25,885][walrus.trainer.training][INFO] - rollout_test: rayleigh_benard, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.0386, mem  0.98 GB, total_time 3.498s, model 3.4283s
+[2026-10-11 23:39:26,132][walrus.trainer.training][INFO] - rollout_test: rayleigh_benard, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.0204, mem  0.94 GB, total_time 0.246s, model 0.2384s
+[2026-10-11 23:39:26,132][walrus.trainer.training][INFO] - rollout_test: rayleigh_benard, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.0439, mem  0.94 GB, total_time 0.246s, model 0.2383s
+[2026-10-11 23:39:26,132][walrus.trainer.training][INFO] - rollout_test: rayleigh_benard, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.0340, mem  0.94 GB, total_time 0.246s, model 0.2385s
+[2026-10-11 23:39:26,132][walrus.trainer.training][INFO] - rollout_test: rayleigh_benard, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.0463, mem  0.94 GB, total_time 0.246s, model 0.2379s
+[2026-10-11 23:39:26,534][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=True on rank 1
+[2026-10-11 23:39:26,626][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=True on rank 3
+[2026-10-11 23:39:26,637][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=True on rank 2
+[2026-10-11 23:39:27,358][walrus.trainer.training][INFO] - Validating dataset shear_flow with full_trajectory_mode=True on rank 0
+[2026-10-11 23:39:32,775][walrus.trainer.training][INFO] - rollout_test: shear_flow, Batch 1/2, Rank   3: Field-time-averaged VRMSE  0.2749, mem  1.23 GB, total_time 1.285s, model 1.2561s
+[2026-10-11 23:39:32,775][walrus.trainer.training][INFO] - rollout_test: shear_flow, Batch 1/2, Rank   2: Field-time-averaged VRMSE  0.2512, mem  1.23 GB, total_time 1.987s, model 1.9572s
+[2026-10-11 23:39:32,775][walrus.trainer.training][INFO] - rollout_test: shear_flow, Batch 1/2, Rank   1: Field-time-averaged VRMSE  0.0905, mem  1.23 GB, total_time 1.894s, model 1.8645s
+[2026-10-11 23:39:32,775][walrus.trainer.training][INFO] - rollout_test: shear_flow, Batch 1/2, Rank   0: Field-time-averaged VRMSE  0.1628, mem  1.23 GB, total_time 0.876s, model 0.8461s
+[2026-10-11 23:39:33,361][walrus.trainer.training][INFO] - rollout_test: shear_flow, Batch 2/2, Rank   2: Field-time-averaged VRMSE  0.5318, mem  1.37 GB, total_time 0.584s, model 0.5215s
+[2026-10-11 23:39:33,361][walrus.trainer.training][INFO] - rollout_test: shear_flow, Batch 2/2, Rank   0: Field-time-averaged VRMSE  0.1737, mem  1.38 GB, total_time 0.583s, model 0.5198s
+[2026-10-11 23:39:33,362][walrus.trainer.training][INFO] - rollout_test: shear_flow, Batch 2/2, Rank   1: Field-time-averaged VRMSE  0.1630, mem  1.38 GB, total_time 0.586s, model 0.5783s
+[2026-10-11 23:39:33,430][walrus.trainer.training][INFO] - rollout_test: shear_flow, Batch 2/2, Rank   3: Field-time-averaged VRMSE  0.5404, mem  1.38 GB, total_time 0.653s, model 0.5218s
+[2026-10-11 23:39:34,158][walrus.trainer.training][INFO] - Rank 1 waiting for barrier
+[2026-10-11 23:39:34,189][walrus.trainer.training][INFO] - Rank 3 waiting for barrier
+[2026-10-11 23:39:34,336][walrus.trainer.training][INFO] - Rank 2 waiting for barrier
+[2026-10-11 23:39:34,865][walrus.trainer.training][INFO] - Rank 0 waiting for barrier
+[2026-10-11 23:39:34,892][walrus.trainer.training][INFO] - Rank 0 passed barrier
+[2026-10-11 23:39:34,892][walrus.trainer.training][INFO] - Rank 2 passed barrier
+[2026-10-11 23:39:34,892][walrus.trainer.training][INFO] - Rank 1 passed barrier
+[2026-10-11 23:39:34,892][walrus.trainer.training][INFO] - Rank 3 passed barrier
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/acoustic_scattering_discontinuous/rollout_losses/epoch_2_rank0_rollout_test
+[2026-10-11 23:39:35,671][walrus.trainer.training][INFO] - Epoch 2/2: rollout test loss 0.5482339041255828
+[2026-10-11 23:39:35,670][walrus.trainer.training][INFO] - Epoch 2/2: rollout test loss 0.5482339041255828
+[2026-10-11 23:39:35,671][walrus.trainer.training][INFO] - Epoch 2/2: rollout test loss 0.5482339041255828
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/acoustic_scattering_inclusions/rollout_losses/epoch_2_rank0_rollout_test
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/acoustic_scattering_maze/rollout_losses/epoch_2_rank0_rollout_test
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/euler_multi_quadrants_openBC/rollout_losses/epoch_2_rank0_rollout_test
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/euler_multi_quadrants_periodicBC/rollout_losses/epoch_2_rank0_rollout_test
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/gray_scott_reaction_diffusion/rollout_losses/epoch_2_rank0_rollout_test
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/planetswe/rollout_losses/epoch_2_rank0_rollout_test
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/rayleigh_benard/rollout_losses/epoch_2_rank0_rollout_test
+output_dir /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/shear_flow/rollout_losses/epoch_2_rank0_rollout_test
+[2026-10-11 23:39:36,095][walrus.trainer.training][INFO] - Wrote out time logs to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/loss_dicts/rollout_test_time_logs_epoch2_rank0.pkl
+[2026-10-11 23:39:36,243][walrus.trainer.training][INFO] - Wrote out loss dict to /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/determinism/A/viz/loss_dicts/rollout_test_loss_dict_epoch2_rank0.pkl
+[2026-10-11 23:39:36,255][walrus.trainer.training][INFO] - Epoch 2/2: rollout test loss 0.5482339041255828

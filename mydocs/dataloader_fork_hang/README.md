@@ -29,21 +29,25 @@ of 3 at the start of epoch 2. A diagnostic run captured every process's stack. T
    it produces no error before a 30-min job limit.
 
 The mechanism itself is upstream WALRUS + PyTorch behaviour: async checkpoint saving plus forked
-DataLoader workers. It is **timing-dependent**. It struck 3 of 5 tiny-model (320/6/768) runs on the
-current code, but 0 of 10 exposed epoch boundaries at 200 M and 1.2 B parameters (§7), and 0 of
-roughly 145 boundaries in earlier production runs (§6).
+DataLoader workers. It is **timing-dependent**, and it has only been seen in the tiny model:
+- **Small model (320/6/768):** it struck tiny-model runs repeatedly on the current code.
+- **Large models:** 0 of 20 exposed epoch boundaries at 200 M and 1.2 B parameters, over two
+  rounds (§7, §7f).
+- **Earlier production runs:** 0 of roughly 145 boundaries (§6).
 
-**The code before the determinism changes does not hang, so those changes are implicated (§7e).**
-B's exact script hung in **5 of 5** runs on the current code, with and without
-`TORCH_DISTRIBUTED_DEBUG=DETAIL`, and the stack dumps show the same frozen worker every time. The
-same script on commit `656c00c` completed **4 of 4**, and the two runs without `DETAIL` also resumed
-successfully. If both versions hung equally often, all 5 hangs falling on the current code would
-happen by chance with probability 1/C(9,5) ≈ 0.8 % (§7e).
+**The code before the determinism changes did not hang, so those changes are implicated (§7e, §7f).**
+- **Current code:** B's exact script hung in **7 of 8** runs, with and without
+  `TORCH_DISTRIBUTED_DEBUG=DETAIL`, and the stack dumps show the same frozen worker every time.
+- **Commit `656c00c`:** the same script completed **4 of 4**, and the two runs without `DETAIL`
+  also resumed successfully.
+- **Chance:** if both versions hung equally often, all 7 hangs falling on the current code would
+  happen with probability C(8,7)/C(12,7) = 8/792 ≈ 1.0 % (§7f).
 
-That is not the whole picture: on the current code, other tiny-model runs did *not* hang
-(A: 0 of 2; the 6-epoch controls: 0 of 10), and A's first launch is script-identical to B's. So
-"the current code" alone isn't the trigger, and the mechanism linking the changes to the hang is
-unknown. Earlier sections (§7b, §7c) concluded the changes were not the cause; §7e supersedes that.
+That is not the whole picture. On the current code, other tiny-model runs did *not* hang: A 0 of 3,
+and the 6-epoch controls 0 of 20 boundaries. A's first launch is also script-identical to B's, and in
+round 2 a B run passed its first launch for the first time (§7f). So "the current code" alone isn't
+the trigger, and the mechanism linking the changes to the hang is unknown. Earlier sections (§7b,
+§7c) concluded the changes were not the cause; §7e and §7f supersede that.
 
 ---
 
@@ -70,10 +74,19 @@ that B, after its first launch, sets `step_2` aside and resumes (the determinism
 | 59853799 / 59853800 | old_B_1 / old_B_2, **commit 656c00c**, B's exact script | 320/6/768 | DETAIL, 300 s watchdog | lrdn0668 / lrdn1040 | **FAILED** after ~10 min: first launch passed epoch 2 (no hang); the resume launch crashed loading `step_1` (§7d) | `slurm_logs/59853799_*`, `59853800_*` |
 | 59854572 / 59854574 | old_B_nd_1 / _2, **commit 656c00c**, B's script, DETAIL off | 320/6/768 | 300 s watchdog | lrdn0173 / lrdn1152 | **COMPLETED**, 14 min each: first launch and resume both fine (§7e) | `slurm_logs/59854572_*`, `59854574_*` |
 | 59856184 / 59856185 | cur_B_nd_1 / _2, **current code**, B's script, DETAIL off | 320/6/768 | 300 s watchdog | — | **hung** at epoch 2 batch 1; 40 / 44 stack dumps; FAILED after 9 min (§7e) | `slurm_logs/59856184_*`, `59856185_*`, `stack_dumps/cur_B_nd_summary.txt` |
+| *Round 2, 2026-10-11, current code `dd08774`, all artifacts cleaned first (§7f):* | | | | | | |
+| 60036829 | B | 320/6/768 | DETAIL, 600 s timeout, 300 s watchdog | lrdn2995 | **first launch completed** (both epochs, `step_2` saved); the resume launch crashed loading `step_1` with the §7d `DETAIL` error; FAILED after 11 min | `slurm_logs/60036829_B_round2_*` |
+| 60036831 | hang_anchor | 768/12/2048 | as B | lrdn1458 | COMPLETED, 17 min: 5 exposed boundaries, no hang | `slurm_logs/60036831_*` |
+| 60037693 | cur_B_nd_1 | 320/6/768 | DETAIL off, 300 s watchdog | lrdn0558 | **hung** at epoch 2 batch 1 of launch 1; 44 stack dumps; FAILED after 10 min | `slurm_logs/60037693_*` |
+| 60038181 | hang_fullDims | 1408/40/5632, GC 2 | as B | lrdn1385 | COMPLETED, 24 min: 5 exposed boundaries, no hang | `slurm_logs/60038181_*` |
+| 60038527 | A | 320/6/768 | as B | lrdn0050 | COMPLETED, 8 min | `slurm_logs/60038527_*` |
+| 60039144 / 60040787 | new_tiny_1 / _2 | 320/6/768 | DETAIL, 300 s watchdog | lrdn0920 / lrdn0146 | COMPLETED, 13 min each: 5 exposed boundaries each, no hang | `slurm_logs/60039144_*`, `60040787_*` |
+| 60040489 | cur_B_nd_2 | 320/6/768 | DETAIL off, 300 s watchdog | lrdn3196 | **hung** at epoch 2 batch 1 of launch 1; 44 stack dumps; FAILED after 10 min | `slurm_logs/60040489_*` |
 
 The hang tests use `max_samples=100` (anchor) and `30` (fullDims), with `checkpoint_frequency=0`
 (one rolling `last` checkpoint). A and B use `max_samples=100`, 2 epochs and
-`checkpoint_frequency=1`. Six different nodes were involved, so a faulty node is ruled out.
+`checkpoint_frequency=1`. Round 1 used six different nodes and round 2 eight more, so a faulty
+node is ruled out.
 
 ## 3. Diagnostics used
 
@@ -191,8 +204,8 @@ the fork (`save_vs_epoch_timing.txt`). **No hang in any of the 10.** Both comple
 | | runs / boundaries exposed | hangs |
 |---|---|---|
 | 320/6/768 (A and B) | 5 runs, 1 boundary each | 3 (all B) |
-| 768/12/2048 | 5 | 0 |
-| 1408/40/5632 | 5 | 0 |
+| 768/12/2048 | 5 (+ 5 in round 2, §7f) | 0 |
+| 1408/40/5632 | 5 (+ 5 in round 2, §7f) | 0 |
 | earlier production runs | ~145 | 0 |
 
 ## 7b. Same tiny model on the code before the determinism changes (commit `656c00c`)
@@ -330,10 +343,77 @@ attempt by 6.7–6.8e-4 (relative), against a float-noise floor of 4.7e-4 betwee
 same-seed runs. At this tiny size GPU noise is too large for that to separate "resume replays other
 data" from float noise (ratio 1.4), so it's inconclusive either way.
 
+## 7f. Round 2: all artifacts cleaned, the 8 current-code jobs rerun (2026-10-11)
+
+**Setup.**
+- All 14 earlier determinism jobs' SLURM logs, offline W&B runs, run folders (49 GB of
+  checkpoints) and Hydra outputs were deleted first. Their logs had been copied here.
+- The 8 current-code scripts were resubmitted unchanged on `flopcount` (`dd08774`), 2 at a time,
+  because the debug QOS allows only 2 submitted jobs per user. Each pair put a tiny job next to a
+  large one.
+- The 6 `old_*` scripts could not run: they need the `656c00c` worktree, which was removed.
+- Before submitting, the CPU checks passed on the same code: `tests/test_flops.py` (24),
+  `tests/test_seed.py` (3), `tests/test_determinism.py` (2), and notebook 5 with every assert.
+
+**Results** (§2, round-2 rows):
+
+| run | shape | boundaries exposed | hangs |
+|---|---|---|---|
+| hang_anchor | 768/12/2048 | 5 | 0 |
+| hang_fullDims | 1408/40/5632 | 5 | 0 |
+| new_tiny_1, new_tiny_2 | 320/6/768, 6 epochs | 10 | 0 |
+| A | 320/6/768, B's first launch | 1 | 0 |
+| B (`DETAIL` on) | 320/6/768 | 1 | **0**: the first B run on the current code to pass its first launch |
+| cur_B_nd_1, cur_B_nd_2 (`DETAIL` off) | 320/6/768 | 1 each | **2** |
+
+- **Same hang as before.** Each hung run has 44 stack dumps (`stack_dumps/cur_B_nd_summary.txt`,
+  round-2 lines):
+  - 1 worker frozen in `worker.py:259`, `torch.set_num_threads(1)`;
+  - 1 rank waiting in `DataLoader.__next__`;
+  - the 3 other ranks in the next micro-batch's forward (`isotropic_model.py:235`), blocked behind
+    the collective the missing rank never joins;
+  - the 39 remaining workers idle.
+- **The save overlapped the fork at every boundary,** in hung and completed runs alike:
+  0.6–1.3 s before the next epoch at 320/6/768, with completion 1.0–2.3 s after it started
+  (`save_vs_epoch_timing.txt`, round-2 block). The overlap is the same in A, B and the hung runs, so
+  timing alone doesn't separate them.
+- **B's resume crashed exactly as old-code B did in §7d:**
+  `Backend nccl does not support allgather_into_tensor_coalesced` while loading `step_1`, with
+  identical frames (`fsdp/_optim_utils.py:396, :488`, `checkpoints.py:253`). This confirms on the
+  current code that `TORCH_DISTRIBUTED_DEBUG=DETAIL` breaks the FSDP checkpoint load. The resume
+  bug is the diagnostic, not the code.
+
+**Tallies over both rounds.**
+
+| group | code | runs / boundaries | hangs |
+|---|---|---|---|
+| B's exact script (B, cur_B_nd) | current | 8 runs | **7** |
+| B's exact script (old_B, old_B_nd) | `656c00c` | 4 runs | 0 |
+| A (B's first launch under another name) | current | 3 runs | 0 |
+| new_tiny (6 epochs) | current | 20 boundaries | 0 |
+| old_tiny (6 epochs) | `656c00c` | 10 boundaries | 0 |
+| 200 M and 1.2 B | current | 20 boundaries | 0 |
+
+**Reading.**
+- **Small model only.** At 200 M and 1.2 B, 20 of 20 boundaries passed with the save in flight,
+  plus about 145 production boundaries. Every observed hang is at 320/6/768.
+- **Code version.** B's script: 7 of 8 on the current code against 0 of 4 on `656c00c`. Under
+  equal rates, that split happens with probability C(8,7)/C(12,7) = 8/792 ≈ 1.0 %. That still
+  points at the determinism changes, still with no mechanism.
+- **B against A is still unexplained.** Among the 11 current-code first launches of this exact
+  config (8 B-script, 3 A), all 7 hangs fall on B-script runs with probability
+  C(8,7)/C(11,7) = 8/330 ≈ 2.4 %. B passing once makes "something about B's name or folder" less
+  likely, but it can't be excluded.
+- **Still no GPU resume result for `compare.py`.** The one B run that reached its resume had
+  `DETAIL` on, and that crashes the load. A clean resume result needs a B-type run with `DETAIL`
+  off that doesn't hang: on this evidence, about 1 in 8 attempts at the tiny size, or a larger
+  model.
+
 ## 8. Risk and fix options (none implemented)
 
-- **Risk.** With roughly 155 clean large-model boundaries, the per-boundary probability at
-  production size is bounded at about ≤ 2 % (rule of three). That doesn't make it negligible. A
+- **Risk.** With roughly 165 clean large-model boundaries (about 145 in production, 20 in §7 and
+  §7f), the per-boundary probability at production size is bounded at about ≤ 1.8 % (rule of
+  three). That doesn't make it negligible. A
   100-epoch run has 99 boundaries, and 1 % per boundary would mean about a 63 % chance of at least
   one hang per run, each costing about 30 min (the NCCL timeout) before the job errors out. With
   auto-resuming chains, the job would then restart from the last checkpoint.
@@ -355,9 +435,9 @@ data" from float noise (ratio 1.4), so it's inconclusive either way.
 - Which OpenMP region the parent's save thread was in at fork time. The dumps show only Python
   frames; a native stack (e.g. `py-spy dump --native` or `gdb`) of the stuck worker would show
   the lock.
-- Why B hit it 3 of 3 times and A 0 of 2 with identical configs, given that the timings are
-  essentially the same (`save_vs_epoch_timing.txt`). That's most likely chance at a high per-run
-  rate (3 of 5 overall), but unexplained.
+- Why B's script hit it 7 of 8 times and A 0 of 3 with identical first launches, given that the
+  timings are essentially the same (`save_vs_epoch_timing.txt`). §7f puts chance at about 2.4 %.
+  The first B pass in round 2 makes a B-specific factor less likely, but doesn't settle it.
 - Whether, and how, the determinism changes cause the hang: yes by §7e's evidence, mechanism unknown.
   The next steps are a bisect of the 7 changed files, and more A-type runs on the current code.
 - Why only B hung (3 of 3, against 0 of 22 other tiny boundaries; §7c). Ways to tell a
@@ -386,21 +466,25 @@ slurm_logs/
   59853800_old_B_2_..._first_launch_ok_resume_failed.{out,err}   same (§7d)
   59854572/59854574_old_B_nd_{1,2}_at_656c00c_DETAILoff_completed.{out,err}   old code, B's script, DETAIL off: complete incl. resume (§7e)
   59856184/59856185_cur_B_nd_{1,2}_current_code_DETAILoff_HUNG.{out,err}      current code, B's script, DETAIL off: hung again (§7e)
+  60036829_B_round2_DETAIL_launch1_ok_resume_crashed.{out,err}   round 2: B passed launch 1, resume hit the DETAIL crash (§7f)
+  60037693/60040489_cur_B_nd_{1,2}_round2_HUNG.{out,err}         round 2: hung at the epoch 1->2 fork (§7f)
+  60038527_A_round2_completed.{out,err}                          round 2 (§7f)
+  60039144/60040787_new_tiny_{1,2}_round2_completed.{out,err}    round 2, 5 boundaries each (§7f)
+  60036831_hang_anchor_round2_completed.{out,err}                round 2, 768/12/2048, 5 boundaries (§7f)
+  60038181_hang_fullDims_round2_completed.{out,err}              round 2, 1408/40/5632, 5 boundaries (§7f)
   52966529_fullDims_6DS_N8_excerpt_nccl_timeout_30min.txt   NCCL Timeout(ms)=1800000 (§6)
 stack_dumps/
   59847084_summary.txt                         44 dumps grouped by main-thread stack
   stuck_worker_full_dump.txt                   the worker frozen in set_num_threads(1)
   rank_waiting_for_data_full_dump.txt          the rank blocked in DataLoader.__next__
   rank_in_all_gather_full_dump.txt             a rank blocked in FSDP all_gather
-  cur_B_nd_summary.txt                         dumps of the two DETAIL-off current-code hangs (§7e)
+  cur_B_nd_summary.txt                         dumps of the DETAIL-off current-code hangs (§7e, and round 2 §7f)
 job_scripts/                                   snapshot of the generator, compare.py and the generated sbatch scripts
 ```
 
 `job_scripts/` holds the scripts as they were last generated: 600 s timeout, 300 s watchdog.
 Earlier jobs ran with the settings in the §2 table.
 
-Not copied, still on `$FAST` (`/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/`):
-- the run folders `determinism/{A,B,hang_anchor,hang_fullDims}`, with checkpoints:
-  1.1 G, 526 M, 1.7 G and 27 G;
-- the matching W&B offline runs, and the SLURM log originals;
-- `determinism_diag/`, the earlier copy of job 59846210's logs.
+The originals on `$FAST` (`/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/`) were deleted after
+copying, for both rounds: the SLURM logs, the run folders under `determinism/` (with checkpoints),
+the W&B offline runs and the Hydra outputs. Only the copies listed above remain.
