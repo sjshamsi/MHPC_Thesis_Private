@@ -353,6 +353,9 @@ OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 python -m pytest tests/test_determinism.py::
   changes are implicated but not sufficient, and the mechanism is unknown. Diagnosed but
   **not fixed**: see
   [dataloader_fork_hang/README.md](dataloader_fork_hang/README.md), which has the logs and stack dumps.
+  A zero-cost fix is proposed there (§8a, `fork_before_save.patch`): fork the next epoch's
+  workers before the async save starts, and wait for the last save before test validation. It
+  passes the CPU tests, but it isn't merged and hasn't been tested on GPU.
 
 - **GPU floating point is not bit-reproducible:** SDPA backward, the backward of indexed weights,
   and collective reduction order. Same draws, slightly different floats. Not addressed; it would

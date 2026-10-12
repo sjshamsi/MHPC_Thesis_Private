@@ -53,12 +53,17 @@ WATCHDOG_IDLE = 300  # s without log output; above start-up (~1.5 min, longer at
 PG_TIMEOUT = 600  # s; must exceed WATCHDOG_IDLE, so the stack dump fires before the collective error
 
 
-def diagnostics(run, job_name, pg_timeout=True, detail=True):
+def diagnostics(run, job_name, pg_timeout=True, detail=True, native=False):
     log = f"{EXPERIMENT_DIR}/slurm/{job_name}/$SLURM_JOB_ID.out"
     timeout = f"export WALRUS_PG_TIMEOUT_SEC={PG_TIMEOUT}\n" if pg_timeout else ""
     # DETAIL wraps every process group in _ProcessGroupWrapper, which broke the DCP checkpoint load
     # on resume (old_B_1/2: "Backend nccl does not support allgather_into_tensor_coalesced").
     debug = "export TORCH_DISTRIBUTED_DEBUG=DETAIL\n" if detail else ""
+    # glibc's libSegFault prints a native backtrace (and the memory map to resolve it) on SIGABRT,
+    # after faulthandler's Python dump: shows which lock a frozen worker waits on. ptrace (gdb,
+    # py-spy) is blocked on Leonardo (yama ptrace_scope=2) and core dumps are off.
+    if native:
+        debug += "export LD_PRELOAD=/lib64/libSegFault.so SEGFAULT_SIGNALS=abrt\n"
     return f'''
 # --- Hang diagnostics -----------------------------------------------------------------
 {debug}{timeout}export TORCH_NCCL_TRACE_BUFFER_SIZE=2000
@@ -103,6 +108,8 @@ HANG_TESTS = [
 OLD_COMMIT = "656c00c"
 OLD_TREE = "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis_656c00c"
 REPO_TREE = "/leonardo/home/userexternal/sshamsi0/MHPC_Thesis"
+# The worktree was removed after the hang investigation; its scripts stay as last generated.
+HAVE_OLD = os.path.isdir(OLD_TREE)
 OLD_TESTS = ["old_tiny_1", "old_tiny_2"]  # 320/6/768, 6 epochs: 5 exposed boundaries each
 # The same two jobs on the current code: with OLD_TESTS, the commit is the only difference.
 # No WALRUS_PG_TIMEOUT_SEC: 656c00c ignores it, so both groups build the process group the same way.
@@ -114,6 +121,10 @@ OLD_B_TESTS = ["old_B_1", "old_B_2"]
 # The same B script without TORCH_DISTRIBUTED_DEBUG=DETAIL, so the resume launch can load its checkpoint:
 # on the old code, and on the current code (the first GPU resume result for compare.py).
 B_NODETAIL = [("old_B_nd_1", True), ("old_B_nd_2", True), ("cur_B_nd_1", False), ("cur_B_nd_2", False)]
+# B's script, DETAIL off, on the current code, with native backtraces in the stack dump.
+B_NATIVE = [f"B_native_{i}" for i in range(1, 7)]
+# The same without the backtrace preload: does LD_PRELOAD change the hang rate?
+B_PLAIN = ["B_plain_1", "B_plain_2"]
 
 
 def compose_in(tree, ovr):
@@ -190,7 +201,7 @@ def main():
         assert body.count("#SBATCH --qos=normal") == 1
         body = body.replace("#SBATCH --qos=normal", "#SBATCH --qos=boost_qos_dbg")
         write_script(SCRIPT_DIR, f"{job_name}.sh", job_name, body)
-    for name in OLD_TESTS:
+    for name in OLD_TESTS if HAVE_OLD else []:
         ovr = overrides(name, (320, 6, 768, 0), 100, 6, ckpt_freq=1)
         cfg = compose_in(OLD_TREE, ovr)
         assert (cfg.model.hidden_dim, cfg.trainer.max_epoch, cfg.checkpoint.checkpoint_frequency) == (320, 6, 1)
@@ -212,7 +223,7 @@ def main():
         assert body.count("#SBATCH --qos=normal") == 1
         body = body.replace("#SBATCH --qos=normal", "#SBATCH --qos=boost_qos_dbg")
         write_script(SCRIPT_DIR, f"{job_name}.sh", job_name, body)
-    for name in OLD_B_TESTS:
+    for name in OLD_B_TESTS if HAVE_OLD else []:
         ovr = overrides(name)  # B's defaults: tiny shape, max_samples=100, 2 epochs, checkpoint every epoch
         cfg = compose_in(OLD_TREE, ovr)
         assert (cfg.model.hidden_dim, cfg.trainer.max_epoch, cfg.checkpoint.checkpoint_frequency) == (320, 2, 1)
@@ -242,7 +253,9 @@ def main():
         assert body.count("#SBATCH --qos=normal") == 1
         body = body.replace("#SBATCH --qos=normal", "#SBATCH --qos=boost_qos_dbg")
         write_script(SCRIPT_DIR, f"{job_name}.sh", job_name, body)
-    for name, old in B_NODETAIL:
+    for name, old in B_NODETAIL + [(n, False) for n in B_NATIVE + B_PLAIN]:
+        if old and not HAVE_OLD:
+            continue
         ovr = overrides(name)
         tree = OLD_TREE if old else REPO_TREE
         cfg = compose_in(tree, ovr)
@@ -270,7 +283,7 @@ def main():
                          f"see {GENERATOR}."),
             generator=GENERATOR,
             overrides=ovr,
-            pre_train=diagnostics(name, job_name, pg_timeout=False, detail=False) + guard,
+            pre_train=diagnostics(name, job_name, pg_timeout=False, detail=False, native=name in B_NATIVE) + guard,
             post_train=post,
         )
         assert body.count("#SBATCH --qos=normal") == 1

@@ -1,7 +1,8 @@
 # DataLoader worker hang after an async checkpoint save (investigation, Oct 2026)
 
-**Status: diagnosed, not fixed.** The fix options are in §8. Nothing in `walrus/` has been changed
-to address it.
+**Status: diagnosed; fix proposed, not merged.** §8a describes a zero-cost fix: fork the next
+epoch's workers before the async save starts. It is saved as `fork_before_save.patch` and passes the
+CPU tests, but it isn't in `walrus/` and hasn't been tested on GPU yet.
 
 ## 1. Summary
 
@@ -48,6 +49,13 @@ and the 6-epoch controls 0 of 20 boundaries. A's first launch is also script-ide
 round 2 a B run passed its first launch for the first time (§7f). So "the current code" alone isn't
 the trigger, and the mechanism linking the changes to the hang is unknown. Earlier sections (§7b,
 §7c) concluded the changes were not the cause; §7e and §7f supersede that.
+
+**The hang rate also changes from day to day (§8b).** On 2026-10-12, unfixed `flopcount`, with
+code identical to the runs that hung and the same save/fork overlap, passed B's script **8 of 8**.
+Branch `fulldet` passed 3 of 3 the same day (its README §7g). Across days, B's script hung 7 of 8
+times on 2026-10-09/11 and 0 of 11 on 2026-10-12. So the code-version contrast in §7f is confounded
+by date. Only §7e's same-day contrast (2026-10-10: current code 2 of 2 hung, `656c00c` 0 of 4)
+stands.
 
 ---
 
@@ -409,7 +417,7 @@ data" from float noise (ratio 1.4), so it's inconclusive either way.
   off that doesn't hang: on this evidence, about 1 in 8 attempts at the tiny size, or a larger
   model.
 
-## 8. Risk and fix options (none implemented)
+## 8. Risk and fix options
 
 - **Risk.** With roughly 165 clean large-model boundaries (about 145 in production, 20 in §7 and
   §7f), the per-boundary probability at production size is bounded at about ≤ 1.8 % (rule of
@@ -417,7 +425,9 @@ data" from float noise (ratio 1.4), so it's inconclusive either way.
   100-epoch run has 99 boundaries, and 1 % per boundary would mean about a 63 % chance of at least
   one hang per run, each costing about 30 min (the NCCL timeout) before the job errors out. With
   auto-resuming chains, the job would then restart from the last checkpoint.
-- **Option 1, recommended:** wait for the save before the next epoch forks workers. Move the existing
+- **Option 0, preferred (§8a):** fork the next epoch's workers *before* the save starts. It
+  removes the overlap at no cost.
+- **Option 1:** wait for the save before the next epoch forks workers. Move the existing
   `checkpoint_future.result()` (`training.py:1334-1338`) to the top of the epoch loop, before
   `train_one_epoch`. It costs the duration of the background write, from `save_vs_epoch_timing.txt`:
   about 2 s per epoch at 320/6/768, about 9–10 s at 1.2 B (2–3 s staging + 6–8 s writing). This also removes the overlap with the validation loaders'
@@ -429,6 +439,133 @@ data" from float noise (ratio 1.4), so it's inconclusive either way.
   workers' RNG streams then run on across epochs, so a resume would no longer reproduce
   `dt`/rotation exactly. That undoes part of the per-epoch seeding.
 - **Not a fix:** giving `async_save` its own gloo process group. The hang is not in a collective.
+
+## 8a. Proposed fix: fork before saving (`fork_before_save.patch`)
+
+**Idea.** Reorder `Trainer.train` (`walrus/trainer/training.py`) so that no DataLoader worker is
+ever forked while the async checkpoint save's background thread is running. The workers are
+forked first, and then the save starts. Nothing new is waited for, so the per-epoch cost is zero.
+
+**Current order at the epoch E → E+1 boundary, and after the last epoch:**
+
+```
+end of epoch E:   validation(E)                 ← forks validation workers
+                  wait for save(E-1)
+                  start async save(E)           ← background thread starts writing
+top of E+1:       seed_all(E+1); set_epoch(E+1)
+                  iter(train_dataloader)        ← forks 10 workers ~1 s later, save still running → hang
+after last epoch: test validation               ← forks workers; the last save is never waited for
+```
+
+**New order:**
+
+```
+end of epoch E:   wait for save(E-1)            ← moved before validation; finished long ago
+                  validation(E)                 ← forks with no save running
+                  seed_all(E+1); set_epoch(E+1)
+                  iter(train_dataloader)        ← forks the E+1 workers now, before any save starts
+                  start async save(E)           ← the save overlaps E+1's prefetch and training
+top of E+1:       train on the iterator built above
+after last epoch: wait for the last save
+                  test validation               ← forks with no save running
+```
+
+**The changes** (one file, +31 / −14; the patch applies cleanly to `flopcount` `3ee04cd`):
+
+1. **New helper `Trainer._start_epoch_iter(train_dataloader, epoch)`.** It holds the per-epoch
+   setup moved from the top of the loop: `seed_all(seed_from(SEED_GLOBAL, seed, rank, epoch))`,
+   `sampler.set_epoch(epoch)`, then `return iter(train_dataloader)`, which forks the workers and
+   draws their base seed. The first epoch of a launch and every later epoch use the same code.
+2. **`train_one_epoch(epoch, dataloader, data_iter=None)`.** It uses an iterator built in
+   advance, or calls `iter(dataloader)` itself as before.
+3. **Top of the epoch loop.** It builds the iterator only for the first epoch of a launch (a fresh
+   run or a resume, when no save is in flight), passes it to `train_one_epoch`, then sets
+   `data_iter = None` so that epoch's workers shut down as before.
+4. **The wait for the previous save moves before validation.** The validation loaders fork
+   workers too. That save started a full epoch earlier, so in practice the wait returns
+   immediately: it was already waited for every epoch, just later.
+5. **The core change.** After validation and before `save_model_if_necessary`:
+   `if epoch < max_epoch: data_iter = self._start_epoch_iter(train_dataloader, epoch + 1)`.
+6. **After the loop, the last save is waited for before test validation.** Today nothing waits
+   for it, so the test loaders' forks can overlap it at the end of every run. That is a second
+   hang window the original diagnosis missed.
+
+**Determinism is unchanged.** Every epoch still runs `seed_all(E)` → `set_epoch(E)` → `iter()`
+before its first batch. Only what runs between `iter()` and training changes: the save,
+`empty_cache` and `gc`, none of which draws random numbers.
+`tests/test_determinism.py::test_resume_equals_uninterrupted` covers exactly this. Its
+uninterrupted run builds the epoch-2 iterator early, its resumed run builds it at the top of the
+loop, and the final weights are bit-identical. `test_determinism` (2), `test_trainer` (4),
+`test_checkpoint` (4 + 1 skipped) and `test_seed` (3) all pass with the patch.
+
+**Cost.**
+- **Per epoch:** no new waits. The next epoch's workers even start prefetching while the save is
+  written.
+- **Per run:** one wait for the final save before test validation (a few seconds).
+- **No checkpointing** (`skip_checkpointing`, or a local run without a future): nothing waits,
+  and workers are forked slightly earlier.
+
+**Limits.**
+- It removes the condition the deadlock needs, a fork while the save thread runs, rather than the
+  deadlock inside torch. It rests on §4–5: the frozen worker in `set_num_threads`, and the save
+  overlapping every boundary that hung.
+- **Untested on GPU.** The test is to run B's script several times with the patch, against
+  unfixed runs from the same day.
+- Other parent threads that might fork-poison workers (W&B, NCCL or gloo internals) are not
+  covered. None has been implicated.
+
+**Apply it:** `git apply mydocs/dataloader_fork_hang/fork_before_save.patch`.
+
+## 8b. Native-backtrace attempt, and a day without hangs (2026-10-12)
+
+- **The tool.** Attaching gdb or py-spy is blocked on Leonardo (`kernel.yama.ptrace_scope = 2`),
+  and core dumps are off (hard limit 0). The generator's `diagnostics(native=True)` therefore
+  preloads glibc's `libSegFault.so` (`LD_PRELOAD`, `SEGFAULT_SIGNALS=abrt`). When the watchdog
+  sends SIGABRT, each process prints a native backtrace and its memory map after faulthandler's
+  Python dump. Checked on the login node: the backtrace reaches frames inside `libtorch_cpu.so`.
+
+**Runs.** All use B's exact script with `DETAIL` off, on unfixed `flopcount` `3ee04cd`. Its code
+outside `mydocs` is identical to `dd08774`, the commit of the hung runs.
+
+| runs | preload | result |
+|---|---|---|
+| `B_native_1`–`_6` (60050544, 60050549, 60051878, 60051888, 60053835, 60054992) | `libSegFault.so` | 6 of 6 completed both launches, no hang |
+| `B_plain_1`, `B_plain_2` (60053834, 60054991) | none: byte-identical to the `cur_B_nd` scripts apart from the name | 2 of 2 completed, no hang |
+
+- **No hang, so no native backtrace.** The preload is not what suppressed the hang: the plain
+  runs passed too.
+- **The overlap was there.** The save started 0.6–1.1 s before the next epoch and finished
+  0.9–1.2 s after it began (`save_vs_epoch_timing.txt`, last block). That's the same as in the
+  runs that hung.
+
+**B's exact script, first launches, by date and code** (`fulldet`: that branch's README §7g):
+
+| date | current code (`dd08774` = `3ee04cd`) | `656c00c` | `fulldet` |
+|---|---|---|---|
+| 2026-10-09 | 3 of 3 hung | — | — |
+| 2026-10-10 | 2 of 2 hung | 0 of 4 | — |
+| 2026-10-11 | 2 of 3 hung | — | — |
+| 2026-10-12 | **0 of 8** | — | 0 of 3 |
+
+**Reading.**
+- **The rate depends on something outside the code and the save/fork timing we log.** It was
+  high on 2026-10-09/11, and zero across 11 runs on 2026-10-12. Candidates, none tested: system
+  state on the nodes (other jobs, page cache, the `$FAST` filesystem's latency during the write),
+  or the node pool the debug QOS handed out.
+- **What still stands:**
+  - the mechanism signature: a worker frozen in `set_num_threads(1)` while the save runs (§4–5);
+  - 0 hangs at 200 M / 1.2 B;
+  - the one same-day code contrast (2026-10-10).
+- **What no longer stands:** the cross-day contrasts, §7f's included, and the `fulldet` branch's
+  "it doesn't hang".
+- **The fix can't be tested today.** With a baseline of 0 of 8, fixed runs passing would show
+  nothing. A test needs fixed and unfixed runs submitted together, on a day when the unfixed ones
+  hang. Since the fix costs nothing and removes the condition the mechanism needs, it can be
+  merged on that argument alone.
+
+**CPU reproduction.** Two attempts on the login node failed: forking 10 DataLoader workers while a
+background thread did save-like CPU work or OpenMP tensor ops. Both timeouts turned out to be
+stalls in the test harness: every worker was idle at `worker.py:317`, none frozen at `:259`.
 
 ## 9. Open questions
 
@@ -473,6 +610,8 @@ slurm_logs/
   60036831_hang_anchor_round2_completed.{out,err}                round 2, 768/12/2048, 5 boundaries (§7f)
   60038181_hang_fullDims_round2_completed.{out,err}              round 2, 1408/40/5632, 5 boundaries (§7f)
   52966529_fullDims_6DS_N8_excerpt_nccl_timeout_30min.txt   NCCL Timeout(ms)=1800000 (§6)
+fork_before_save.patch            the proposed fix (§8a), against flopcount 3ee04cd
+slurm_logs/600*_B_{native,plain}_*_flopcount_completed.{out,err}   2026-10-12, unfixed flopcount: 8 of 8 passed (§8b)
 stack_dumps/
   59847084_summary.txt                         44 dumps grouped by main-thread stack
   stuck_worker_full_dump.txt                   the worker frozen in set_num_threads(1)

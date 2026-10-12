@@ -67,3 +67,13 @@ itself is unaffected.
 60038181_hang_fullDims_round2_completed.out    epoch 3->4: save  2.2 s before next epoch; save callbacks done  166.6 s after it started
 60038181_hang_fullDims_round2_completed.out    epoch 4->5: save  2.4 s before next epoch; save callbacks done    7.9 s after it started
 60038181_hang_fullDims_round2_completed.out    epoch 5->6: save  2.5 s before next epoch; save callbacks done  275.8 s after it started
+
+# Unfixed flopcount 3ee04cd (code identical to dd08774), 2026-10-12, §8b: all completed:
+60050544_B_native_1_flopcount_completed.out    epoch 1->2: save  1.1 s before next epoch; save callbacks done    1.0 s after it started
+60050549_B_native_2_flopcount_completed.out    epoch 1->2: save  0.9 s before next epoch; save callbacks done    1.0 s after it started
+60051878_B_native_3_flopcount_completed.out    epoch 1->2: save  0.6 s before next epoch; save callbacks done    0.9 s after it started
+60051888_B_native_4_flopcount_completed.out    epoch 1->2: save  0.6 s before next epoch; save callbacks done    0.9 s after it started
+60053834_B_plain_1_flopcount_completed.out     epoch 1->2: save  1.0 s before next epoch; save callbacks done    1.2 s after it started
+60053835_B_native_5_flopcount_completed.out    epoch 1->2: save  0.9 s before next epoch; save callbacks done    1.2 s after it started
+60054991_B_plain_2_flopcount_completed.out     epoch 1->2: save  1.0 s before next epoch; save callbacks done    0.9 s after it started
+60054992_B_native_6_flopcount_completed.out    epoch 1->2: save  0.6 s before next epoch; save callbacks done    1.0 s after it started

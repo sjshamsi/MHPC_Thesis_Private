@@ -1,0 +1,120 @@
+tput: No value for $TERM and no -T specified
+/leonardo/home/userexternal/sshamsi0/.bashrc: line 39: [: : integer expression expected
+Loading python/3.11.7
+  Loading requirement: bzip2/1.0.8-ib3znej libmd/1.0.4-2km2lxx
+    libbsd/0.12.1-oocs6an expat/2.6.2-p2t4wry ncurses/6.5-svfl57u
+    readline/8.2-zeda6mx gdbm/1.23-wiol7vk libiconv/1.17-nhc3mhm
+    xz/5.4.6-xxxg42c zlib-ng/2.1.6-jkgunjc libxml2/2.10.3-zbbe7lm
+    pigz/2.8-5bwzpml zstd/1.5.6-uq5yyux tar/1.34-jgektnv gettext/0.22.5-hsxgafg
+    libffi/3.4.6-4vs4jpp libxcrypt/4.4.35-7om46b5 sqlite/3.43.2-4kl5mnp
+    util-linux-uuid/2.38.1-5achpds
+wandb: WARNING `resume` will be ignored since W&B syncing is set to `offline`. Starting a new run with run id 4aw08tkz.
+wandb: Tracking run with wandb version 0.28.0
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/wandb/offline-run-20261012_015925-4aw08tkz
+wandb: View this run in the terminal with `wandb leet`
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py:282: UserWarning: No last checkpoint found
+  warnings.warn("No last checkpoint found")
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py:282: UserWarning: No last checkpoint found
+  warnings.warn("No last checkpoint found")
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py:282: UserWarning: No last checkpoint found
+  warnings.warn("No last checkpoint found")
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/trainer/checkpoints.py:282: UserWarning: No last checkpoint found
+  warnings.warn("No last checkpoint found")
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+wandb: 
+wandb: Run history:
+wandb:              avg_backward_time ▁█
+wandb:          avg_data_loading_time █▁
+wandb:               avg_forward_time █▁
+wandb:             avg_optimizer_time █▁
+wandb:              avg_time_per_step █▁
+wandb: cumulative_decoder_proj1_flops ▁█
+wandb: cumulative_decoder_proj2_flops ▁█
+wandb: cumulative_encoder_proj1_flops ▁█
+wandb: cumulative_encoder_proj2_flops ▁█
+wandb:               cumulative_flops ▁█
+wandb:                         +6,909 ...
+wandb: 
+wandb: Run summary:
+wandb:              avg_backward_time 0.1423
+wandb:          avg_data_loading_time 0.00969
+wandb:               avg_forward_time 0.14098
+wandb:             avg_optimizer_time 0.00493
+wandb:              avg_time_per_step 0.29791
+wandb: cumulative_decoder_proj1_flops 112764109455360.0
+wandb: cumulative_decoder_proj2_flops 56985185157120.0
+wandb: cumulative_encoder_proj1_flops 87794769199104.0
+wandb: cumulative_encoder_proj2_flops 110085836636160.0
+wandb:               cumulative_flops 1053301728190464.0
+wandb:                         +6,909 ...
+wandb: 
+wandb: You can sync this run to the cloud by running:
+wandb: wandb sync /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/wandb/offline-run-20261012_015925-4aw08tkz
+wandb: Find logs at: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/wandb/offline-run-20261012_015925-4aw08tkz/logs
+wandb: WARNING `resume` will be ignored since W&B syncing is set to `offline`. Starting a new run with run id 4aw08tkz.
+wandb: Tracking run with wandb version 0.28.0
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/wandb/offline-run-20261012_020632-4aw08tkz
+wandb: View this run in the terminal with `wandb leet`
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo/home/userexternal/sshamsi0/MHPC_Thesis/walrus/models/temporal_blocks/axial_time_attention.py:38: FutureWarning: `nn.init.kaiming_uniform` is now deprecated in favor of `nn.init.kaiming_uniform_`.
+  init.kaiming_uniform(
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+/leonardo_work/ICT26_MHPC_0/sshamsi/pyenvs/env1/lib/python3.11/site-packages/torch/distributed/checkpoint/filesystem.py:116: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if tensor.storage().size() != tensor.numel():
+wandb: 
+wandb: Run history:
+wandb:              avg_backward_time ▁
+wandb:          avg_data_loading_time ▁
+wandb:               avg_forward_time ▁
+wandb:             avg_optimizer_time ▁
+wandb:              avg_time_per_step ▁
+wandb: cumulative_decoder_proj1_flops ▁
+wandb: cumulative_decoder_proj2_flops ▁
+wandb: cumulative_encoder_proj1_flops ▁
+wandb: cumulative_encoder_proj2_flops ▁
+wandb:               cumulative_flops ▁
+wandb:                         +6,909 ...
+wandb: 
+wandb: Run summary:
+wandb:              avg_backward_time 0.14295
+wandb:          avg_data_loading_time 0.01161
+wandb:               avg_forward_time 0.23943
+wandb:             avg_optimizer_time 0.00867
+wandb:              avg_time_per_step 0.40266
+wandb: cumulative_decoder_proj1_flops 112764109455360.0
+wandb: cumulative_decoder_proj2_flops 56985185157120.0
+wandb: cumulative_encoder_proj1_flops 87794769199104.0
+wandb: cumulative_encoder_proj2_flops 110085836636160.0
+wandb:               cumulative_flops 1053301728190464.0
+wandb:                         +6,909 ...
+wandb: 
+wandb: You can sync this run to the cloud by running:
+wandb: wandb sync /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/wandb/offline-run-20261012_020632-4aw08tkz
+wandb: Find logs at: /leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs/wandb/offline-run-20261012_020632-4aw08tkz/logs

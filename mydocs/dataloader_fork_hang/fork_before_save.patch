@@ -1,0 +1,104 @@
+diff --git a/walrus/trainer/training.py b/walrus/trainer/training.py
+index 222c2c0..7186e81 100755
+--- a/walrus/trainer/training.py
++++ b/walrus/trainer/training.py
+@@ -1047,7 +1047,7 @@ class Trainer:
+         return validation_loss, aggregated_losses
+ 
+     def train_one_epoch(
+-        self, epoch: int, dataloader: DataLoader
++        self, epoch: int, dataloader: DataLoader, data_iter=None
+     ) -> tuple[float, dict[str, Any]]:
+         """Train the model for one epoch by looping over the dataloader."""
+         self.model.train()
+@@ -1064,7 +1064,8 @@ class Trainer:
+         self.optimizer.zero_grad()  # Set to none now default
+         overall_batch_queue = []
+         current_batch_queue = []
+-        data_iter = iter(dataloader)
++        if data_iter is None:
++            data_iter = iter(dataloader)
+         i = 0
+         if epoch < self.big_batch_before:
+             grad_acc_steps = self.grad_acc_steps * self.big_batch_multiplier
+@@ -1286,26 +1287,34 @@ class Trainer:
+                 wandb.log(rollout_val_loss_dict, step=epoch)
+         return val_loss, rollout_val_loss
+ 
++    def _start_epoch_iter(self, train_dataloader, epoch):
++        """Seed epoch `epoch` and fork its DataLoader workers (iter() draws the workers' base seed)."""
++        # Everything random in this epoch (windows, dt, rotation, jitter, dropout, and the
++        # validation after it) is a function of (seed, rank, epoch), so a resumed epoch
++        # equals the uninterrupted one. No RNG state needs to be checkpointed.
++        seed_all(seed_from(SEED_GLOBAL, self.seed, self.rank, epoch))
++        # NOTE - only update train sampler because we want to sample same valid data every time
++        train_dataloader.sampler.set_epoch(epoch)
++        return iter(train_dataloader)
++
+     def train(self):
+         """Run training, validation and test. The training is run for multiple epochs."""
+         checkpoint_future = None
++        data_iter = None
+         val_loss = self.start_val_loss
+         train_dataloader = self.datamodule.train_dataloader(self.sampling_rank)
+         epoch = self.start_epoch
+         for epoch in range(
+             self.start_epoch, self.max_epoch + 1
+         ):  # I like 1 indexing for epochs
+-            # Everything random in this epoch (windows, dt, rotation, jitter, dropout, and the
+-            # validation after it) is a function of (seed, rank, epoch), so a resumed epoch
+-            # equals the uninterrupted one. No RNG state needs to be checkpointed.
+-            seed_all(seed_from(SEED_GLOBAL, self.seed, self.rank, epoch))
+-            # NOTE - only update train sampler because we want to sample same valid data every time
+-            train_dataloader.sampler.set_epoch(epoch)
++            if data_iter is None:  # first epoch of this launch; later ones are forked below
++                data_iter = self._start_epoch_iter(train_dataloader, epoch)
+             # Empty mem caches before train loop
+             torch.cuda.empty_cache()
+             gc.collect()
+             logger.info(f"Epoch {epoch}/{self.max_epoch}: starting training")
+-            train_loss, train_logs = self.train_one_epoch(epoch, train_dataloader)
++            train_loss, train_logs = self.train_one_epoch(epoch, train_dataloader, data_iter)
++            data_iter = None
+             logger.info(
+                 f"Epoch {epoch}/{self.max_epoch}: training loss {train_loss:.4f}"
+             )
+@@ -1316,6 +1325,11 @@ class Trainer:
+             torch.cuda.empty_cache()
+             gc.collect()
+ 
++            # The validation loaders below fork workers too: never while a save is in flight.
++            # The save started an epoch ago, so in practice this no longer waits.
++            if checkpoint_future is not None:
++                checkpoint_future.result()
++                checkpoint_future = None
+             # Recreate loader every time so we're using same data in val
+             val_dataloders = self.datamodule.val_dataloaders(
+                 replicas=self.sync_group_size,
+@@ -1331,11 +1345,12 @@ class Trainer:
+                 epoch, val_dataloders, rollout_val_dataloaders
+             )
+             val_loss = maybe_val_loss if maybe_val_loss is not None else val_loss
+-            if checkpoint_future is not None:
+-                logger.debug(
+-                    f"Wait for previous checkpointing {checkpoint_future} to complete."
+-                )
+-                checkpoint_future.result()  # Make sure previous checkpoint has finished before starting next.
++            # Fork the next epoch's DataLoader workers *before* the async save starts its
++            # background thread: a worker forked while that thread runs can deadlock in
++            # torch.set_num_threads (mydocs/dataloader_fork_hang/README.md). Costs nothing,
++            # and the workers prefetch while the save is written.
++            if epoch < self.max_epoch:
++                data_iter = self._start_epoch_iter(train_dataloader, epoch + 1)
+             # Save "last" every epoch plus various intervals/best results
+             if not self.skip_checkpointing:
+                 checkpoint_future = self.save_model_if_necessary(
+@@ -1346,6 +1361,8 @@ class Trainer:
+         # be one past max_epoch) - clamp back to max_epoch so the test-validation logged
+         # below lands on the true last trained epoch instead of one step past it.
+         epoch = min(epoch, self.max_epoch)
++        if checkpoint_future is not None:  # the test loaders fork workers
++            checkpoint_future.result()
+         # Do test validation
+         test_dataloaders = self.datamodule.test_dataloaders(
+             self.sync_group_size, rank=self.rank_in_sync_group, full=not self.debug_mode
