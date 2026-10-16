@@ -14,8 +14,10 @@ In the Walrus paper, `post_neutron_star_merger` and `convective_envelope_rsg` ar
 |---|---|
 | 1. Categorise by physical domain | We can take a queue from the Walrus paper for physical domain categorisation (§1), but equations in two different settings might act similarly and vice versa. |
 | 2. Categorise by equation form | Six families (§2.2); most datasets are compressible Euler plus source terms. Several "equation twins" exist (§2.4), e.g. `euler_multi_quadrants` and `turbulent_radiative_layer`, `shear_flow` and `rayleigh_benard`. The family split (§2.2) puts some members in pretraining and holds out others. |
-| 3. What kind of categorisation is in the papers? | The Well doesn't categorise. WALRUS categorises datasets by physical domain in Table 1. |
-| 5. How should WE split the data? | We can have one crossover experiment per axis of categorisation (equation family, linearity, dissipation, smoothness, predictability, whatever we deem a valid axis to split upon), plus a boundary-condition negative control and a data-driven axis. The axes are then compared by how well each one predicts transfer (§5). |
+| 3. Dissipation | A dataset is diffusive when $\partial_t$ is balanced by an even-order space derivative ($\nu\Delta u$, $-\nu\nabla^4 u$). Seven datasets are ideal. Sinks and numerical dissipation are not diffusion (§3). |
+| 4. Sharp vs smooth | Sharpness comes from shocks, discontinuous coefficients, thermal instability, collapse or polymer stretching; diffusion and incompressibility remove it. The solver type tracks it (§4). |
+| 5. Predictable vs chaotic | All datasets are deterministic. Chaos needs nonlinearity, an instability and a control parameter above threshold, and depends on the evaluation horizon (§5). |
+| 6. How should we split the data? | One crossover experiment per axis (§2–5, plus linearity), a boundary-condition negative control and a data-driven axis. Axes are compared by how well each predicts transfer (§6). |
 
 ---
 
@@ -120,7 +122,7 @@ Equations and equation numbers are from [Well] App. C (pp. 31–44).
 | Governing system | The PDEs that are time-stepped. | Equations containing $\partial_t$. |
 | Closure / EOS | The relation that fixes the remaining unknowns: an equation of state for a gas, $\nabla\cdot u = 0$ for an incompressible fluid, a stress law for polymers or particles. | Algebraic relations without $\partial_t$: $p = (\gamma-1)\rho e$, $p = c_s^2\rho$, $\nabla\cdot u = 0$. |
 | Extra terms | Additions to the core system: body forces, energy sources and sinks, coupling to another field, forcing. | Non-zero right-hand sides: $\rho g$, $-\nabla\Phi$, $-E/t_{\rm cool}$, $f$, $\nabla\cdot T(C)$. |
-| Dissipation | Terms that remove energy and smooth the solution. "None" means ideal equations: only the numerical scheme dissipates, at shocks (§5.4.1). | $\partial_t$ balanced by an even-order space derivative ($\nu\Delta u$, $-\nu\nabla^4 u$), or SPH's $a_{\rm visc}$. |
+| Dissipation | Terms that remove energy and smooth the solution. "None" means ideal equations: only the numerical scheme dissipates, at shocks (§3.1). | $\partial_t$ balanced by an even-order space derivative ($\nu\Delta u$, $-\nu\nabla^4 u$), or SPH's $a_{\rm visc}$. |
 | Solver | Code and method. Shock-capturing FV smears jumps over a few cells; spectral methods need smooth fields; SPH data is resampled onto a grid. | "Simulation details" paragraphs; [Well] Table 4, p. 31. |
 
 Abbreviations:
@@ -138,7 +140,7 @@ Abbreviations:
 | `acoustic_scattering` | Linear first-order acoustics (eqs. 1–3): $\partial_t p + K(\partial_x u + \partial_y v) = 0$, $\partial_t u + \frac{1}{\rho}\partial_x p = 0$, same for $v$. | No EOS. Fixed medium: density $\rho(x,y)$, bulk modulus $K = 4$, sound speed $c = \sqrt{K/\rho}$. $\rho(x,y)$ is the background, not an evolving field, so the configs can zero it. | None (all right-hand sides $= 0$). Variation comes from the $\rho(x,y)$ maps. Boundaries open in $y$, reflective in $x$. | None: first derivatives only. The flux limiter smooths slightly at material jumps. | Clawpack: explicit FV, TVD, monotonized central-difference limiter (p. 32). |
 | `helmholtz_staircase` | Wave equation (eq. 17): $\partial_t^2 U - \Delta U = \delta(t)\,\delta(x-x_0)$. Solved as the Helmholtz BVP $-(\Delta+\omega^2)u = \delta_{x_0}$ (eq. 19); time series built as $U = u\,e^{-i\omega t}$ (p. 36). | Constant medium, $c = 1$ after rescaling. | Point source $\delta(t)\,\delta(x-x_0)$. Sound-hard staircase boundary, $n\cdot\nabla U = 0$ (eq. 18). | None: $\Delta U$ pairs with $\partial_t^2$, so waves propagate without decay. | High-order BIE with the Floquet–Bloch transform (p. 36). |
 | `euler_multi_quadrants` | 2D compressible Euler, integral form (eqs. 13–14): $\frac{d}{dt}\iint_\Omega U\,dA + \oint_{\partial\Omega}(F\hat\imath + G\hat\jmath)\cdot\hat n\,dS = 0$, with $U = (\rho, \rho u, \rho v, \rho E)$ and $F = (\rho u, \rho u^2+p, \rho uv, u(\rho E+p))$. | Ideal gas: $\rho E = \frac{p}{\gamma-1} + \frac12\rho(u^2+v^2)$. Ten values of $\gamma$ in $[1.13, 1.76]$. | None (right-hand side $= 0$). Boundary (periodic or open) and piecewise-constant initial data vary. | None: the fluxes contain no derivatives, so there is no viscous stress. | Clawpack: explicit FV with Riemann solvers (p. 34). |
-| `turbulent_radiative_layer` | Compressible Euler (eqs. 45–47): $\partial_t\rho + \nabla\cdot(\rho v) = 0$, $\partial_t(\rho v) + \nabla\cdot(\rho vv + P) = 0$, $\partial_t E + \nabla\cdot((E+P)v) = -E/t_{\rm cool}$. | Ideal gas, $\gamma = 5/3$. Eq. 48 prints $E = P/(\gamma-1)$, omitting $\frac12\rho v^2$. | Energy sink $-E/t_{\rm cool}$ (eq. 47), $t_{\rm cool} \in [0.03, 3.16]$. Fastest at intermediate temperatures (p. 44). | None. The sink removes energy but does not smooth (§5.4.1). | Athena++ ([Well] Table 4). C.15 gives no method details. |
+| `turbulent_radiative_layer` | Compressible Euler (eqs. 45–47): $\partial_t\rho + \nabla\cdot(\rho v) = 0$, $\partial_t(\rho v) + \nabla\cdot(\rho vv + P) = 0$, $\partial_t E + \nabla\cdot((E+P)v) = -E/t_{\rm cool}$. | Ideal gas, $\gamma = 5/3$. Eq. 48 prints $E = P/(\gamma-1)$, omitting $\frac12\rho v^2$. | Energy sink $-E/t_{\rm cool}$ (eq. 47), $t_{\rm cool} \in [0.03, 3.16]$. Fastest at intermediate temperatures (p. 44). | None. The sink removes energy but does not smooth (§3.1). | Athena++ ([Well] Table 4). C.15 gives no method details. |
 | `supernova_explosion` | Compressible Euler in Lagrangian form, following each parcel as SPH requires (eqs. 41–43): $\frac{d\rho}{dt} = -\rho\nabla\cdot v$, $\frac{d^2 r}{dt^2} = -\frac{\nabla P}{\rho} + a_{\rm visc} - \nabla\Phi$, $\frac{du}{dt} = -\frac{P}{\rho}\nabla\cdot v + \frac{\Gamma-\Lambda}{\rho}$. $r$ is position, $u$ specific internal energy. | Ideal monatomic gas: $P = (\gamma-1)\rho u$, $\gamma = 5/3$ (eq. 40). | Self-gravity $-\nabla\Phi$ (eq. 42). Radiative heating and cooling $(\Gamma-\Lambda)/\rho$ (eq. 43), at solar metallicity. | Artificial viscosity $a_{\rm visc}$ (eq. 42): numerical, for shocks. | ASURA-FDPS N-body/SPH (density-independent SPH), resampled to a uniform grid (pp. 31, 43). |
 | `turbulence_gravity_cooling` | Same as `supernova_explosion` (eqs. 40–43, p. 43). | Same. | Same terms. Heating and cooling depend on metallicity $Z \in \{Z_0, 0.1Z_0, 0\}$; $Z = 0$ is adiabatic. | Same $a_{\rm visc}$. | Same. |
 | `convective_envelope_rsg` | Radiation hydrodynamics (eqs. 8–11): Euler for the gas, plus transport of radiation intensity $I(t, x, n)$ in each direction $n$. $\partial_t\rho + \nabla\cdot(\rho v) = 0$; $\partial_t(\rho v) + \nabla\cdot(\rho vv + \mathsf{P}_{\rm gas}) = -\mathbf{G}_r - \rho\nabla\Phi$; $\partial_t E + \nabla\cdot[(E + P_{\rm gas})v] = -cG^0_r - \rho v\cdot\nabla\Phi$; $\partial_t I + c\,n\cdot\nabla I = S(I, n)$. | Ideal gas: $E = E_g + \frac12\rho v^2$ with $E_g = \frac32 P_{\rm gas}$ ($\gamma = 5/3$). OPAL opacities set the gas–radiation coupling in $S$ (eq. 12). | Gravity from the enclosed mass $m(r)$: $-\rho\nabla\Phi$ (eq. 9), $-\rho v\cdot\nabla\Phi$ (eq. 10). Radiation four-force: $-\mathbf{G}_r$ (eq. 9), $-cG^0_r$ (eq. 10). No rotation, no magnetic field (p. 34). | None. | Athena++: Godunov FV, spherical-polar grid, logarithmic radial spacing (p. 34). |
@@ -189,8 +191,8 @@ Each dataset is assigned one family from its governing system (§2.1). Terms use
 
 #### The family split (experiment A1)
 
-The crossover design is in §5.1 and the dataset codes in §5.2. The split is 2D only: family III and
-the 3D members of II and IV have no 2D data (3D variant: §5.6).
+The crossover design is in §6.1 and the dataset codes in §6.2. The split is 2D only: family III and
+the 3D members of II and IV have no 2D data (3D variant: §6.6).
 
 | Family | Pretrain | In-family test | Without Euler |
 |---|---|---|---|
@@ -322,335 +324,40 @@ across datasets (9/17 vs 8/17) and says "the reason for this is not immediately 
 
 ---
 
-## 3. Do the papers categorise the datasets?
+## 3. Dissipation
 
-### 3.1 The Well: no formal categorisation
+Do the equations contain a term that removes energy and smooths the solution. Axis A3 of the experiment design (§6.1).
 
-- **Table 1** (p. 3) and **§3.1** (pp. 3–7) list the datasets **alphabetically**, one subsection
-  each. Table 1 records only technical attributes: coordinate system, resolution, number of steps
-  and trajectories.
-- The abstract and introduction name domains descriptively ("biological systems, fluid dynamics,
-  acoustic scattering, as well as magneto-hydrodynamic simulations of extra-galactic fluids or
-  supernova explosions", p. 1) but do not turn this into a taxonomy.
-- **Appendix C** (pp. 31–44) gives the governing equations for every dataset, but in isolation,
-  without comparing them. The only cross-reference is that `turbulence_gravity_cooling` "also
-  follows the equations (40)–(43)" of `supernova_explosion` (p. 43).
-- **Datasheet Q11** (p. 24) states directly: *"There is no cross-linkage between different
-  datasets."*
-- **Appendix D** (p. 45) does group datasets, but **by task suitability**, not physics: e.g.
-  super-resolution (MHD, supernova), transfer across dimensionality (TRL 2D/3D), transfer across
-  parameter ranges, steady-state prediction, long-term stability (`planetswe`), inverse scattering
-  (acoustic, Helmholtz), and simulation acceleration (PNS, TGC).
-- The **benchmark analysis** (p. 8) splits datasets empirically by which architecture wins (spatial
-  vs spectral) and cannot explain the split with physics. The authors tested boundary conditions as
-  an explanation and found "no clear trend".
+### 3.1 What makes a dataset diffusive
 
-
-### 3.3 Neither paper categorises by equation form, though WALRUS reasons that way informally
-
-Neither paper builds a categorisation from the functional form of the equations. WALRUS does,
-however, **use equation-class reasoning to interpret results** (§5.2, p. 11):
-
-- DPOT, whose core is the Fourier-based AFNO, is most competitive on *acoustics and linear wave
-  propagation*, and even beats WALRUS at long horizons there. The authors connect this to Fourier
-  methods being efficient numerical solvers "in smooth linear settings", and suggest "we may be
-  able to derive intuition about architecture design from the classes of methods used for
-  particular problems".
-- Poseidon is most competitive on *inviscid fluids*, especially the Euler multi-quadrants problem.
-  The authors explain this by Poseidon's pretraining data: 4/6 of its tasks were Euler solutions,
-  2/6 specifically Euler quadrants.
-- Appendix B.2.1 (p. 26) reasons by symmetry. Absolute position embeddings hurt translation-invariant
-  systems like Euler and help systems with fixed spatial heterogeneity like Rayleigh–Bénard.
-
----
-
-## 4. Does WALRUS pretrain or experiment with categories differentiated?
-
-**No.** Categories appear only in how per-dataset results are *reported*.
-
-### 4.1 Pretraining is category-agnostic
-
-- **Sampling.** "a hierarchical sampling scheme where we uniformly sample a system S then uniformly
-  select a starting frame" (§4.2, p. 6). The unit is the *dataset*, not the category.
-- **Loss.** The per-field normalised L1 loss (Eq. 8) balances *fields*, not categories.
-- **Distributed sampling.** Under HSDP, every rank in a sharding group samples the *same dataset*
-  each step (p. 7). This is purely for compute load-balancing, not physics.
-- **Implicit imbalance.** Because sampling is uniform over datasets, a category's share of
-  pretraining equals how many datasets it happens to contain. Using the paper's figures of ~4M
-  examples per 2D dataset and ~2M per 3D dataset (p. 8), approximate shares are:
-
-| Grouping | Datasets | Approx. share of pretraining examples |
-|---|---|---|
-| *WALRUS headings* | | |
-| Acoustics and wave propagation | 4 (2D) | 24% |
-| Viscous fluids | 3 (2D) + 1 (3D) | 21% |
-| Inviscid fluids | 3 (2D) + 1 (3D) | 21% |
-| Astrophysical and geoscience | 1 (2D) + 2 (3D) | 12% |
-| Biological and chemical | 2 (2D) | 12% |
-| Non-newtonian | 1 (2D) | 6% |
-| Plasmas | 1 (3D) | 3% |
-| *My equation families* | | |
-| II. Compressible Euler + sources (incl. `planetswe`) | 4 (2D) + 3 (3D) | 33% |
-| IV. Incompressible NS + fields (incl. FBHarmonics) | 4 (2D) + 1 (3D) | 27% |
-| I. Linear waves | 4 (2D) | 24% |
-| V. Stokes + kinetic (`active_matter`) | 1 (2D) | 6% |
-| VI. Reaction–diffusion (`gray_scott`) | 1 (2D) | 6% |
-| III. MHD | 1 (3D) | 3% |
-
-This imbalance is incidental rather than designed. The paper does not discuss it.
-
-### 4.2 The experiments
-
-| Experiment | What varies | Role of categories |
-|---|---|---|
-| §5.1 Downstream performance (pp. 8–10) | WALRUS vs MPP / Poseidon / DPOT, finetuned on held-out datasets | Results split only by **2D vs 3D** (Fig. 6, Fig. 7, Table 8) |
-| §5.2 Cross-domain analysis (pp. 10–11) | Per-dataset finetuning on all 19 pretraining datasets | Results **grouped by the 7 headings** in Table 1, with qualitative per-category discussion (§3.3 above). No training by category. |
-| §5.3 Pretraining strategy (pp. 11–12) | HalfWALRUS (full augmentation) vs Naive (strict 2D, no augmentation) vs Scratch | Pretrained on a fixed 2D subset (Maze, Discontinuous, Gray-Scott, Rayleigh-Benard, Shear Flow, TRL2D, Staircase, Viscoelastics), "chosen specifically for having strong anisotropic behavior". The **diversity manipulated is augmentation** (2D→3D embedding, rotations, time-striding), **not the mixture of physics categories**. |
-| Patch-jitter ablation (Table 7, p. 33) | Jitter vs no jitter | Per dataset, no grouping |
-| Finetuning hyperparameter search (App. B.3, p. 26) | Learning rate, batch size for baselines | Tuned on Euler periodic, acoustic discontinuous, Rayleigh-Benard and active matter. They appear to span categories, but no rationale is given. |
-
-### 4.3 What was not done
-
-Given the paper's headline claim of being "diversity-first", these are the category-level
-experiments that are absent:
-
-- **Leave-one-category-out pretraining**, e.g. hold out all compressible-Euler datasets and measure
-  transfer to them.
-- **Category-balanced vs dataset-balanced sampling**, which would correct the 24% acoustics vs 3%
-  plasma imbalance.
-- **Physics-diversity scaling**: fixing the number of examples and varying how many *categories or
-  equation families* the pretraining mixture spans. The §5.3 ablation varies augmentation diversity
-  at a fixed physics mixture, which is a different question.
-- **Cross-family transfer**, e.g. whether pretraining on `euler_multi_quadrants` helps
-  `turbulent_radiative_layer` more than pretraining on `shear_flow` does, i.e. whether equation-twin
-  structure (§2.4) is actually exploited by the model.
-
-The closest thing in the literature cited by WALRUS is the Poseidon observation in §3.3: strong
-Euler performance explained by Euler-heavy pretraining. That is anecdotal evidence for equation-level
-transfer, not a controlled test.
-
----
-
-## 5. Proposed experimental splits
-
-### 5.1 Design principle
-
-The goal is to find out **which way of grouping datasets best predicts transfer**, instead of
-assuming one. Each axis gets the same **crossover** design:
-
-1. Split the datasets into two levels along the axis (e.g. *linear* vs *nonlinear*).
-2. Pretrain one model on **two datasets from level A** and one on **two datasets from level B**,
-   at an identical budget.
-3. Finetune both models on **held-out targets from both levels**. The targets must be in neither
-   pretraining set.
-4. Compute the **in-level advantage** $\Delta$: how much better each model does on its own level's
-   targets than the other model does.
-
-With transfer gain $g(\text{run}, t) = 1 - \mathrm{VRMSE}(\text{run}, t) / \mathrm{VRMSE}(\text{scratch}, t)$ at a fixed finetuning
-budget:
-
-$$
-\Delta_{\rm axis} = \tfrac12\Big[\operatorname*{mean}_{t\in T_A}\big(g(A,t)-g(B,t)\big) + \operatorname*{mean}_{t\in T_B}\big(g(B,t)-g(A,t)\big)\Big]
-$$
-
-$\Delta > 0$ means grouping along this axis captures something that transfers. The double difference
-cancels out both target difficulty and the generic "any pretraining helps" effect, so no separate
-mixed control is needed per axis. **The headline result is a comparison of $\Delta$ across axes.** For
-multi-level axes (equation family), $\Delta$ is the mean over levels of (in-level gain minus mean
-other-level gain).
-
-**Scope: 2D only.** In WALRUS, 2D and 3D use separate encoder/decoder weights, so transfer between
-them mostly tests the encoder (§2.5). A 3D version is sketched in §5.6.
-
-### 5.2 Dataset attributes (2D, on disk under `/leonardo_work/ICT26_MHPC_0/sshamsi/datasets/`)
-
-Boundary conditions and field names below are read from each dataset's HDF5 metadata. The
-predictability proxy is the **best** of the four models' median VRMSE averaged over steps 21–60
-in [WALRUS] Table 1 (p. 10). Values $\gtrsim 0.6$ mean even the best model has decorrelated from the
-truth by that horizon, which WALRUS notes is expected for chaotic systems (p. 9).
-
-| Code | Dataset | Family (§2.2) | Linear | Explicit diffusion / viscosity | Sharp features | Predictability proxy (T21–60) | BCs (metadata) | Fields |
-|---|---|---|---|---|---|---|---|---|
-| AD | `acoustic_scattering_discontinuous` | I waves | ✓ | none | ✓ material interface | 0.04 predictable | mixed wall / open | pressure, velocity, (density†, speed_of_sound) |
-| AI | `acoustic_scattering_inclusions` | I waves | ✓ | none | ✓ inclusions | 0.13 predictable | mixed wall / open | same as AD |
-| AM | `acoustic_scattering_maze` | I waves | ✓ | none | ✓ maze walls | 0.05 predictable | mixed wall / open | same as AD |
-| HS | `helmholtz_staircase` | I waves | ✓ | none | — smooth, time-harmonic | 0.003 predictable | open + wall (staircase) | pressure_re, pressure_im, mask |
-| TRL2 | `turbulent_radiative_layer_2D` | II compressible | — | none (cooling sink only) | ✓ hot/cold phase interfaces | 0.84 **chaotic** | x periodic, y open | density, pressure, velocity |
-| PS | `planetswe` | II (SWE analogue), **sphere** | — | hyperviscosity only | — | 0.02 predictable | $\phi$ periodic, $\theta$ open | height, velocity |
-| SF | `shear_flow` | IV incompressible + field | — | viscous + diffusive | — | 0.08 predictable | fully periodic | pressure, tracer, velocity |
-| RB | `rayleigh_benard` | IV incompressible + field | — | viscous + diffusive | — | 0.64 **chaotic** | x periodic, y wall | buoyancy, pressure, velocity |
-| VE | `viscoelastic_instability` | IV incompressible + field | — | viscous + polymer diffusion | borderline (thin polymer-stress sheets) | n/a (short trajectories); contains chaotic attractors (CAR, EIT) | x periodic, y wall | pressure, velocity, C, c_zz |
-| ACT | `active_matter` | V Stokes + kinetic | — | Stokes + diffusion | — | 1.25 **chaotic** | fully periodic | concentration, velocity, D, E |
-| GS | `gray_scott_reaction_diffusion` | VI reaction–diffusion | — | diffusion | — | 0.13 predictable | fully periodic | A, B |
-| EMQ-P\* | `euler_multi_quadrants` periodic | II compressible | — | none | ✓ shocks | 0.28 intermediate | periodic | density, energy, pressure, momentum |
-| EMQ-O\* | `euler_multi_quadrants` open | II compressible | — | none | ✓ shocks | 0.28 intermediate | open | same as EMQ-P |
-
-\* **Not on disk.** Both boundary-condition variants together are ~5 TB. The datasets on disk
-currently total ~4.7 TB, against a 20 TB quota as of my 22 Sep note; check `cinQuota` before
-downloading. Several splits below are much weaker without Euler, and each one says so.
-
-† `density` is zeroed in the configs (`field_transforms: density: torch.zeros_like`), matching
-[WALRUS] App. C.1.
-
-**Caveat on the predictability proxy:** it also depends on step size and on model skill. Treat it
-as a rough ordering, and replace it with the descriptors from §5.4 (A7) once they are computed.
-
-### 5.3 Aliasing between axes on this data
-
-With only ~11 datasets, several axes are partly confounded. It is better to state this up front
-than to discover it in the results:
-
-- **Linearity $\equiv$ the wave family.** Every linear dataset is in family I. Axis A2 therefore
-  reuses the family-I run; its only new information is whether a *multi-family* nonlinear model
-  differs from the single-family incompressible one.
-- **Dissipation $\approx$ sharpness.** Every dataset with sharp features is non-diffusive, and no
-  diffusive dataset has shocks or interfaces. HS is the only smooth, non-diffusive dataset. Axes
-  A3 and A4 therefore share their sharp / non-diffusive run and differ only in the contrasting
-  run.
-- **RB and VE share a representation**: same boundaries (x periodic, y wall) and overlapping
-  fields (pressure, velocity + one more). Any in-family transfer from RB to VE may be partly
-  representational. The negative control (A6) is designed to measure exactly this.
-- **Shared field names.** `velocity` appears in every dataset except GS and HS, and `pressure` in
-  most. To stop this acting as a free transfer channel, **reinitialise the field embeddings at
-  finetuning for every target** as the primary setting; keeping them is a one-off ablation.
-
-### 5.4 The splits
-
-Each split is `pretrain set → held-out targets`. **Test** columns list targets held out of *both*
-runs in that axis. "Without Euler" gives the fallback when `euler_multi_quadrants` isn't
-downloaded.
-
-#### A1. Equation family
-
-Defined, with its pretrain and test sets, in [§2.2](#the-family-split-experiment-a1). Runs R1–R3 (§5.5).
-
-#### A2. Linear vs nonlinear
-
-| Level | Pretrain | Test |
-|---|---|---|
-| Linear | AD, AM (reuses the A1-I run) | HS |
-| Nonlinear | SF, EMQ-P (without Euler: SF, TRL2) | VE, ACT, GS, PS, TRL2 (drop TRL2 if pretrained on) |
-
-Aliased with the wave family (§5.3). Its value is the comparison between the nonlinear run, which
-mixes families, and the A1-IV run (incompressible only) on the nonlinear targets. Does
-"nonlinearity in general" transfer, or only a specific family?
-
-#### A3. Dissipation (explicit diffusion / viscosity operator present or not)
-
-| Level | Pretrain | Test |
-|---|---|---|
-| Non-diffusive | AM, EMQ-P (without Euler: AM, TRL2) | HS, TRL2 (without Euler: HS only) |
-| Diffusive | RB, GS | SF, VE, ACT |
-| Intermediate probe | — | PS (hyperviscosity only) |
-
-Boundary conditions are balanced: each level has one bounded and one periodic dataset.
-Families are mixed within each level, so any $\Delta$ comes from dissipation rather than a single family.
-
-#### A4. Sharp vs smooth
-
-| Level | Pretrain | Test |
-|---|---|---|
-| Sharp | AM, EMQ-P (same run as A3 non-diffusive) | TRL2 (AI as sanity check) |
-| Smooth | HS, SF | RB, ACT, GS, PS (VE excluded as borderline) |
-
-Motivated by The Well's spectral-vs-spatial split and the acoustic/Helmholtz contrast (§2.5).
-Putting HS in the *smooth* run splits the wave family across the two levels. Comparing this smooth
-run with A3's diffusive run on the same smooth targets shows whether smoothness or diffusion is
-the property that transfers. **Without Euler this axis is uninformative:** the only sharp target
-left would be AI, a near-duplicate of the pretraining data.
-
-#### A5. Predictable vs chaotic (regime)
-
-| Level | Pretrain | Test |
-|---|---|---|
-| Predictable | AM, SF | HS, GS, PS, VE-AH |
-| Chaotic | RB, TRL2 | ACT, VE-CAR, VE-EIT |
-
-Family is partly controlled: each level contains one incompressible dataset (SF vs RB). Needs no
-Euler. **Evaluate chaotic targets on one-step and T1–10 VRMSE plus spectral error** (The Well's
-binned spectral metrics), not long-horizon VRMSE, which saturates for any model once it
-decorrelates.
-
-`viscoelastic_instability` is split by file, because its regimes differ (§5.4.3): VE-AH is the
-steady arrowhead state, and VE-CAR / VE-EIT are chaotic. Select them with
-`include_filters: ["_AH."]` or `include_filters: ["_CAR.", "_EIT."]`. The trailing `.` excludes the
-`transtochaos_EIT_*` edge-state files. `shear_flow` sits in the predictable set only *over the
-evaluated horizon*; it is chaotic in principle (§5.4.3).
-
-**A5b, a cleaner within-dataset variant.** `rayleigh_benard` (one file per Rayleigh number),
-`shear_flow` (per Reynolds number), `active_matter` (per activity $\alpha$) and
-`turbulent_radiative_layer_2D` (per $t_{\rm cool}$) are stored with one file per parameter value. The
-chaos level can therefore be varied *inside a dataset* with `include_filters`, keeping the
-equations, fields and boundaries identical. For example, pretrain on low-Ra RB plus low-Re SF, and
-compare with high-Ra RB plus high-Re SF, on held-out Ra and Re values. This removes both the family
-and the representation confound from the regime question. First confirm the ordering by measuring
-per-file decorrelation (the A7 descriptors): all these Ra values are far above the convective
-threshold, so "low Ra" means *less* chaotic, not necessarily regular.
-
-#### A6. Negative control: boundary topology (representation only)
-
-| Level | Pretrain | Test |
-|---|---|---|
-| Fully periodic | SF, GS | ACT (+ EMQ-P if downloaded) |
-| Bounded (walls / open) | RB, AM | VE, HS (+ EMQ-O if downloaded) |
-
-Physics is deliberately mixed within each level. **If $\Delta$ here is as large as for the physics axes,
-the model is grouping datasets by how they are presented, not by their dynamics.** This is the
-direct test of whether the worry that "same equations can look very different" matters.
-
-#### A7. Data-driven clusters (defined after measurement)
-
-Compute label-free descriptors on each dataset's training split:
-
-- persistence VRMSE ($u_{t+1} = u_t$)
-- spectral slope and high-frequency energy fraction
-- total variation / gradient sparsity
-- decorrelation time in steps
-- error of the best linear one-step predictor (a DMD fit)
-
-Standardise the descriptors, cluster into two groups (k-means, $k = 2$), pretrain on the two most
-central members of each cluster, and test on the rest. Comparing A7's $\Delta$ with A1–A6 answers
-empirically whether labels or statistics group datasets better. Across all runs, regressing gain
-on descriptor distance gives a second, finer-grained answer.
-
-*Optional A0: WALRUS's domain headings as a baseline axis.* Not feasible cleanly with the 2D data
-on disk: most headings have at most one available 2D dataset outside the acoustics group.
-
-### 5.4.1 What makes a dataset diffusive (axis A3)
-
-**The rule:** a dataset is diffusive when its equations contain a *first derivative in time*
-balanced by an *even-order derivative in space*, $\partial_t f = \nu\Delta f$ (or $-\nu\nabla^4 f$). The type of each term
-decides how it acts on a Fourier mode $e^{ikx}$:
+A dataset is diffusive when its equations contain a first derivative in time balanced by an even-order derivative in space, $\partial_t f = \nu\Delta f$ (or $-\nu\nabla^4 f$). The type of each term decides how it acts on a Fourier mode $e^{ikx}$:
 
 | Term type | Example | Effect on a mode $e^{ikx}$ | Character |
 |---|---|---|---|
-| $\partial_t f = \nu\Delta f$ (diffusion, viscosity) | $\nu\Delta u$, $\kappa\Delta b$ | amplitude $\times\, e^{-\nu k^2 t}$ | **Diffusive.** Small scales damped fastest; smooths; irreversible. |
+| $\partial_t f = \nu\Delta f$ (diffusion, viscosity) | $\nu\Delta u$, $\kappa\Delta b$ | amplitude $\times\, e^{-\nu k^2 t}$ | Diffusive: small scales damped fastest; smooths; irreversible. |
 | $\partial_t f = -\nu\nabla^4 f$ (hyperviscosity) | `planetswe` | amplitude $\times\, e^{-\nu k^4 t}$ | Diffusive, concentrated at the smallest scales. |
-| First-order space derivatives only (advection, fluxes) | $\partial_t p + K\nabla\cdot u$, Euler fluxes | phase shift $e^{ik(x-ct)}$, amplitude kept | **Non-diffusive.** Transport without spreading; energy conserved; sharp features persist. |
-| Zeroth-order sink | $-E/t_{\rm cool}$ | amplitude $\times\, e^{-t/t_{\rm cool}}$, same at every $k$ | Removes energy but does **not** smooth. |
+| First-order space derivatives only (advection, fluxes) | $\partial_t p + K\nabla\cdot u$, Euler fluxes | phase shift $e^{ik(x-ct)}$, amplitude kept | Non-diffusive: transport without spreading; energy conserved; sharp features persist. |
+| Zeroth-order sink | $-E/t_{\rm cool}$ | amplitude $\times\, e^{-t/t_{\rm cool}}$, same at every $k$ | Removes energy but does not smooth. |
 
-**A Laplacian alone is not diffusion.** Whether it diffuses depends on what it is paired with:
+A Laplacian may not cause diffusion, but diffusion depends on what it is paired with:
 
-- `helmholtz_staircase`, $\partial_t^2 U = \Delta U$: second order in *time*, so modes oscillate ($e^{\pm ikt}$) and never
-  decay. This is a wave equation.
-- Incompressible pressure, $\Delta p = -\nabla\cdot(u\cdot\nabla u)$: there is no time derivative, so it is an instantaneous
-  constraint, not diffusion.
-- `active_matter`'s Stokes equation, $-\Delta u + \nabla P = \nabla\cdot\Sigma$: also no time derivative; the velocity is set
-  instantly by the stress.
+- In `helmholtz_staircase`, $\partial_t^2 U = \Delta U$ is second order in time, so modes oscillate ($e^{\pm ikt}$) and never decay (wave equation).
+- Incompressible pressure, $\Delta p = -\nabla\cdot(u\cdot\nabla u)$ has no time derivative, so it is an instantaneous constraint, not diffusion.
+- `active_matter`'s Stokes equation, $-\Delta u + \nabla P = \nabla\cdot\Sigma$ also has no time derivative. The velocity is set instantly by the stress.
 
-**Diffusive datasets** (explicit $\partial_t = \nu\Delta$-type term, [Well] App. C):
+We can say we have the following diffusive datasets (with explicit $\partial_t = \nu\Delta$-type term):
 
 | Dataset | Diffusive terms | Strength set by |
 |---|---|---|
 | `shear_flow` | $\nu\Delta u$, $D\Delta s$ | $\nu = 1/Re$, $D = 1/(Re\,Sc)$; $Re$ from $10^4$ to $5\times10^5$ |
 | `rayleigh_benard` | $\nu\Delta u$, $\kappa\Delta b$ | $\kappa = (Ra\,Pr)^{-1/2}$, $\nu = (Ra/Pr)^{-1/2}$; $Ra$ from $10^6$ to $10^{10}$ |
 | `viscoelastic_instability` | $\beta\Delta u$ (solvent), $\varepsilon\Delta C$ (polymer stress) | $Re = 1000$; $\varepsilon = 2\times10^{-6}$ is tiny, mainly for numerical regularity |
-| `gray_scott_reaction_diffusion` | $\delta_A\Delta A$, $\delta_B\Delta B$ | $\delta_A = 2\times10^{-5}$, $\delta_B = 10^{-5}$; the *difference* between the two drives pattern formation |
+| `gray_scott_reaction_diffusion` | $\delta_A\Delta A$, $\delta_B\Delta B$ | $\delta_A = 2\times10^{-5}$, $\delta_B = 10^{-5}$; the difference between the two drives pattern formation |
 | `active_matter` | $d_T$ and $d_R$ (translational and rotational diffusion) in the kinetic equation | dimensionless constants; the Stokes flow is viscous as well |
 | `rayleigh_taylor_instability` (3D) | viscous stress $\nabla\cdot\tau$; molecular diffusivity $\kappa$ in the $\nabla\cdot u$ constraint | $\nu$ rescaled over time to keep the Kolmogorov scale at the grid spacing ([Well] Eq. 38) |
 | `planetswe` | $-\nu\nabla^4 u$, $-\nu\nabla^4 h$ (hyperviscosity) | $\nu = 1.76\times10^{-10}$, tuned to act only near wavenumber 224; the authors call it "largely non-physical" (p. 37) |
 
-**Non-diffusive datasets** (only first-order spatial derivatives):
+We can say that we have the following Non-diffusive datasets (with only first-order spatial derivatives):
 
 | Dataset | Why |
 |---|---|
@@ -658,126 +365,65 @@ decides how it acts on a Fourier mode $e^{ikx}$:
 | `helmholtz_staircase` | wave equation, second order in time (see above) |
 | `euler_multi_quadrants` | flux divergence only; "inviscid" |
 | `turbulent_radiative_layer` | Euler plus the $-E/t_{\rm cool}$ sink: energy is lost without smoothing |
-| `MHD` | *ideal* MHD: no viscosity, no resistivity ($\eta\nabla^2 B$) |
+| `MHD` | ideal MHD: no viscosity, no resistivity ($\eta\nabla^2 B$) |
 | `post_neutron_star_merger` | ideal general-relativistic MHD |
 | `supernova_explosion`, `turbulence_gravity_cooling` | Euler plus gravity plus heating/cooling, but see artificial viscosity below |
 
-**Where the setup matters, beyond the equations:**
+Other considerations:
 
-1. **The coefficient's value, not just its presence.** At $Re = 5\times10^5$ (`shear_flow`), viscosity
-   matters only at the smallest scales; over large scales and short times the flow behaves almost
-   inviscidly. "Diffusive" is really a continuum set by Re, Ra and the other dimensionless numbers.
-   §5.2 classifies by whether the *operator is present*, not by how strong it is.
-2. **Numerical dissipation.** Shock-capturing schemes smooth sharp features even when the equations
-   are ideal: Clawpack's TVD flux limiter (acoustics, Euler), Athena++'s Godunov scheme (TRL, RSG),
-   and the ENO scheme (MHD). Data from "ideal" datasets therefore contains some dissipation, but
-   only at shocks and interfaces, and it comes from the discretisation rather than the physics.
-   Dedalus spectral solvers (`shear_flow`, `rayleigh_benard`, `viscoelastic_instability`,
-   `planetswe`) add almost none.
-3. **SPH artificial viscosity.** `supernova_explosion` and `turbulence_gravity_cooling` include an
-   explicit $a_{\rm visc}$ term in the momentum equation ([Well] Eq. 42). It is written into the equations
-   but is a numerical device that switches on mainly at shocks. These two are "physically inviscid,
-   numerically dissipative", a borderline case like `planetswe`'s hyperviscosity.
-4. **Sinks and relaxation are not diffusion.** TRL's $-E/t_{\rm cool}$ and the polymer relaxation $T(C)$ in
-   `viscoelastic_instability` damp at the same rate at every scale. That is why TRL keeps sharp
-   hot/cold interfaces while losing energy.
-5. **Downsampling is not diffusion.** `MHD_64` was low-pass filtered from $256^3$. That removes small
-   scales from the *data*, but the *dynamics* remain ideal.
+1. The coefficient's value matters a lot. E.g. at $Re = 5\times10^5$ (`shear_flow`), viscosity matters only at the smallest scales and over large scales and short times the flow behaves almost inviscidly. Diffusive behaviour is a continuum set by Re, Ra and other dimensionless numbers. §6.2 only classifies by the presence of the operator.
+2. There may eb some numerical dissipaition. Shock-capturing schemes may smooth sharp features even when the equations are ideal, and this may happen in Clawpack's TVD flux limiter (acoustics, Euler), Athena++'s Godunov scheme (TRL, RSG), and the ENO scheme (MHD). It may not happen in  Dedalus spectral solvers (`shear_flow`, `rayleigh_benard`, `viscoelastic_instability`, `planetswe`).
+3. `supernova_explosion` and `turbulence_gravity_cooling` include an explicit $a_{\rm visc}$ term in the momentum equation. It is a numerical device that switches on mainly at shocks. These two are "physically inviscid, numerically dissipative", kind of like a borderline case like `planetswe`'s hyperviscosity.
+4. Sinks and relaxation are not diffusion. TRL's $-E/t_{\rm cool}$ and the polymer relaxation $T(C)$ in `viscoelastic_instability` damp at the same rate at every scale. That is why TRL keeps sharp hot/cold interfaces while losing energy.
 
-### 5.4.2 What makes a dataset sharp or smooth (axis A4)
+### 3.2 The dissipation split (experiment A3)
 
-Sharpness is a competition. Some terms or setup choices **create** steep gradients, others **remove**
-them. A dataset is sharp when a sharpening mechanism is present and nothing strong enough undoes it.
+Split format as in §6.4:
 
-"Sharp" covers two different things, which need keeping apart:
-
-| | Shock | Steep but smooth |
+| Level | Pretrain | Test |
 |---|---|---|
-| What it is | a true discontinuity that forms in finite time | gradients grow very large but stay finite |
-| Needs | nonlinear compressible flow and no diffusion | an amplifying or thinning mechanism and weak diffusion |
-| Examples | `euler_multi_quadrants`, `supernova_explosion` | the polymer tensor C in `viscoelastic_instability`; the tracer in `shear_flow` |
-| Visible in gridded data? | yes, as jumps over 1–2 cells | yes, once the gradient scale approaches the grid spacing |
+| Non-diffusive | AM, EMQ-P (without Euler: AM, TRL2) | HS, TRL2 (without Euler: HS only) |
+| Diffusive | RB, GS | SF, VE, ACT |
+| Intermediate probe | — | PS (hyperviscosity only) |
 
-A network trained on gridded data sees both as grid-scale structure, which is why axis A4 counts
-both. But their mechanisms differ, and so do the constraints that rule them out.
+Each level has one bounded and one periodic dataset. Families are mixed within each level, so any $\Delta$ comes from dissipation rather than a single family.
 
-**Mechanisms that create sharpness:**
+---
 
-1. **Nonlinear steepening in compressible flow (shocks).** In Euler, disturbances travel at $u \pm c$,
-   and both depend on the state. Compressed regions become denser and hotter, so $c$ rises and the
-   back of a wave outruns its front: the wave steepens into a shock in finite time, even from smooth
-   initial data. This needs nonlinear fluxes ($\rho u^2$, $u(\rho E+p)$) *and* no diffusion to stop it.
-   - `euler_multi_quadrants`: also sharp from $t = 0$, because the initial data is piecewise constant
-     (a Riemann problem).
-   - `supernova_explosion`: point energy injection drives a blast wave; [Well] describes "dense,
-     sharp shells" (p. 6).
-   - `MHD`: the supersonic runs (Mach up to 7) form shocks.
-2. **Discontinuous coefficients or geometry.** A *linear* wave equation cannot create a
-   discontinuity, but it faithfully carries and reflects one that the setup provides.
-   - `acoustic_scattering`: $\rho(x,y)$ jumps at interfaces (maze walls $\rho = 10^6$ next to paths at $\rho = 3$).
-     The pressure field develops reflections, kinks and gradient jumps at every interface. The
-     equations are linear; the sharpness lives entirely in the coefficients.
-   - `helmholtz_staircase`: the staircase corners produce gradient singularities ([Well] p. 36);
-     away from the boundary the field is smooth. The stored `mask` field is a sharp binary image,
-     but it never changes in time.
-3. **Temperature-dependent cooling (thermal instability).** In `turbulent_radiative_layer`, cooling
-   is fastest at intermediate temperatures ([Well] p. 44), even though the printed equation shows
-   only $-E/t_{\rm cool}$. Intermediate-temperature gas therefore cools quickly into the cold phase, the
-   intermediate phase drains away, and the hot/cold interface stays thin, with no physical
-   diffusion to widen it.
-4. **Self-gravity (collapse).** In `turbulence_gravity_cooling`, gravity pulls dense regions
-   together and makes them denser, the opposite of diffusion. Together with cooling this produces
-   thin, dense filaments. The density range is wide enough that the configs log-transform it.
-5. **Stretching with weak diffusion.** In `viscoelastic_instability`, $C$ has its own evolution
-   equation, $\partial_t C + (u\cdot\nabla)C + T(C) = C\cdot\nabla u + (\nabla u)^T\cdot C + \varepsilon\Delta C$, and it is not covered by the
-   incompressibility constraint:
-   - **Amplification.** The stretching term $C\cdot\nabla u + (\nabla u)^T\cdot C$ makes $C$ grow exponentially wherever
-     the flow is extensional. Polymers undergo the coil–stretch transition once relaxation cannot
-     keep up (roughly, relaxation time $\times$ strain rate $> 1/2$ for dumbbell models).
-   - **Slow relaxation.** At Weissenberg number 50 a polymer needs ~50 flow time-units to relax, so
-     almost any appreciable strain stretches it faster than it recovers. Growth is finally capped
-     by the FENE-P extensibility limit ($L_{\max} = 70$), after $C$ has grown by a factor of thousands.
-   - **Almost no smoothing.** $\varepsilon = 2\times10^{-6}$ is about $1000\times$ weaker than the viscosity acting on
-     velocity ($\beta/Re \approx 10^{-3}$). With $\varepsilon$ removed, the $C$ equation is pure transport plus stretching and
-     can develop arbitrarily steep gradients. This is the well-known "high Weissenberg number
-     problem" of viscoelastic simulation, and it is the reason $\varepsilon$ is included at all.
+## 4. Sharp vs smooth
 
-   The velocity stays smooth even though $C$ pushes back on it through $(1-\beta)\nabla\cdot T(C)$. The momentum
-   equation carries solvent viscosity $\beta\Delta u$ ($\beta = 0.9$), and incompressibility makes velocity and
-   pressure respond to the whole stress field globally rather than point by point, so the velocity
-   comes out roughly one derivative smoother than the stress. This is why §5.2 marks VE as
-   borderline: smooth velocity, sharp $C$. The measurement below confirms it.
+Whether the data contain steep gradients or discontinuities. Axis A4 (§6.1).
 
-**Mechanisms that keep a dataset smooth:**
+### 4.1 What makes a dataset sharp or smooth
 
-1. **Diffusion, $\partial_t f = \nu\Delta f$.** Modes decay as $e^{-\nu k^2 t}$, so the steepest gradients are damped
-   fastest, and gradients cannot get narrower than a scale set by the coefficient (`gray_scott`,
-   `active_matter`, `rayleigh_benard`, `shear_flow`). Gray–Scott forms reaction fronts, but they
-   have a finite width, roughly $\sqrt{\delta/\text{reaction rate}}$.
-2. **Incompressibility, $\nabla\cdot u = 0$, prevents shocks in the flow variables.** With no density change
-   there are no sound waves to steepen, and pressure comes from a Poisson equation, which smooths by
-   nature. `shear_flow`, `rayleigh_benard` and `viscoelastic_instability` therefore cannot develop
-   *shocks* at any Reynolds number. Incompressibility constrains only the **velocity**, though; it
-   says nothing about fields that are carried by the flow. It even helps thin them: in 2D an
-   incompressible flow preserves area, so a patch stretched in one direction must be squeezed by the
-   same factor in the other. Transported fields therefore get drawn into sheets and filaments:
-   - `shear_flow`'s tracer at Schmidt number up to 10 forms fine filaments. The only mechanism is
-     thinning, and the diffusivity is moderate, so these stay resolved.
-   - `viscoelastic_instability`'s C *also* has exponential amplification in the stretched regions
-     and almost no diffusion (mechanism 5 above), so it becomes genuinely sharp.
-3. **Linearity with smooth coefficients.** Linear waves do not steepen. `helmholtz_staircase` has a
-   constant medium and is time-harmonic, so it stays smooth apart from its corners.
-4. **Hyperviscosity together with gentle forcing.** The shallow-water equations are hyperbolic like
-   Euler and *can* form shocks (hydraulic jumps, or bores). `planetswe` does not, because the forcing
-   is gentle and $-\nu\nabla^4 u$ removes grid-scale structure. It is smooth because of its *setup*, even
-   though its equation family allows sharpness.
+Some terms or setup choices may create steep gradients, while others may remove them "Sharp" covers two different things, a shock and a steep-but-smooth presentation. A shock is discontinuity that forms in finite time. It needs nonlinear compressible flow and no diffusion. On a discretetised setting it may show up over 1-2 cells. Examples include `euler_multi_quadrants`, and `supernova_explosion` Something that is steep-but-smooth means that gradients grow very large but stay finite. It needs an amplifying or thinning mechanism and weak diffusion. We may see it over multiple cells. Examples may include the polymer tensor C in `viscoelastic_instability` and the tracer in `shear_flow`.
 
-**An empirical signal: the solver.** The solvers split almost perfectly along this line. Sharp
-datasets use shock-capturing finite-volume or SPH codes (Clawpack, Athena++, ENO, SPH), which are
-built to tolerate discontinuities. Smooth datasets use spectral codes (Dedalus, Chebfun), which need
-smooth fields or become unstable. `viscoelastic_instability` uses Dedalus but needs its small $\varepsilon$
-diffusion to stay stable, which is consistent with it being borderline. In choosing the solver, the
-domain expert effectively recorded whether they expected discontinuities.
+#### Mechanisms that may create sharpness
+
+1. Nonlinear steepening in a compressible flow, causing shocks. E.g. In Euler, disturbances travel at $u \pm c$, and both depend on the state. Compressed regions become denser and hotter, raising so $c$ rises and the back of a wave outruns its front in finite time even from smooth initial data. This needs nonlinear fluxes ($\rho u^2$, $u(\rho E+p)$) and no diffusion to stop it.
+  - `euler_multi_quadrants`: also sharp from $t = 0$, because the initial data is piecewise constant.
+  - `supernova_explosion`: point energy injection drives a blast wave; The Well describes "dense, sharp shells" (p. 6).
+  - `MHD`: the supersonic runs (Mach up to 7) form shocks.
+2. Discontinuous coefficients or geometry: A linear wave equation cannot create a discontinuity, but it can reflects the setup geometry..
+  - `acoustic_scattering`: $\rho(x,y)$ jumps at interfaces (maze walls $\rho = 10^6$ next to paths at $\rho = 3$).
+  - `helmholtz_staircase`: the staircase corners produce gradient singularities (The Well p. 36); away from the boundary the field is smooth. The stored `mask` field is a sharp binary image, but it never changes in time.
+3. Temperature-dependent cooling (thermal instability): In `turbulent_radiative_layer`, cooling is fastest at intermediate temperatures (The Well p. 44). What effect does this have on sharpness?
+4. Self-gravity/collapse: In `turbulence_gravity_cooling`, gravity pulls dense regions
+   together and makes them sharper. May produce thin, dense filaments. The density range is wide so the configs log-transform it.
+5. Stretching with weak diffusion: In `viscoelastic_instability`, $C$ has its own evolution equation, $\partial_t C + (u\cdot\nabla)C + T(C) = C\cdot\nabla u + (\nabla u)^T\cdot C + \varepsilon\Delta C$, and it is not covered by the incompressibility constraint:
+  - Amplification: The stretching term $C\cdot\nabla u + (\nabla u)^T\cdot C$ makes $C$ grow exponentially wherever the flow is extensional. Polymers undergo the coil–stretch transition once relaxation cannot keep up (roughly, relaxation time $\times$ strain rate $> 1/2$ for dumbbell models).
+  - Slow relaxation: At Weissenberg number 50 a polymer needs ~50 flow time-units to relax, so almost any appreciable strain stretches it faster than it recovers. Growth is finally capped by the FENE-P extensibility limit ($L_{\max} = 70$), after $C$ has grown by a factor of thousands.
+  - Almost no smoothing: $\varepsilon = 2\times10^{-6}$ is about $1000\times$ weaker than the viscosity acting on velocity ($\beta/Re \approx 10^{-3}$). With $\varepsilon$ removed, the $C$ equation is pure transport plus stretching and can develop arbitrarily steep gradients. This is the well-known "high Weissenberg number problem" of viscoelastic simulation, and it is the reason $\varepsilon$ is included at all. The velocity stays smooth even though $C$ pushes back on it through $(1-\beta)\nabla\cdot T(C)$. The momentum equation carries solvent viscosity $\beta\Delta u$ ($\beta = 0.9$), and incompressibility makes velocity and pressure respond to the whole stress field globally rather than point by point, so the velocity comes out roughly one derivative smoother than the stress. This is why §6.2 marks VE as borderline: smooth velocity, sharp $C$. The measurement below confirms it.
+
+#### Mechanisms that may keep a dataset smooth:
+
+1. Diffusion: $\partial_t f = \nu\Delta f$. Modes decay as $e^{-\nu k^2 t}$, so the steepest gradients are damped fastest, and gradients cannot get narrower than a scale set by the coefficient (`gray_scott`, `active_matter`, `rayleigh_benard`, `shear_flow`). Gray–Scott forms reaction fronts, but they have a finite width, roughly $\sqrt{\delta/\text{reaction rate}}$.
+2. Incompressibility, $\nabla\cdot u = 0$, prevents shocks in the flow variables. With no density change there are no sound waves to steepen, and pressure comes from a Poisson equation, which smooths by nature. `shear_flow`, `rayleigh_benard` and `viscoelastic_instability` therefore cannot develop shocks at any Reynolds number. Incompressibility constrains only the **velocity**, though; it says nothing about fields that are carried by the flow. It even helps thin them: in 2D an incompressible flow preserves area, so a patch stretched in one direction must be squeezed by the same factor in the other. Transported fields therefore get drawn into sheets and filaments:
+  - `shear_flow`'s tracer at Schmidt number up to 10 forms fine filaments. The only mechanism is thinning, and the diffusivity is moderate, so these stay resolved.
+  - `viscoelastic_instability`'s C *also* has exponential amplification in the stretched regions and almost no diffusion (mechanism 5 above), so it becomes genuinely sharp.
+3. Linearity with smooth coefficients: Linear waves do not steepen. `helmholtz_staircase` has a constant medium and is time-harmonic, so it stays smooth apart from its corners.
+4. Hyperviscosity together with gentle forcing. The shallow-water equations are hyperbolic like Euler and can form shocks (hydraulic jumps, or bores). `planetswe` does not, because the forcing is gentle and $-\nu\nabla^4 u$ removes grid-scale structure. It is smooth because of its setup, even though its equation family allows sharpness.
+
 
 **Measured check on the stored data.** For each field, over trajectory 0 of each file, every 4th
 snapshot, I computed two statistics of the squared gradient $\lvert\nabla f\rvert^2$:
@@ -832,15 +478,29 @@ Two caveats on the metric:
 | `gray_scott_reaction_diffusion` | reaction fronts | diffusion | Smooth (finite-width fronts) |
 | `active_matter` | active stresses | translational/rotational diffusion + Stokes | Smooth |
 
-**Summary:** sharpness needs a mechanism that steepens gradients and the absence of anything to undo
-it. Compressibility with nonlinearity, discontinuous coefficients, thermal instability,
-gravitational collapse and stretching create sharpness; diffusion, linearity and hyperviscosity
-prevent it. Incompressibility prevents **shocks** in velocity and pressure, but not steep gradients
-in fields the flow carries: an amplified, weakly diffusive field such as C can be sharp inside a
-perfectly smooth incompressible flow. Sharpness is therefore a property of each *field*, not only
-of the dataset.
+### 4.2 The sharpness split (experiment A4)
 
-### 5.4.3 What makes a dataset chaotic or regular (axis A5)
+Split format as in §6.4: pretrain set, then targets held out of both runs.
+
+| Level | Pretrain | Test |
+|---|---|---|
+| Sharp | AM, EMQ-P (same run as A3 non-diffusive) | TRL2 (AI as sanity check) |
+| Smooth | HS, SF | RB, ACT, GS, PS (VE excluded as borderline) |
+
+Motivated by The Well's spectral-vs-spatial split and the acoustic/Helmholtz contrast (§2.5).
+Putting HS in the *smooth* run splits the wave family across the two levels. Comparing this smooth
+run with A3's diffusive run on the same smooth targets shows whether smoothness or diffusion is
+the property that transfers. **Without Euler this axis is uninformative:** the only sharp target
+left would be AI, a near-duplicate of the pretraining data.
+
+---
+
+## 5. Predictable vs chaotic
+
+Whether small differences in the state grow fast enough to make long rollouts unpredictable.
+Axis A5 (§6.1).
+
+### 5.1 What makes a dataset chaotic or regular
 
 **Terminology first.** Every dataset in The Well is *deterministic*: the equations contain no noise,
 and the same initial state always gives the same trajectory. Chaos is a property of deterministic
@@ -874,7 +534,7 @@ three look alike in the error curves:
    acoustics (zeroed in the configs). This is the non-Markovian issue [WALRUS] App. D discusses.
 
 **Dataset by dataset.** The proxy is the best model's T21–60 VRMSE from [WALRUS] Table 1; $\gtrsim 0.6$
-means every model had decorrelated by then (§5.2).
+means every model had decorrelated by then (§6.2).
 
 | Dataset | Nonlinearity | Instability / driver | Control parameter (range) | Sustained? | Evidence | Classification |
 |---|---|---|---|---|---|---|
@@ -928,7 +588,184 @@ subsequent steps. This is a nearest-neighbour estimate of the largest Lyapunov e
 `viscoelastic_instability` edge-state pairs provide this directly. Report the result as
 error-doubling time in output steps, the unit that matters for an emulator.
 
-### 5.5 Runs, protocol and priorities
+### 5.2 The regime split (experiment A5)
+
+Split format as in §6.4: pretrain set, then targets held out of both runs.
+
+| Level | Pretrain | Test |
+|---|---|---|
+| Predictable | AM, SF | HS, GS, PS, VE-AH |
+| Chaotic | RB, TRL2 | ACT, VE-CAR, VE-EIT |
+
+Family is partly controlled: each level contains one incompressible dataset (SF vs RB). Needs no
+Euler. **Evaluate chaotic targets on one-step and T1–10 VRMSE plus spectral error** (The Well's
+binned spectral metrics), not long-horizon VRMSE, which saturates for any model once it
+decorrelates.
+
+`viscoelastic_instability` is split by file, because its regimes differ (§5.1): VE-AH is the
+steady arrowhead state, and VE-CAR / VE-EIT are chaotic. Select them with
+`include_filters: ["_AH."]` or `include_filters: ["_CAR.", "_EIT."]`. The trailing `.` excludes the
+`transtochaos_EIT_*` edge-state files. `shear_flow` sits in the predictable set only *over the
+evaluated horizon*; it is chaotic in principle (§5.1).
+
+**A5b, a cleaner within-dataset variant.** `rayleigh_benard` (one file per Rayleigh number),
+`shear_flow` (per Reynolds number), `active_matter` (per activity $\alpha$) and
+`turbulent_radiative_layer_2D` (per $t_{\rm cool}$) are stored with one file per parameter value. The
+chaos level can therefore be varied *inside a dataset* with `include_filters`, keeping the
+equations, fields and boundaries identical. For example, pretrain on low-Ra RB plus low-Re SF, and
+compare with high-Ra RB plus high-Re SF, on held-out Ra and Re values. This removes both the family
+and the representation confound from the regime question. First confirm the ordering by measuring
+per-file decorrelation (the A7 descriptors): all these Ra values are far above the convective
+threshold, so "low Ra" means *less* chaotic, not necessarily regular.
+
+---
+
+## 6. Proposed experimental splits
+
+### 6.1 Design principle
+
+The goal is to find out **which way of grouping datasets best predicts transfer**, instead of
+assuming one. Each axis gets the same **crossover** design:
+
+1. Split the datasets into two levels along the axis (e.g. *linear* vs *nonlinear*).
+2. Pretrain one model on **two datasets from level A** and one on **two datasets from level B**,
+   at an identical budget.
+3. Finetune both models on **held-out targets from both levels**. The targets must be in neither
+   pretraining set.
+4. Compute the **in-level advantage** $\Delta$: how much better each model does on its own level's
+   targets than the other model does.
+
+With transfer gain $g(\text{run}, t) = 1 - \mathrm{VRMSE}(\text{run}, t) / \mathrm{VRMSE}(\text{scratch}, t)$ at a fixed finetuning
+budget:
+
+$$
+\Delta_{\rm axis} = \tfrac12\Big[\operatorname*{mean}_{t\in T_A}\big(g(A,t)-g(B,t)\big) + \operatorname*{mean}_{t\in T_B}\big(g(B,t)-g(A,t)\big)\Big]
+$$
+
+$\Delta > 0$ means grouping along this axis captures something that transfers. The double difference
+cancels out both target difficulty and the generic "any pretraining helps" effect, so no separate
+mixed control is needed per axis. **The headline result is a comparison of $\Delta$ across axes.** For
+multi-level axes (equation family), $\Delta$ is the mean over levels of (in-level gain minus mean
+other-level gain).
+
+**Scope: 2D only.** In WALRUS, 2D and 3D use separate encoder/decoder weights, so transfer between
+them mostly tests the encoder (§2.5). A 3D version is sketched in §6.6.
+
+### 6.2 Dataset attributes (2D, on disk under `/leonardo_work/ICT26_MHPC_0/sshamsi/datasets/`)
+
+Boundary conditions and field names below are read from each dataset's HDF5 metadata. The
+predictability proxy is the **best** of the four models' median VRMSE averaged over steps 21–60
+in [WALRUS] Table 1 (p. 10). Values $\gtrsim 0.6$ mean even the best model has decorrelated from the
+truth by that horizon, which WALRUS notes is expected for chaotic systems (p. 9).
+
+| Code | Dataset | Family (§2.2) | Linear | Explicit diffusion / viscosity | Sharp features | Predictability proxy (T21–60) | BCs (metadata) | Fields |
+|---|---|---|---|---|---|---|---|---|
+| AD | `acoustic_scattering_discontinuous` | I waves | ✓ | none | ✓ material interface | 0.04 predictable | mixed wall / open | pressure, velocity, (density†, speed_of_sound) |
+| AI | `acoustic_scattering_inclusions` | I waves | ✓ | none | ✓ inclusions | 0.13 predictable | mixed wall / open | same as AD |
+| AM | `acoustic_scattering_maze` | I waves | ✓ | none | ✓ maze walls | 0.05 predictable | mixed wall / open | same as AD |
+| HS | `helmholtz_staircase` | I waves | ✓ | none | — smooth, time-harmonic | 0.003 predictable | open + wall (staircase) | pressure_re, pressure_im, mask |
+| TRL2 | `turbulent_radiative_layer_2D` | II compressible | — | none (cooling sink only) | ✓ hot/cold phase interfaces | 0.84 **chaotic** | x periodic, y open | density, pressure, velocity |
+| PS | `planetswe` | II (SWE analogue), **sphere** | — | hyperviscosity only | — | 0.02 predictable | $\phi$ periodic, $\theta$ open | height, velocity |
+| SF | `shear_flow` | IV incompressible + field | — | viscous + diffusive | — | 0.08 predictable | fully periodic | pressure, tracer, velocity |
+| RB | `rayleigh_benard` | IV incompressible + field | — | viscous + diffusive | — | 0.64 **chaotic** | x periodic, y wall | buoyancy, pressure, velocity |
+| VE | `viscoelastic_instability` | IV incompressible + field | — | viscous + polymer diffusion | borderline (thin polymer-stress sheets) | n/a (short trajectories); contains chaotic attractors (CAR, EIT) | x periodic, y wall | pressure, velocity, C, c_zz |
+| ACT | `active_matter` | V Stokes + kinetic | — | Stokes + diffusion | — | 1.25 **chaotic** | fully periodic | concentration, velocity, D, E |
+| GS | `gray_scott_reaction_diffusion` | VI reaction–diffusion | — | diffusion | — | 0.13 predictable | fully periodic | A, B |
+| EMQ-P\* | `euler_multi_quadrants` periodic | II compressible | — | none | ✓ shocks | 0.28 intermediate | periodic | density, energy, pressure, momentum |
+| EMQ-O\* | `euler_multi_quadrants` open | II compressible | — | none | ✓ shocks | 0.28 intermediate | open | same as EMQ-P |
+
+\* **Not on disk.** Both boundary-condition variants together are ~5 TB. The datasets on disk
+currently total ~4.7 TB, against a 20 TB quota as of my 22 Sep note; check `cinQuota` before
+downloading. Several splits below are much weaker without Euler, and each one says so.
+
+† `density` is zeroed in the configs (`field_transforms: density: torch.zeros_like`), matching
+[WALRUS] App. C.1.
+
+**Caveat on the predictability proxy:** it also depends on step size and on model skill. Treat it
+as a rough ordering, and replace it with the descriptors from §6.4 (A7) once they are computed.
+
+### 6.3 Aliasing between axes on this data
+
+With only ~11 datasets, several axes are partly confounded. It is better to state this up front
+than to discover it in the results:
+
+- **Linearity $\equiv$ the wave family.** Every linear dataset is in family I. Axis A2 therefore
+  reuses the family-I run; its only new information is whether a *multi-family* nonlinear model
+  differs from the single-family incompressible one.
+- **Dissipation $\approx$ sharpness.** Every dataset with sharp features is non-diffusive, and no
+  diffusive dataset has shocks or interfaces. HS is the only smooth, non-diffusive dataset. Axes
+  A3 and A4 therefore share their sharp / non-diffusive run and differ only in the contrasting
+  run.
+- **RB and VE share a representation**: same boundaries (x periodic, y wall) and overlapping
+  fields (pressure, velocity + one more). Any in-family transfer from RB to VE may be partly
+  representational. The negative control (A6) is designed to measure exactly this.
+- **Shared field names.** `velocity` appears in every dataset except GS and HS, and `pressure` in
+  most. To stop this acting as a free transfer channel, **reinitialise the field embeddings at
+  finetuning for every target** as the primary setting; keeping them is a one-off ablation.
+
+### 6.4 The splits
+
+Each split is `pretrain set → held-out targets`. **Test** columns list targets held out of *both*
+runs in that axis. "Without Euler" gives the fallback when `euler_multi_quadrants` isn't
+downloaded.
+
+#### A1. Equation family
+
+Defined, with its pretrain and test sets, in [§2.2](#the-family-split-experiment-a1). Runs R1–R3 (§6.5).
+
+#### A2. Linear vs nonlinear
+
+| Level | Pretrain | Test |
+|---|---|---|
+| Linear | AD, AM (reuses the A1-I run) | HS |
+| Nonlinear | SF, EMQ-P (without Euler: SF, TRL2) | VE, ACT, GS, PS, TRL2 (drop TRL2 if pretrained on) |
+
+Aliased with the wave family (§6.3). Its value is the comparison between the nonlinear run, which
+mixes families, and the A1-IV run (incompressible only) on the nonlinear targets. Does
+"nonlinearity in general" transfer, or only a specific family?
+
+#### A3. Dissipation
+
+Defined in [§3.2](#32-the-dissipation-split-experiment-a3). Runs R5, R6 (§6.5).
+
+#### A4. Sharp vs smooth
+
+Defined in [§4.2](#42-the-sharpness-split-experiment-a4). Runs R5, R7 (§6.5).
+
+#### A5. Predictable vs chaotic
+
+Defined in [§5.2](#52-the-regime-split-experiment-a5). Runs R8, R9 (§6.5).
+
+#### A6. Negative control: boundary topology (representation only)
+
+| Level | Pretrain | Test |
+|---|---|---|
+| Fully periodic | SF, GS | ACT (+ EMQ-P if downloaded) |
+| Bounded (walls / open) | RB, AM | VE, HS (+ EMQ-O if downloaded) |
+
+Physics is deliberately mixed within each level. **If $\Delta$ here is as large as for the physics axes,
+the model is grouping datasets by how they are presented, not by their dynamics.** This is the
+direct test of whether the worry that "same equations can look very different" matters.
+
+#### A7. Data-driven clusters (defined after measurement)
+
+Compute label-free descriptors on each dataset's training split:
+
+- persistence VRMSE ($u_{t+1} = u_t$)
+- spectral slope and high-frequency energy fraction
+- total variation / gradient sparsity
+- decorrelation time in steps
+- error of the best linear one-step predictor (a DMD fit)
+
+Standardise the descriptors, cluster into two groups (k-means, $k = 2$), pretrain on the two most
+central members of each cluster, and test on the rest. Comparing A7's $\Delta$ with A1–A6 answers
+empirically whether labels or statistics group datasets better. Across all runs, regressing gain
+on descriptor distance gives a second, finer-grained answer.
+
+*Optional A0: WALRUS's domain headings as a baseline axis.* Not feasible cleanly with the 2D data
+on disk: most headings have at most one available 2D dataset outside the acoustics group.
+
+### 6.5 Runs, protocol and priorities
 
 **Unique pretraining runs** (several axes reuse the same run):
 
@@ -959,7 +796,7 @@ every $\Delta$ and the descriptor regression can be computed from, without extra
 - Same augmentation policy in every run (WALRUS's, or none).
 - Finetuning at 1k / 10k / 100k samples with identical hyperparameters; pretraining effects are
   largest when finetuning data is scarce ([WALRUS] Fig. 8).
-- Field embeddings reinitialised at finetuning (§5.3), plus one ablation that keeps them.
+- Field embeddings reinitialised at finetuning (§6.3), plus one ablation that keeps them.
 - Metrics: VRMSE one-step, T1–10, T11–30; spectral error for chaotic targets.
 - At least 3 seeds for Tier-1 runs; $\Delta$ reported with confidence intervals.
 
@@ -971,7 +808,7 @@ every $\Delta$ and the descriptor regression can be computed from, without extra
 | 2 | R8, R9 · R5, R6, R7 | Does the regime (predictability, dissipation, smoothness) predict it better? |
 | 3 | R10, R11 · R4 · A7 | Is it really representation (negative control)? Linearity? Data-driven grouping? |
 
-### 5.6 3D variant (separate, smaller study)
+### 6.6 3D variant (separate, smaller study)
 
 On disk: a 3D compressible family (`supernova_explosion_128`, `turbulence_gravity_cooling`,
 `turbulent_radiative_layer_3D`), plus the singletons `MHD_64` and `rayleigh_taylor_instability`.
@@ -990,17 +827,10 @@ so boundary conditions are not balanced within this family.
 | Well dataset list, technical attributes | [Well] Table 1, p. 3 |
 | Per-dataset physics descriptions | [Well] §3.1, pp. 3–7 |
 | Spectral vs spatial split, "not immediately clear" | [Well] §4 Analysis, p. 8 |
-| "No cross-linkage between different datasets" | [Well] Datasheet Q11, p. 24 |
 | Governing equations for each dataset | [Well] App. C, pp. 31–44 |
 | TGC uses the supernova equations (40)–(43) | [Well] App. C.14, p. 43 |
 | Boussinesq regime defined as Atwood < 0.1 | [Well] App. C.11, p. 41 |
 | Task-based groupings | [Well] App. D, p. 45 |
 | Domain list in abstract | [WALRUS] p. 1 |
-| Uniform-over-datasets hierarchical sampling | [WALRUS] §4.2, p. 6 |
-| HSDP same-dataset sampling | [WALRUS] §4.2, p. 7 |
-| ~4M / ~2M examples per 2D / 3D dataset | [WALRUS] §5, p. 8 |
 | Seven-heading categorisation | [WALRUS] Table 1, p. 10 |
-| DPOT on acoustics, Poseidon on Euler | [WALRUS] §5.2, p. 11 |
-| HalfWALRUS 2D subset, "strong anisotropic behavior" | [WALRUS] §5.3, pp. 11–12 |
-| APE helps or hurts by symmetry | [WALRUS] App. B.2.1, p. 26 |
 | Pretraining dataset table | [WALRUS] Table 5, p. 28 |

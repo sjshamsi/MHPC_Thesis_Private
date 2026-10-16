@@ -1,56 +1,28 @@
 # Compute-optimal shape scaling for WALRUS with 13 2D datasets
 
-We use SoViT's star/grid shape-optimisation recipe (Alabdulmohsin et al. 2023, *Getting ViT in Shape*) and Choshen et al.'s intermediate-checkpoint economy technique, organised as Tiers 0–7 with decision gates between them. An earlier version of this strategy was run on `Leonardo_smallest7_2d`, the only 2D datasets available to us at the time. Now that more disk space means that we ball, this plan runs
-on a mixture chosen by design.
+We use SoViT's star/grid shape-optimisation recipe from *Getting ViT in Shape* and Choshen et al.'s intermediate-checkpoint economy technique, organised as Tiers 0–7 with decision gates between them. An earlier version of this strategy was run on `Leonardo_smallest7_2d`, the only 2D datasets available to us at the time. Now that more disk space means that we ball, this plan runs on a mixture chosen by design.
 
 We have 13 2D Well datasets on disk now. We do not want to train on all 13, though, because we can now do a true blind downstream assessment. So we hold out 4 datasets.
 
-We have some basic facts that we would like to keep constant:
+#### Dataset Abbreviations:
+- AD/AI/AM = `acoustic_scattering_{discontinuous,inclusions,maze}`
+- EMQ-O/EMQ-P = `euler_multi_quadrants_{openBC,periodicBC}`
+- GS = `gray_scott_reaction_diffusion`
+- PS = `planetswe`
+- RB = `rayleigh_benard`
+- SF = `shear_flow`
+- HS = `helmholtz_staircase`,
+- ACT = `active_matter`
+- TRL2 = `turbulent_radiative_layer_2D`,
+- VE = `viscoelastic_instability`.
 
-| fact | value |
-|---|---|
-| Compute budget | ~30K hours |
-| Pretraining mix | 9 datasets: AD, AI, AM, EMQ-O, EMQ-P, GS, PS, RB, SF (`data=Leonardo_pretrain9_2d`) |
-| Downstream mix | 4 datasets: `active_matter`, `helmholtz_staircase`, `turbulent_radiative_layer_2D`, `viscoelastic_instability` |
-| Upstream metric `f_up` | 60-step rollout VRMSE on the `valid` split of the pretraining datasets |
-| Downstream metric `f_down` | Finetuned VRMSE on the 4 held-out datasets (§3.5, Tier 7) |
-| Shape axes `D` | `hidden_dim`, `processor_blocks`, `mlp_dim` |
-| HP reduction | LR×WD sensitivity at the extreme shapes only (§6), then frozen; batch size fixed |
-| Validating endpoint | Head-to-head against fullDims at **matched FLOPs**, upstream *and* downstream |
-| Data repetition | Measured as an explicit sub-study (RQ3), designed for this mixture's low sweep-scale repetition |
+Shapes are written `H/L/M` = `hidden_dim/processor_blocks/mlp_dim`.
 
-Dataset codes used throughout: AD/AI/AM = `acoustic_scattering_{discontinuous,inclusions,maze}`,
-EMQ-O/EMQ-P = `euler_multi_quadrants_{openBC,periodicBC}`, GS = `gray_scott_reaction_diffusion`,
-PS = `planetswe`, RB = `rayleigh_benard`, SF = `shear_flow`, HS = `helmholtz_staircase`,
-ACT = `active_matter`, TRL2 = `turbulent_radiative_layer_2D`, VE = `viscoelastic_instability`.
-Family numerals (I–VI) and axis definitions are those of
-[well_walrus_dataset_categorisation.md](../../well_walrus_dataset_categorisation.md) §2.2 and §5.
-
-Shapes are written `H/L/M` = `hidden_dim/processor_blocks/mlp_dim`. Named shapes: **fullDims**
-`1408/40/5632` (paper scale), **HalfWalrus** `1088/30/4352`, the **200 M anchor** `768/12/2048`,
-and **SoWalrus**, the shape this study predicts (§8.1).
-
----
-
-## 0. What changed relative to the earlier 7-dataset plan
-
-| item | 7-dataset plan | this plan | consequence |
-|---|---|---|---|
-| Pretraining data | `Leonardo_smallest7_2d` (7 datasets, by availability) | `Leonardo_pretrain9_2d` (9 datasets, by design, §2) | every data-dependent number is redone below |
-| Held-out physics | none; transfer to unseen physics explicitly untested | 4 datasets spanning every categorisation axis (§2.3) | new RQ5 and Tier 7 |
-| Unique train tokens `T_unique_model` | ≈ 1.3 G | **≈ 3.26 G** (≈ 2.41 G + ≈ 0.85 G Euler, all measured) | 2.5× more distinct data |
-| Worst per-dataset repetition at 60 ep, N1 | ≈ 122× (VE) | **6.6×** (PS) | the repetition bound on sweep duration no longer binds (§7.0) |
-| Spread in per-dataset repetition | 143× | 10× | RQ3's aggregate `R` is no longer one dataset's number (§9) |
-| GATE C star-centre point | existing fullDims runs, "zero marginal cost" | **must be re-run** on the new mixture (§7.2) | ≈ +470 GPU-h |
-| `roofline_staged.sh` | stage the mixture (~653 GB) to node-local disk | infeasible: train splits alone are ≈ 5.8 TB with Euler (§5.2) | redesigned as a paired subset test |
-| Tier 0 scripts (roofline, noise floor) | built on smallest7, never submitted | **regenerated** in `LeonardoRunScripts/PT9_2d/{Roofline,NoiseFloor}/` (§5.2, §5.4) | no sunk cost: none were run |
-| Euler availability | not on disk | **on disk and surveyed** (2026-10-02; 2.69 TB openBC, 2.65 TB periodicBC, all splits) | Tier 0 is unblocked: preflight and FLOP re-validation pass (§5.1) |
-| `override_dimensionality` | documented as `=2` | **`=3`** (§3.3) | the documented `=2` fails on the first forward pass; every generator already used `=3` |
-
-**Nothing already executed is invalidated by this change**, because no Tier 0–6 run of the
-7-dataset plan was ever submitted (no `roofline_*` / `noise_floor_*` logs exist under
-`/leonardo_scratch/fast/ICT26_MHPC/sshamsi/logs`). What *is* lost is the reuse of the historical
-fullDims / `smallest7_2d_PT_*` runs as free data points: they trained on a different mixture.
+#### Named shapes:
+- fullDims `1408/40/5632` (paper scale)
+- HalfWalrus `1088/30/4352`
+- 200M `768/12/2048`
+- SoWalrus: What we hope to get at the end
 
 ---
 
@@ -58,147 +30,70 @@ fullDims / `smallest7_2d_PT_*` runs as free data points: they trained on a diffe
 
 ### 1.1 Research questions
 
-**RQ1 (primary).** How should WALRUS's shape dimensions — token width `hidden_dim`, processor
-depth `processor_blocks`, and feed-forward width `mlp_dim` — be scaled jointly as pretraining
-compute increases, for a cross-domain continuum-dynamics foundation model?
+RQ1: How should WALRUS's shape dimensions (`H/L/M`) be scaled jointly as available pretraining compute increases?
 
-**RQ2 (validating).** Does a shape-optimised WALRUS derived from RQ1 match or beat the paper-scale
-configuration (`H=1408, L=40, M=5632`) when both are pretrained with the same FLOPs — measured
-upstream *and* on the held-out physics?
+RQ2: Does `SoWalrus` match or beat the paper-scale configuration on downstream tasks (validation on held out sets) when both are pretrained with the same amount of compute?
 
-**RQ3 (sub-study).** Over what range does the "unlimited data" assumption behind SoViT's Eq. 2 hold
-for this mixture, and how does repetition change the compute-optimal answer? At sweep scale the
-mixture is only mildly repeated (≤ 6.6× per dataset), so the question matters mainly at
-head-to-head scale, where the small arm still reaches ≈ 240× on PS (§2.5, §9).
+RQ3: Does fitting on intermediate checkpoints (Choshen §6) reproduce the exponents obtained from end-of-run points? And at a smaller cost? Does WALRUS's WSD-style inverse-sqrt LR schedule make those intermediate points legitimately comparable?
 
-**RQ4 (methodological).** Does fitting on intermediate checkpoints (Choshen §6) reproduce the
-exponents obtained from end-of-run points, at a fraction of the cost — and does WALRUS's WSD-style
-inverse-sqrt LR schedule make those intermediate points legitimately comparable?
-
-**RQ5 (upstream vs downstream).** Is the compute-optimal shape, and are its exponents `s_k`, the
-same when "loss" means finetuned performance on physics the model never saw during pretraining, as
-when it means held-out-trajectory loss on the pretraining physics? SoViT raise this question in
-their §2 (upstream metrics may not reflect downstream ranking) and partly answer it in §4.2
-(exponents near-identical across classification and image-to-text). Here it is asked for PDE
-surrogates, separately for in-family and out-of-family targets (§2.3).
+RQ5: Does the compute-optimal shape, and do the scaling exponents $s_k$ remain the same when "loss" is on downstream tasks vs. when it is on the held-out-trajectory loss on the pretraining physics? SoViT raise this question in their §2, and answer it in §4.2 (exponents near-identical across classification and image-to-text).
 
 ### 1.2 The SoViT recipe
 
-SoViT models a single shape dimension `x_k` jointly with compute `t`:
+SoViT models a single shape dimension $x_k$ jointly with compute $t$:
 
-```
-f_k(x_k, t) ≈ α_k·x_k^(−a_k) + (β_k·x_k^(b_k) + ξ_k)·t^(−c) + ε_k        [SoViT Eq. 2]
-```
+$$
+f_k(x_k, t) \approx \alpha_k x_k^{-a_k} + \left(\beta_k x_k^{b_k} + \xi_k\right) t^{-c} + \varepsilon_k
+\qquad \text{[SoViT Eq. 2]}
+$$
 
-For fixed `t` this is quasiconvex in `x_k`, with optimum
+For fixed $t$ this is quasiconvex in $x_k$, with optimum
 
-```
-x*_k = (α_k·a_k·t^c / (β_k·b_k))^(1/(b_k+a_k)) = O(t^(s_k)),   s_k = c/(b_k+a_k)   [Eq. 4]
-```
+$$
+x^*_k = \left(\frac{\alpha_k a_k t^c}{\beta_k b_k}\right)^{1/(b_k+a_k)} = O\!\left(t^{s_k}\right),
+\qquad s_k = \frac{c}{b_k+a_k} \qquad \text{[Eq. 4]}
+$$
 
-The exponents `s_k` are estimated by a **star sweep** (§7.2): fix a large star centre `x⁽ᶜ⁾`, vary
-one dimension at a time over an exponentially spaced grid of values *much smaller* than the centre,
-at several compute durations. A separate cheap **grid sweep** (§7.1) over small, short-trained
-models finds the starting point `x⁽⁰⁾` on the small-compute Pareto frontier. Finally, increasing
-compute by a factor `τ` scales each dimension by `τ^(s_k/D)`, with `D` the number of shape
-dimensions (SoViT's `w_k = 1/D`; here `D = 3`).
+The exponents $s_k$ are estimated by a star sweep (§7.2). Fix a large star centre $x^{(c)}$, vary one dimension at a time over an exponentially spaced grid of values much smaller than the centre, at several compute durations. A separate cheap grid sweep (§7.1) over small, short-trained models finds the starting point $x^{(0)}$ on the small-compute Pareto frontier. Finally, increasing compute by a factor $\tau$ scales each dimension by $\tau^{s_k/D}$, with $D$ the number of shape dimensions (SoViT's $w_k = 1/D$; here $D = 3$). We use $x_k \propto t^{s_k/D}$.
 
-> The paper's prose says the increment is "`τ^(w_k)`", but their own Figure 1 confirms the
-> intended rule is `x_k ∝ t^(s_k/D)`: at `τ = 100` with `D = 3` and `s_depth = 0.45`, depth grows
-> by `100^(0.45/3) = 2.00×`, exactly the "×2.0" annotated on that figure. We use `x_k ∝ t^(s_k/D)`.
+### 1.3 Some Walrus specific considerations
 
-### 1.3 Six places WALRUS is not a ViT
+(a) Parameter count is more complicated. In 2D only runs we only have one encoder/decoder pair, but in 2D+3D runs we may have 2. One of the `projs` doesn't depend on any of our shape knobs at all.
 
-These adaptations make or break the study; each has a design response later in this document.
-
-**(a) Parameter count is a poor summary statistic here, worse than in a ViT.** The encoder and
-decoder are each a two-stage conv stack, and the `I · n_states · 512` patchify term does not depend
-on any shape knob. With one encoder/decoder pair (`override_dimensionality=3`, §3.3), measured with
-`scripts/count_WALRUS_params.py`:
+With `override_dimensionality=3` measured with `scripts/count_WALRUS_params.py`:
 
 | config | encoder | processor | decoder | total | enc+dec share |
 |---|---:|---:|---:|---:|---:|
-| fullDims `1408/40/5632` | 43.8 M | 1111.0 M | 43.8 M | **1198.6 M** | 7 % |
-| HalfWalrus `1088/30/4352` | 36.6 M | 497.7 M | 36.6 M | **570.8 M** | 13 % |
-| 200 M anchor `768/12/2048` | 29.4 M | 85.1 M | 29.4 M | **143.8 M** | **41 %** |
+| fullDims `1408/40/5632` | 43.8 M | 1111.0 M | 43.8 M | 1198.6 M | 7 % |
+| HalfWalrus `1088/30/4352` | 36.6 M | 497.7 M | 36.6 M | 570.8 M | 13 % |
+| 200M `768/12/2048` | 29.4 M | 85.1 M | 29.4 M | 143.8 M | 41 % |
 
-Of the encoder+decoder mass, `2 · I · n_states · 512 = 24.2 M` (at `I = 352`, `n_states = 67`) is
-*completely fixed* whatever the shape: at the 200 M anchor that is 17 % of the model doing nothing
-that scales. The ballast share is worst exactly where the study runs the most points: 84 % of
-parameters at the grid sweep's smallest corner (§7.1). The "200 M anchor" name is kept as a label;
-its true count is 143.8 M. Historical runs that passed `override_dimensionality=0` built a second,
-never-used 3D encoder/decoder pair, so their totals are larger (fullDims 1286.2 M, anchor 202.6 M);
-compare against them with care.
+We fix `n_states = 67` and `I = 352` and so there is always some amount of fixed ballast in all the runs. The ballast is pretty high in small models, so we must take care in how we count paramaters. However, we have a breakdown of parameters in detail so we can try using different ways of counting params (processor only, only one of the projs, etc.) and make sure that our n_param scaling looks sensible.
 
-*Response:* pin `intermediate_dim = 352`, `data/field_index_map_override=full_well_field_index`
-and `override_dimensionality = 3` on every run (§4.1), so the encoder/decoder are a known,
-constant, minimal ballast. Every plot reports **processor parameters** alongside total parameters,
-and the analysis favours SoViT's compute-parameterised form over a Chinchilla-style `(N, D)` fit.
+(b) `n_states` depends on what is on disk. `train.py` derives `n_states` as `max(field_to_index_map.values()) + 1`, and with `prefetch_field_names: True` the datamodule loops over every Well dataset and silently skips any that fail to load. We use the `full_well_field_index` pin so `n_states = 67` whatever is on
+disk
 
-**(b) `n_states` silently depends on what is on disk.** `train.py` derives `n_states` as
-`max(field_to_index_map.values()) + 1`, and with `prefetch_field_names: True` the datamodule loops
-over every Well dataset and silently skips any that fail to load. Adding or removing a dataset
-directory would change every model's encoder/decoder parameter count.
+(c) The LR schedule is WSD-shaped. We have `InverseSqrtLinearWarmupSqrtCooldown` (`walrus/optim/schedulers.py`, config `lr_scheduler=inv_sqrt_w_sqrt_ramps`). It has three phases. The linear warmup of length `warmup_epochs`. Then there is a length-independent inverse-sqrt "infinite" phase. Then a cooldown ramp starting at
+$\mathtt{max\_epoch} - \mathtt{cooldown\_epochs}$. Unlike, say, a cosine schedule, intermediate checkpoints inside the infinite phase are mutually comparable, because the LR at epoch $E$ does not depend on the run's total length. Choshen §6 worries about this condition ("changes in the learning rate schedule, which depend on the size of the full dataset... render losses from intermediate checkpoints uninformative"). However, this isn't a problem for us. We will fit only the infinite phase checkpoints.
 
-*Response:* the `full_well_field_index` pin makes it deterministic: `n_states = 67` whatever is on
-disk, because every field name any of the 13 datasets produces is already in the 67-entry map
-(§2.1). `n_states` is checked in every run's logged `extended_config.yaml` as a post-condition
-(§5.3).
+(d) Repeated data: SoViT paper assumes unlimited data. We do not have unlimited data. But the changes of a specific window boing repeated is really reALLY LOW.
 
-**(c) The LR schedule is WSD-shaped, and this is a gift.**
-`InverseSqrtLinearWarmupSqrtCooldown` (`walrus/optim/schedulers.py`, config
-`lr_scheduler=inv_sqrt_w_sqrt_ramps`) has three phases: linear warmup (`warmup_epochs`), a
-**length-independent** inverse-sqrt "infinite" phase, then a cooldown ramp starting at
-`max_epoch − cooldown_epochs`. Unlike with a cosine schedule, intermediate checkpoints inside the
-infinite phase are mutually comparable, because the LR at epoch `E` does not depend on the run's
-total length. This is exactly the condition Choshen §6 worries about ("changes in the learning
-rate schedule, which depend on the size of the full dataset... render losses from intermediate
-checkpoints uninformative"), and WALRUS satisfies it.
+(e) Choshen §4 finds seed variation alone moves loss by up to 4%. Upstream WALRUS has no seed control. We have versions of WALRUS with seed control now, and we can find the noise floor if we want to.
 
-*Response:* fit only on infinite-phase points (§7.3), and separately measure the cooldown gain to
-confirm it is shape-independent.
-
-**(d) Repeated data.** SoViT Eq. 2 assumes unlimited data. On this mixture the aggregate
-repetition `R = T_seen / T_unique_model` is mild at sweep scale (≈ 1.9 at 60 epochs on N1), but
-reaches ≈ 12 for a fullDims head-to-head arm and ≈ 66 for the ≈ 5.4×-longer SoWalrus arm, with
-the most repeated dataset (PS) at ≈ 236× (§2.5).
-
-*Response:* the RQ3 sub-study (§9), a repetition column (`R` and max `R_d`) on every results table,
-and a constraint on how far `t_target` may be pushed (§8.2).
-
-**(e) Upstream WALRUS has no seed control.** Upstream never calls `torch.manual_seed` (only the
-data samplers are seeded), so every run had an uncontrolled weight-init seed. Choshen §4 finds seed
-variation alone moves loss by up to 4 %, and §7 warns that a single unlucky seed can poison a whole
-scaling fit.
-
-*Response, done:* a top-level `seed:` config key, and `seed_all` (§5.1) called before model
-construction. Every claim of a difference is stated against a measured noise floor `ε_noise`
-(§5.4).
-
-**(f) The encoder/decoder are a FLOP ballast too, and it is worst where the exponents come from.**
-Encoder FLOPs depend on `hidden_dim` only through `proj2`'s output channels, and **not at all** on
-`processor_blocks` or `mlp_dim`. So the encoder and decoder add a large, nearly shape-independent
-constant to `t` at exactly the points the fit uses. At fullDims they are 1.4–1.7 % of forward
-FLOPs; at the grid sweep's smallest corner they are **29–45 %**, depending on the dataset (§3.1).
-SoViT's functional form assumes compute is essentially the model; at the small end of this study,
-a third to nearly half of it is patchify stem that barely responds to the swept knobs.
-
-*Response:* log the enc+dec FLOP fraction on every point alongside `t`, and fit the exponents
-**both** on total FLOPs and on processor-only FLOPs (§7.1). If they diverge materially, that
-divergence is itself a WALRUS-vs-ViT structural finding, not a nuisance to smooth over.
+(f) Just like the n_param ballast, there is a FLOP ballast as well. So we log the enc+dec FLOP fraction on every point alongside $t$, and fit the exponents both on total FLOPs and on processor-only FLOPs.
 
 ### 1.4 The three given model scales map onto SoViT's three roles
 
 | WALRUS config | shape | SoViT role |
 |---|---|---|
-| fullDims / paper scale | `1408/40/5632` | **star centre** `x⁽ᶜ⁾`: never fit on; the held-out extrapolation check (SoViT's violet point, their Fig. 4 left) |
+| fullDims / paper scale | `1408/40/5632` | **star centre** $x^{(c)}$: never fit on; the held-out extrapolation check (SoViT's violet point, their Fig. 4 left) |
 | HalfWalrus | `1088/30/4352` | optional mid-scale sanity target for the derived trajectory; large-extreme stand-in in Tier 1 |
-| 200 M anchor | `768/12/2048` | sits just *above* the grid-sweep region; the fixed shape for the noise floor and the RQ3 sub-study |
+| 200M | `768/12/2048` | sits just *above* the grid-sweep region; the fixed shape for the noise floor and the RQ3 sub-study |
 
 SoViT's star sweep requires the centre to be *large*, and every swept value to be *much smaller
 than the centre in that dimension*. The existing top-level
-[`gen_star_search_runs.py`](../gen_star_search_runs.py) is still centred on the 200 M anchor
-(`H ∈ 384…1024` around 768), so its PT9 replacement must be centred on fullDims (§12).
+[`gen_star_search_runs.py`](../gen_star_search_runs.py) is still centred on the 200M
+($H \in 384\ldots1024$ around 768), so its PT9 replacement must be centred on fullDims (§12).
 
 ---
 
@@ -207,30 +102,30 @@ than the centre in that dimension*. The existing top-level
 ### 2.1 Inventory of the 2D datasets on disk
 
 Read directly from each file's HDF5 metadata (`n_trajectories`, the `time` and spatial dimension
-arrays, `boundary_conditions`, `t{0,1,2}_fields`). Tokens per frame `N_sp` use the rule in
+arrays, `boundary_conditions`, `t{0,1,2}_fields`). Tokens per frame $N_\text{sp}$ use the rule in
 [`flops.analytic_token_shape`](../../walrus/utils/flops.py): 32 per axis, plus one on each
-non-periodic axis. "Train tokens" = `Σ n_traj × n_steps × N_sp` over the train split, i.e. this
-dataset's contribution to `T_unique_model` (§3.2). "Valid windows" = `Σ n_traj × (n_steps − 6)`
-at `n_steps_input=6`, `n_steps_output=1`, `dt=1`. "Ch." = physical input channels after 2D→3D
-tensor padding (vectors → 3, rank-2 tensors → 9), the per-forward encoder `c_in` minus the 3 BC
+non-periodic axis. "Train tokens" = $\sum n_\text{traj} \times n_\text{steps} \times N_\text{sp}$ over the train split, i.e. this
+dataset's contribution to $T_{\text{unique},\text{model}}$ (§3.2). "Valid windows" = $\sum n_\text{traj} \times (n_\text{steps} - 6)$
+at `n_steps_input=6`, `n_steps_output=1`, `dt=1`. "Ch." = physical input channels after 2D$\to$3D
+tensor padding (vectors $\to$ 3, rank-2 tensors $\to$ 9), the per-forward encoder `c_in` minus the 3 BC
 flags.
 
-| code | resolution | BCs (x, y) | steps | train traj | **train tokens** | valid traj / windows | `N_sp` | ch. | train size | role |
+| code | resolution | BCs (x, y) | steps | train traj | **train tokens** | valid traj / windows | $N_\text{sp}$ | ch. | train size | role |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| GS | 128×128 | per, per | 1001 | 960 | **984.0 M** | 120 / 119,400 | 1024 | 2 | 122 G | pretrain |
-| EMQ-O | 512×512 | open, open | 101 | 4000 | **440.0 M** | 500 / 47,500 | 1089 | 6 | 2.15 T | pretrain |
-| EMQ-P | 512×512 | per, per | 101 | 4000 | **413.7 M** | 500 / 47,500 | 1024 | 6 | 2.12 T | pretrain |
-| AM | 256×256 | wall/open, wall/open | 202 | 1600 | **352.0 M** | 200 / 39,200 | 1089 | 6 | 238 G | pretrain |
-| AI | 256×256 | wall/open, wall/open | 102 | 2798 | **310.8 M** | 400 / 38,400 | 1089 | 6 | 226 G | pretrain |
-| RB | 512×128 | per, wall | 200 | 1400 | **295.7 M** | 175 / 33,950 | 1056 | 5 | 274 G | pretrain |
-| SF | 256×512 | per, per | 200 | 896 | **183.5 M** | 112 / 21,728 | 1024 | 5 | 438 G | pretrain |
-| AD | 256×256 | wall/open, wall/open | 102 | 1600 | **177.7 M** | 200 / 19,200 | 1089 | 6 | 121 G | pretrain |
-| PS | 256×512 | open (θ), per (φ) | 1008 | 96 | **102.2 M** | 12 / 12,024 | 1056 | 3 | 142 G | pretrain |
-| HS | 1024×256 | open/wall, open/wall | 50 | 416 | **22.7 M** | 48 / 2,112 | 1089 | 3 | 41 G | **held out** |
-| ACT | 256×256 | per, per | 81 | 175 | **14.5 M** | 24 / 1,800 | 1024 | 22 | 39 G | **held out** |
-| TRL2 | 128×384 | per, open | 101 | 72 | **7.7 M** | 9 / 855 | 1056 | 5 | 5.4 G | **held out** |
-| VE | 512×512 | per, wall | 20 / 60 | 213 | **7.1 M** | 22 / 548 | 1056 | 14 | 53 G | **held out** |
-| **pretrain total** | | | | | **≈ 3.26 G** | | | | ≈ 5.8 T | |
+| GS | $128\times128$ | per, per | 1001 | 960 | **984.0 M** | 120 / 119,400 | 1024 | 2 | 122 G | pretrain |
+| EMQ-O | $512\times512$ | open, open | 101 | 4000 | **440.0 M** | 500 / 47,500 | 1089 | 6 | 2.15 T | pretrain |
+| EMQ-P | $512\times512$ | per, per | 101 | 4000 | **413.7 M** | 500 / 47,500 | 1024 | 6 | 2.12 T | pretrain |
+| AM | $256\times256$ | wall/open, wall/open | 202 | 1600 | **352.0 M** | 200 / 39,200 | 1089 | 6 | 238 G | pretrain |
+| AI | $256\times256$ | wall/open, wall/open | 102 | 2798 | **310.8 M** | 400 / 38,400 | 1089 | 6 | 226 G | pretrain |
+| RB | $512\times128$ | per, wall | 200 | 1400 | **295.7 M** | 175 / 33,950 | 1056 | 5 | 274 G | pretrain |
+| SF | $256\times512$ | per, per | 200 | 896 | **183.5 M** | 112 / 21,728 | 1024 | 5 | 438 G | pretrain |
+| AD | $256\times256$ | wall/open, wall/open | 102 | 1600 | **177.7 M** | 200 / 19,200 | 1089 | 6 | 121 G | pretrain |
+| PS | $256\times512$ | open ($\theta$), per ($\phi$) | 1008 | 96 | **102.2 M** | 12 / 12,024 | 1056 | 3 | 142 G | pretrain |
+| HS | $1024\times256$ | open/wall, open/wall | 50 | 416 | **22.7 M** | 48 / 2,112 | 1089 | 3 | 41 G | **held out** |
+| ACT | $256\times256$ | per, per | 81 | 175 | **14.5 M** | 24 / 1,800 | 1024 | 22 | 39 G | **held out** |
+| TRL2 | $128\times384$ | per, open | 101 | 72 | **7.7 M** | 9 / 855 | 1056 | 5 | 5.4 G | **held out** |
+| VE | $512\times512$ | per, wall | 20 / 60 | 213 | **7.1 M** | 22 / 548 | 1056 | 14 | 53 G | **held out** |
+| **pretrain total** | | | | | **$\approx 3.26$ G** | | | | $\approx 5.8$ T | |
 | **held-out total** | | | | | **52.0 M (1.6 %)** | | | | 138 G | |
 
 PS's channel count was listed as 4 until 2026-10-06. It is **3** (`height`, `velocity_theta`,
@@ -239,9 +134,9 @@ components. Checked against the real pipeline by `scripts/build_well_registry.py
 also confirms every other "ch." value above. §3.1's PS column is corrected to match.
 
 **Euler figures are measured** (re-surveyed 2026-10-02, after the download completed; every
-train/valid/test file of both variants opens). Each variant has 10 γ-files per split, 400 / 50 / 50
-trajectories per file, 512², and stored fields `density`, `energy`, `pressure` and `momentum` (2-vector)
-in float32, i.e. 5 stored channels, with train files of ≈ 212–215 GB. The earlier estimate's only error was
+train/valid/test file of both variants opens). Each variant has 10 $\gamma$-files per split, 400 / 50 / 50
+trajectories per file, $512^2$, and stored fields `density`, `energy`, `pressure` and `momentum` (2-vector)
+in float32, i.e. 5 stored channels, with train files of $\approx 212$–215 GB. The earlier estimate's only error was
 the trajectory length: **101 steps, not 100**, which raises the train tokens by 1 % (from ~435.6 / ~409.6 M)
 and the valid windows from ~47,000 to 47,500. No conclusion in this document changes.
 
@@ -265,10 +160,10 @@ In priority order:
 3. **Holding out should reduce, not worsen, repetition in pretraining.** Sampling is uniform over
    datasets: `BatchedMultisetSampler` picks the dataset for each micro-batch uniformly, regardless
    of its size ([walrus_tokens_and_data_pipeline.md](../../mydocs/walrus_tokens_and_data_pipeline.md)
-   §4.1). So dataset `d` receives `T_seen / K` tokens regardless of its size, and its repetition is
-   `R_d = T_seen / (K · T_unique,d)`. `R_d` is set by the *small* datasets. Removing a small dataset
-   removes the worst `R_d` from the mixture; removing a large one just raises everyone else's `R_d`
-   by `K/(K−1)`.
+   §4.1). So dataset $d$ receives $T_\text{seen} / K$ tokens regardless of its size, and its repetition is
+   $R_d = T_\text{seen} / (K \cdot T_{\text{unique},d})$. $R_d$ is set by the *small* datasets. Removing a small dataset
+   removes the worst $R_d$ from the mixture; removing a large one just raises everyone else's $R_d$
+   by $K/(K-1)$.
 4. **The pretraining mixture must still cover every axis**, so every in-family target has a
    pretrained counterpart and the mixture stays "cross-domain".
 5. **Held-out targets should be cheap and data-scarce to finetune on.** Pretraining helps most
@@ -319,18 +214,18 @@ along two separate ladders — equations and field names:
 | target | nearest pretraining relative | equation distance | field-name overlap with pretraining | what a good transfer result would mean |
 |---|---|---|---|---|
 | TRL2 | EMQ-O/P — the "equation twin" (categorisation §2.4) | same compressible Euler + one cooling sink | **full** (density, pressure, velocity) | equation-level transfer works when the fields line up; the classic near-transfer case |
-| VE | SF → RB (categorisation §5.4.2 ladder) | one more step on no-feedback → scalar-feedback → **tensor**-feedback | partial (pressure, velocity; C, c_zz new) | transfer survives an increase in the rank of the coupled field |
+| VE | SF $\to$ RB (categorisation §5.4.2 ladder) | one more step on no-feedback $\to$ scalar-feedback $\to$ **tensor**-feedback | partial (pressure, velocity; C, c_zz new) | transfer survives an increase in the rank of the coupled field |
 | HS | AD/AI/AM | same wave equation; constant medium, complex boundary, time-harmonic | **none** (`pressure_re`, `pressure_im`, `mask` all new) | transfer runs through the processor, not the field embeddings |
 | ACT | none (family V absent); equation-level cousin of VE (also held out) | out-of-family: Stokes flow, no inertia, kinetic closure | partial (velocity; concentration, D, E new) | far transfer: pretraining helps even without a related family |
 
 **Why these four also serve the repetition criterion.** They are the four smallest datasets on disk
 (7.1–22.7 M train tokens each, 52 M together = 1.6 % of all unique train tokens). In the
-7-dataset mixture they were the most repeated datasets — 40–122× at 60 epochs — and were already
-suspected of contributing a flat, saturated floor rather than scaling signal to `f`. Removing them
+7-dataset mixture they were the most repeated datasets — 40–$122\times$ at 60 epochs — and were already
+suspected of contributing a flat, saturated floor rather than scaling signal to $f$. Removing them
 costs pretraining almost no distinct data, and removes the worst repetition (§2.5).
 
 **Why they are good downstream targets.** Finetuning on them is cheap (one single-dataset N1 epoch covers
-TRL2's whole train split ≈ 13 times), they are genuinely data-scarce (72–416 train trajectories), and
+TRL2's whole train split $\approx 13$ times), they are genuinely data-scarce (72–416 train trajectories), and
 the paper's own downstream results show pretraining matters most in that regime. The price is small
 evaluation sets — see §3.5.
 
@@ -338,7 +233,7 @@ evaluation sets — see §3.5.
 
 | variant | what it adds | why not the default |
 |---|---|---|
-| also hold out **PS** | a geometry probe (sphere, curvilinear, rotation, forcing); settles the categorisation doc's open question (§5.4.2) of whether PS behaves like family II or IV; drops pretraining max `R` to 4.4× | PS is the only curvilinear, rotating, externally forced dataset; removing it narrows pretraining more than any other single removal |
+| also hold out **PS** | a geometry probe (sphere, curvilinear, rotation, forcing); settles the categorisation doc's open question (§5.4.2) of whether PS behaves like family II or IV; drops pretraining max $R$ to $4.4\times$ | PS is the only curvilinear, rotating, externally forced dataset; removing it narrows pretraining more than any other single removal |
 | also hold out **GS** | a second out-of-family target with a 119k-window valid set | GS is the only non-fluid physics in pretraining, and it is the *least* repeated dataset, so removing it does nothing for repetition |
 | also hold out **AI** | a near-transfer control (same equations as AD/AM); rebalances acoustics from 3/9 to 2/8 of micro-batches | AI's transfer is barely "blind" — it largely re-measures the upstream valid-split metric; a fifth target raises Tier 7's cost by 25 % |
 
@@ -348,38 +243,38 @@ of them requires re-running pretraining *if decided before Tier 0 is submitted*.
 ### 2.5 Repetition in the new mixture
 
 Per-dataset tokens delivered per epoch on the §4.1 N1 substrate (`max_samples=2000`,
-`batch_size=2`, `n_steps_input=6`, `world_size=4`, `K=9`): `96 000 × N_sp / 9` ≈ 10.9–11.6 M.
+`batch_size=2`, `n_steps_input=6`, `world_size=4`, $K = 9$): $96\,000 \times N_\text{sp} / 9$ $\approx 10.9$–11.6 M.
 
-| dataset | train tokens | epochs per full pass | `R` at 60 ep, N1 | `R` at 100 ep, N1 | fullDims arm (100 ep, N4) | SoWalrus arm (≈ 5.4× longer) |
+| dataset | train tokens | epochs per full pass | $R$ at 60 ep, N1 | $R$ at 100 ep, N1 | fullDims arm (100 ep, N4) | SoWalrus arm ($\approx 5.4\times$ longer) |
 |---|---:|---:|---:|---:|---:|---:|
-| GS | 984.0 M | 90.1 | 0.7× | 1.1× | 4.5× | ≈ 24× |
-| EMQ-O | 440.0 M | 37.9 | 1.6× | 2.6× | 10.6× | ≈ 57× |
-| EMQ-P | 413.7 M | 37.9 | 1.6× | 2.6× | 10.6× | ≈ 57× |
-| AM | 352.0 M | 30.3 | 2.0× | 3.3× | 13.2× | ≈ 71× |
-| AI | 310.8 M | 26.8 | 2.2× | 3.7× | 15.0× | ≈ 80× |
-| RB | 295.7 M | 26.2 | 2.3× | 3.8× | 15.2× | ≈ 82× |
-| SF | 183.5 M | 16.8 | 3.6× | 6.0× | 23.8× | ≈ 128× |
-| AD | 177.7 M | 15.3 | 3.9× | 6.5× | 26.1× | ≈ 140× |
-| PS | 102.2 M | 9.1 | **6.6×** | **11.0×** | **44.1×** | **≈ 236×** |
-| aggregate `T_seen / T_unique_model` | ≈ 3.26 G | — | 1.9× | 3.1× | ≈ 12× | ≈ 66× |
+| GS | 984.0 M | 90.1 | $0.7\times$ | $1.1\times$ | $4.5\times$ | $\approx 24\times$ |
+| EMQ-O | 440.0 M | 37.9 | $1.6\times$ | $2.6\times$ | $10.6\times$ | $\approx 57\times$ |
+| EMQ-P | 413.7 M | 37.9 | $1.6\times$ | $2.6\times$ | $10.6\times$ | $\approx 57\times$ |
+| AM | 352.0 M | 30.3 | $2.0\times$ | $3.3\times$ | $13.2\times$ | $\approx 71\times$ |
+| AI | 310.8 M | 26.8 | $2.2\times$ | $3.7\times$ | $15.0\times$ | $\approx 80\times$ |
+| RB | 295.7 M | 26.2 | $2.3\times$ | $3.8\times$ | $15.2\times$ | $\approx 82\times$ |
+| SF | 183.5 M | 16.8 | $3.6\times$ | $6.0\times$ | $23.8\times$ | $\approx 128\times$ |
+| AD | 177.7 M | 15.3 | $3.9\times$ | $6.5\times$ | $26.1\times$ | $\approx 140\times$ |
+| PS | 102.2 M | 9.1 | **$6.6\times$** | **$11.0\times$** | **$44.1\times$** | **$\approx 236\times$** |
+| aggregate $T_\text{seen} / T_{\text{unique},\text{model}}$ | $\approx 3.26$ G | — | $1.9\times$ | $3.1\times$ | $\approx 12\times$ | $\approx 66\times$ |
 
-For comparison, the 7-dataset mixture at 60 epochs ran from 0.9× (GS) to ≈ 122× (VE) on the
-train split, and its head-to-head aggregate was `R ≈ 30` / `≈ 160`.
+For comparison, the 7-dataset mixture at 60 epochs ran from $0.9\times$ (GS) to $\approx 122\times$ (VE) on the
+train split, and its head-to-head aggregate was $R \approx 30$ / $\approx 160$.
 
 Three things follow:
 
-- **At sweep scale (≤ 100 epochs, N1) every dataset stays within or near Muennighoff et al.'s
-  "negligible degradation" band (≤ 4×) or their "half-life" (~16×).** No dataset crosses 16× before
+- **At sweep scale ($\le 100$ epochs, N1) every dataset stays within or near Muennighoff et al.'s
+  "negligible degradation" band ($\le 4\times$) or their "half-life" (~$16\times$).** No dataset crosses $16\times$ before
   warmup ends, as VE and TRL2 did in the 7-dataset mixture.
-- **At head-to-head scale, repetition is still real.** PS reaches ≈ 44× in the fullDims arm and
-  ≈ 236× in the SoWalrus arm. RQ3 (§9) is still needed, and needs to probe `R` in the tens to
+- **At head-to-head scale, repetition is still real.** PS reaches $\approx 44\times$ in the fullDims arm and
+  $\approx 236\times$ in the SoWalrus arm. RQ3 (§9) is still needed, and needs to probe $R$ in the tens to
   hundreds per dataset.
-- **The aggregate is no longer one dataset's number.** GS is 30 % of `T_unique_model` (it was
-  ≈ 75 % of the 7-dataset mixture), so an aggregate-`R` fit in §9 describes the mixture rather
+- **The aggregate is no longer one dataset's number.** GS is 30 % of $T_{\text{unique},\text{model}}$ (it was
+  $\approx 75\%$ of the 7-dataset mixture), so an aggregate-$R$ fit in §9 describes the mixture rather
   than Gray–Scott.
 
 **Mixture balance, for the record.** Uniform-over-dataset sampling gives each dataset 1/9 of the
-micro-batches, so by family: acoustics (I) 3/9, compressible (II) 3/9 (EMQ ×2 + PS), incompressible
+micro-batches, so by family: acoustics (I) 3/9, compressible (II) 3/9 (EMQ $\times 2$ + PS), incompressible
 (IV) 2/9, reaction–diffusion (VI) 1/9. This imbalance is incidental — the same kind WALRUS's own
 mixture has (categorisation doc §4.1) — and is reported, not corrected; changing the sampler would
 be a departure from upstream WALRUS that confounds every comparison with the paper.
@@ -392,14 +287,14 @@ be a departure from upstream WALRUS that confounds every comparison with the pap
   validation ever reads them. The run scripts must never pass them via overrides; the §5.3
   post-condition check (resolved dataset list identical across runs) enforces this.
 - **Field embeddings.** `n_states = 67` includes rows for the held-out-only fields (`C`, `c_zz`,
-  `concentration`, `D`, `E`, `pressure_re`, `pressure_im`, `mask`). The encoder only ever uses
+  `concentration`, $D$, $E$, `pressure_re`, `pressure_im`, `mask`). The encoder only ever uses
   `proj1.weight[:, field_indices]` ([vstride_encoder.py:349](../../walrus/models/encoders/vstride_encoder.py#L349))
   and the decoder slices `proj2` by `state_labels` likewise, so those columns receive **exactly zero
   gradient** throughout pretraining. Their Adam moments stay zero, so the Adam update is zero. The
   only thing that touches them is AdamW's decoupled weight decay, which scales the whole tensor by
-  `(1 − lr·wd)` per step: at the pinned `lr ≤ 2e-4`, `wd = 1e-4`
+  $(1 - \text{lr} \cdot \text{wd})$ per step: at the pinned $\text{lr} \le 2\times10^{-4}$, $\text{wd} = 10^{-4}$
   ([adam.yaml](../../walrus/configs/optimizer/adam.yaml), no parameter-group exclusions) that is
-  `(1 − 2e-8)` per step, ≤ 0.06 % shrinkage over 30 000 optimizer steps. The held-out fields' rows
+  $(1 - 2\times10^{-8})$ per step, $\le 0.06\%$ shrinkage over 30 000 optimizer steps. The held-out fields' rows
   are therefore still their random initialisation, to within 0.06 %, when finetuning starts.
 - **Normalisation.** `SamplewiseRevNormalization` normalises per sample, so no per-dataset
   statistics are computed or stored anywhere that could carry information from the targets.
@@ -412,27 +307,27 @@ be a departure from upstream WALRUS that confounds every comparison with the pap
 
 ---
 
-## 3. Definitions: `t`, `D`, `N`, `f_up`, `f_down`
+## 3. Definitions: $t$, $D$, $N$, $f_\text{up}$, $f_\text{down}$
 
-### 3.1 Compute `t`
+### 3.1 Compute $t$
 
 SoViT uses GFLOPs, arguing it is hardware-agnostic and correlates ~0.99 with core-hours. We adopt
 FLOPs as the scaling variable, but **verify the correlation rather than assume it** (the roofline,
 §5.2), because WALRUS breaks the ViT analogy in two ways:
 
 - **Encoder cost is a step function of resolution, not a smooth scaling.** Conv FLOPs are
-  `output positions × kernel volume × c_in × c_out`. The kernels are *fixed* (8, then 4) and the
+  $\text{output positions} \times \text{kernel volume} \times c_\text{in} \times c_\text{out}$. The kernels are *fixed* (8, then 4) and the
   token grid is *fixed* at 32 per axis by construction, so only the **stride** varies with
   resolution. Resolution therefore enters only through the intermediate grid between the two conv
-  stages, `mid = 31·s₂ + 4`, and `patch_dict` admits just two values of `s₂`: **any axis ≤ 384 →
-  mid = 66; any axis ≥ 512 → mid = 128**. Datasets fall into two encoder cost tiers, not a
-  continuum: GS (128²) and AD (256²), 4× apart in pixels, have identical encoder FLOPs.
+  stages, $\text{mid} = 31 s_2 + 4$, and `patch_dict` admits just two values of $s_2$: **any axis $\le 384 \to \text{mid} = 66$;
+  any axis $\ge 512 \to \text{mid} = 128$**. Datasets fall into two encoder cost tiers, not a
+  continuum: GS ($128^2$) and AD ($256^2$), $4\times$ apart in pixels, have identical encoder FLOPs.
 - **Per-micro-batch FLOPs are not constant across the mixture, although tokens are.** A forward
   pass contains exactly one dataset, and datasets differ in encoder tier, channel count and
-  boundary conditions. Across the nine pretraining datasets, per-micro-batch FLOPs span 1.07× at
-  fullDims and up to 1.38× at the grid's smallest corner (table below). `cumulative_flops` must
+  boundary conditions. Across the nine pretraining datasets, per-micro-batch FLOPs span $1.07\times$ at
+  fullDims and up to $1.38\times$ at the grid's smallest corner (table below). `cumulative_flops` must
   therefore be accumulated per micro-batch using the dataset actually drawn, never as
-  `shape × steps`; `FlopAccountant` does exactly that (§5.1).
+  $\text{shape} \times \text{steps}$; `FlopAccountant` does exactly that (§5.1).
 
 **The analytical formula is the primary instrument, and `FlopCounterMode` is only the
 cross-check.** [`walrus/utils/flops.py`](../../walrus/utils/flops.py) holds a closed-form FLOP
@@ -441,22 +336,24 @@ count for every submodule, validated exactly — to the FLOP, not to 5 % — aga
 evaluate, and defined for shapes that have never been run. `FlopCounterMode`, by contrast, counts
 only ops with a registered formula for the kernel actually dispatched: on a CPU build
 `F.scaled_dot_product_attention` dispatches to a kernel with no formula, so spatial attention —
-the `O(N_sp²)` term — is silently counted as **zero**. On GPU it is counted exactly under this
+the $O(N_\text{sp}^2)$ term — is silently counted as **zero**. On GPU it is counted exactly under this
 study's fp32 configuration (§5.1). `FlopCounterMode` never runs inside a training run.
 
-Backward is charged at 2× forward. The gradient-checkpointing recompute surcharge is computed
+Backward is charged at $2\times$ forward. The gradient-checkpointing recompute surcharge is computed
 explicitly (encoder and decoder are always recomputed when any checkpointing is on; processor
 block `i` when `i % freq == 0`) and reported as its own term. It changes *measured* FLOPs without
 changing *useful* FLOPs, and the two head-to-head arms may not use the same setting.
 
 Closed form, for planning only (processor terms per block; the analysis uses the logged values):
 
-```
-MACs/token/block = [ H(M+3H) + H² + (M/2)H + 2·N_sp·H ]   (space)
-                 + [ 3H² + H² + 2·T·H ]                   (time)
-FLOPs_fwd = 2 · MACs/token/block · (B·T·N_sp) · L
-t         = 3 · FLOPs_fwd · max_samples · world_size · epochs
-```
+$$
+\begin{aligned}
+\text{MACs/token/block} &= \underbrace{\left[ H(M+3H) + H^2 + \tfrac{M}{2}H + 2 N_\text{sp} H \right]}_\text{space}
+  + \underbrace{\left[ 3H^2 + H^2 + 2TH \right]}_\text{time} \\
+\text{FLOPs}_\text{fwd} &= 2 \cdot \text{MACs/token/block} \cdot (B \, T \, N_\text{sp}) \cdot L \\
+t &= 3 \cdot \text{FLOPs}_\text{fwd} \cdot \mathtt{max\_samples} \cdot \mathtt{world\_size} \cdot \text{epochs}
+\end{aligned}
+$$
 
 **Mixture-dependent numbers**, recomputed with `flops.py`'s own functions
 (`ModelShape`/`BatchGeometry` built by hand from each dataset's resolution, `patch_dict` strides,
@@ -464,21 +361,21 @@ BCs and channel count, then `forward_flops`; `scripts/count_WALRUS_flops.py` /
 `well_registry.dataset_geometry`). The same code reproduces the corresponding table of the
 7-dataset plan exactly, which validates the hand-built geometry.
 
-**Encoder cost tiers.** Five of the nine pretraining datasets — EMQ-O, EMQ-P (512²), PS, SF
-(256×512) and RB (512×128) — have an axis ≥ 512, so their encoder intermediate grid is 128 per
-axis. AD, AI, AM (256²) and GS (128²) have mid = 66.
+**Encoder cost tiers.** Five of the nine pretraining datasets — EMQ-O, EMQ-P ($512^2$), PS, SF
+($256\times512$) and RB ($512\times128$) — have an axis $\ge 512$, so their encoder intermediate grid is 128 per
+axis. AD, AI, AM ($256^2$) and GS ($128^2$) have $\text{mid} = 66$.
 
 **Enc+dec share of forward FLOPs, per dataset:**
 
-| shape | AD/AI/AM | EMQ-O | EMQ-P | GS | PS | RB | SF | per-µbatch FLOP spread (pretrain9) |
+| shape | AD/AI/AM | EMQ-O | EMQ-P | GS | PS | RB | SF | per-$\mu$batch FLOP spread (pretrain9) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| fullDims `1408/40/5632` | 1.4 % | 1.7 % | 1.7 % | 1.4 % | 1.4 % | 1.5 % | 1.5 % | 1.07× |
-| HalfWalrus `1088/30/4352` | 2.4 % | 3.0 % | 3.0 % | 2.4 % | 2.4 % | 2.5 % | 2.6 % | 1.08× |
-| 200 M anchor `768/12/2048` | 8.8 % | 11.8 % | 12.0 % | 8.7 % | 9.0 % | 9.6 % | 9.9 % | 1.11× |
-| SoWalrus predicted `720/24/3616` | 4.0 % | 5.5 % | 5.6 % | 3.9 % | 4.1 % | 4.4 % | 4.5 % | 1.09× |
-| roofline small `464/10/1120` | 15.9 % | 23.2 % | 23.6 % | 15.4 % | 16.5 % | 18.0 % | 18.5 % | 1.19× |
-| Tier 2 grid, largest `560/12/1344` | 11.7 % | 16.7 % | 17.0 % | 11.4 % | 12.1 % | 13.1 % | 13.5 % | 1.15× |
-| **Tier 2 grid, smallest `320/6/768`** | **30.8 %** | **44.3 %** | **45.0 %** | **29.1 %** | **32.0 %** | **35.0 %** | **35.8 %** | **1.38×** |
+| fullDims `1408/40/5632` | 1.4 % | 1.7 % | 1.7 % | 1.4 % | 1.4 % | 1.5 % | 1.5 % | $1.07\times$ |
+| HalfWalrus `1088/30/4352` | 2.4 % | 3.0 % | 3.0 % | 2.4 % | 2.4 % | 2.5 % | 2.6 % | $1.08\times$ |
+| 200M `768/12/2048` | 8.8 % | 11.8 % | 12.0 % | 8.7 % | 9.0 % | 9.6 % | 9.9 % | $1.11\times$ |
+| SoWalrus predicted `720/24/3616` | 4.0 % | 5.5 % | 5.6 % | 3.9 % | 4.1 % | 4.4 % | 4.5 % | $1.09\times$ |
+| roofline small `464/10/1120` | 15.9 % | 23.2 % | 23.6 % | 15.4 % | 16.5 % | 18.0 % | 18.5 % | $1.19\times$ |
+| Tier 2 grid, largest `560/12/1344` | 11.7 % | 16.7 % | 17.0 % | 11.4 % | 12.1 % | 13.1 % | 13.5 % | $1.15\times$ |
+| **Tier 2 grid, smallest `320/6/768`** | **30.8 %** | **44.3 %** | **45.0 %** | **29.1 %** | **32.0 %** | **35.0 %** | **35.8 %** | **$1.38\times$** |
 
 The PS column was recomputed on 2026-10-06 with PS's corrected channel count (3, §2.1); every
 other column and the spread reproduce unchanged.
@@ -487,37 +384,37 @@ other column and the spread reproduce unchanged.
 grid sweep's small end, a third to nearly half of every micro-batch's compute is the patchify stem,
 which barely responds to the swept knobs (§1.3f). At fullDims the encoder really is a small
 fraction, so "the processor dominates" is true there and **false across the grid sweep**, which is
-where `x⁽⁰⁾` and hence the exponents come from. The dual fit (total vs processor-only FLOPs, §7.1)
+where $x^{(0)}$ and hence the exponents come from. The dual fit (total vs processor-only FLOPs, §7.1)
 is therefore mandatory.
 
-⚠️ The 7-dataset plan quoted its per-micro-batch FLOP spread as "1.03× at fullDims, 1.95× at
-`320/10/1280`". The current `flops.py` gives **1.07× and 1.46×** for that same old mixture (and
-1.07× / 1.27× for the new one at `320/10/1280`). The quoted figures probably predate a correction
+⚠️ The 7-dataset plan quoted its per-micro-batch FLOP spread as "$1.03\times$ at fullDims, $1.95\times$ at
+`320/10/1280`". The current `flops.py` gives **$1.07\times$ and $1.46\times$** for that same old mixture (and
+$1.07\times$ / $1.27\times$ for the new one at `320/10/1280`). The quoted figures probably predate a correction
 in `flops.py`; only numbers from the current code are used here.
 
-### 3.2 Data `D`
+### 3.2 Data $D$
 
 Three numbers, always reported together (definitions as in
 [walrus_tokens_and_data_pipeline.md](../../mydocs/walrus_tokens_and_data_pipeline.md) §5):
 
-- **`T_seen`** = `batch_size × n_steps_input × N_sp × max_samples × world_size × epochs`, summed
-  per micro-batch with the drawn dataset's `N_sp`. This is the token axis; it is exact.
-- **`T_unique_model`** = `Σ_datasets n_traj × n_steps × N_sp` over the train split, the number of
-  distinct post-tokenizer cells the mixture can produce: **≈ 3.26 G** for this mixture (≈ 2.41 G
-  plus ≈ 0.85 G Euler, all measured, §2.1).
-- **Repetition factor** `R = T_seen / T_unique_model`, reported for every run, alongside the
-  per-dataset `R_d = T_seen / (K · T_unique,d)` (§2.5).
+- **$T_\text{seen}$** = $\mathtt{batch\_size} \times \mathtt{n\_steps\_input} \times N_\text{sp} \times \mathtt{max\_samples} \times \mathtt{world\_size} \times \text{epochs}$, summed
+  per micro-batch with the drawn dataset's $N_\text{sp}$. This is the token axis; it is exact.
+- **$T_{\text{unique},\text{model}}$** = $\sum_\text{datasets} n_\text{traj} \times n_\text{steps} \times N_\text{sp}$ over the train split, the number of
+  distinct post-tokenizer cells the mixture can produce: **$\approx 3.26$ G** for this mixture ($\approx 2.41$ G
+  plus $\approx 0.85$ G Euler, all measured, §2.1).
+- **Repetition factor** $R = T_\text{seen} / T_{\text{unique},\text{model}}$, reported for every run, alongside the
+  per-dataset $R_d = T_\text{seen} / (K \cdot T_{\text{unique},d})$ (§2.5).
 
-`T_seen` and `R` are logged per epoch by `FlopAccountant` (`tokens_seen`, `repetition_factor`).
+$T_\text{seen}$ and $R$ are logged per epoch by `FlopAccountant` (`tokens_seen`, `repetition_factor`).
 The denominator (`flops.unique_model_tokens`) is computed from the loaded datamodule, reading each
 dataset's per-axis boundary conditions from its first HDF5 file, so it follows the mixture
 automatically.
 
 `max_samples` caps micro-batches *per rank*, so `world_size` is a batch-size axis, not a speed
-axis: adding nodes multiplies `T_seen` and the global batch, and does not shorten an epoch
-(historical fullDims timings: 1 node ≈ 4 nodes per epoch, §5.2).
+axis: adding nodes multiplies $T_\text{seen}$ and the global batch, and does not shorten an epoch
+(historical fullDims timings: 1 node $\approx 4$ nodes per epoch, §5.2).
 
-### 3.3 Parameters `N`
+### 3.3 Parameters $N$
 
 Reported two ways on every plot: **total** (from the analytical formula, cross-checked against
 `sum(p.numel())`, `scripts/count_WALRUS_params.py`) and **processor-only**, since that is what the
@@ -537,7 +434,7 @@ all data as 3D"). `=0` is not an alternative: `include_d` then stays at its defa
 builds a second, never-used encoder/decoder pair (§1.3a). Every generator in `LeonardoRunScripts/`
 passes `=3`, and `shape_cost_table.py` counts parameters under `include_d = [3]`.
 
-### 3.4 Upstream metric `f_up`
+### 3.4 Upstream metric $f_\text{up}$
 
 **Rollout VRMSE at the 60-step horizon on the `valid` split, averaged over the 9 pretraining
 datasets with equal weight** (the `rollout_valid` metric the trainer already logs). Every
@@ -550,11 +447,11 @@ touched **only** for the final §8 numbers, never during fitting.
 
 Because acoustics and compressible flow are each 3/9 of the mixture (§2.5), also report the
 **family-balanced mean** (average within family, then across the four families) as a secondary
-`f_up`. If `s_k` differs between the dataset-balanced and family-balanced `f_up`, that is itself a
+$f_\text{up}$. If $s_k$ differs between the dataset-balanced and family-balanced $f_\text{up}$, that is itself a
 finding about how mixture composition leaks into scaling exponents.
 
 **The 60-step horizon and cost.** `max_rollout_steps=60` matches the historical WALRUS pretraining
-runs' convention. Rollout-validation cost scales with it, so it costs 3× a 20-step horizon. Every
+runs' convention. Rollout-validation cost scales with it, so it costs $3\times$ a 20-step horizon. Every
 GPU-h estimate in this document that was first derived at 20 steps is marked provisional until the
 roofline re-measures (§5.2, §11).
 
@@ -568,9 +465,9 @@ roofline re-measures (§5.2, §11).
   ([multidatamodule.py:462](../../walrus/data/multidatamodule.py#L462), upstream code). So the same
   held-out windows are scored at every logged checkpoint of every run in the study. Epoch-to-epoch
   variation is therefore the model, not sampling, and the capped subset adds no seed-to-seed noise
-  to `ε_noise` (§5.4).
+  to $\varepsilon_\text{noise}$ (§5.4).
 
-**Coverage of the capped mid-training validation** (`short_validation_length=20`, `batch_size=2` →
+**Coverage of the capped mid-training validation** (`short_validation_length=20`, `batch_size=2` $\to$
 40 windows per dataset per check):
 
 | dataset | valid windows | coverage at 40 windows |
@@ -584,7 +481,7 @@ roofline re-measures (§5.2, §11).
 | AD | 19,200 | 0.21 % |
 | PS | 12,024 | 0.33 % |
 
-The spread across datasets is ≈ 10× (it was 216× in the 7-dataset mixture, whose tiny valid sets
+The spread across datasets is $\approx 10\times$ (it was $216\times$ in the 7-dataset mixture, whose tiny valid sets
 VE and TRL2 are now held out). But every dataset is sampled at a fraction of a percent, and the
 capped reading alone cannot tell whether its one fixed slice is representative of the dataset's
 true valid-split difficulty.
@@ -596,13 +493,13 @@ the same epoch. Close agreement means the capped numbers can be trusted as they 
 means raising `short_validation_length` for the worst-covered datasets, or flagging the affected
 points' precision in the fit (§12).
 
-### 3.5 Downstream metric `f_down`
+### 3.5 Downstream metric $f_\text{down}$
 
-`f_down` is measured after finetuning a pretrained checkpoint on one held-out target under a fixed
+$f_\text{down}$ is measured after finetuning a pretrained checkpoint on one held-out target under a fixed
 protocol (Tier 7, §10). Scoring rules are set per target because the four differ sharply in
 trajectory length, regime and evaluation-set size:
 
-| target | steps/traj | max rollout after 6-frame history | regime | primary `f_down` | valid set |
+| target | steps/traj | max rollout after 6-frame history | regime | primary $f_\text{down}$ | valid set |
 |---|---:|---:|---|---|---|
 | HS | 50 | 44 | regular | rollout VRMSE, T1–44 | 48 traj / 2,112 windows |
 | TRL2 | 101 | 95 | chaotic | one-step VRMSE, T1–10 VRMSE, binned spectral error | **9 traj** / 855 windows |
@@ -623,10 +520,10 @@ Rules:
 - **Full validation, not capped.** All four valid splits are small, so `full=True` over the whole
   valid split is cheap and removes the coverage problem of §3.4 entirely.
 - **Uncertainty by trajectory bootstrap.** TRL2 (9 valid trajectories) and VE-AH (2) are too small
-  for a single number to be trusted. Report every `f_down` with a bootstrap CI resampling
+  for a single number to be trusted. Report every $f_\text{down}$ with a bootstrap CI resampling
   *trajectories*, not windows (windows of one trajectory are strongly correlated). A shape
-  difference in `f_down` counts only if it exceeds both this CI and `ε_noise` (§5.4).
-- **The `test` split is touched only for the final §8 numbers**, exactly as for `f_up`.
+  difference in $f_\text{down}$ counts only if it exceeds both this CI and $\varepsilon_\text{noise}$ (§5.4).
+- **The `test` split is touched only for the final §8 numbers**, exactly as for $f_\text{up}$.
 
 ---
 
@@ -677,14 +574,14 @@ seed=<per run>
 - **`++trainer.debug_mode=True`** is an evaluation pin, not a training one. Its only effect
   ([training.py:657, 1296–1355](../../walrus/trainer/training.py#L1296-L1355)) is to keep every
   validation capped at `short_validation_length`. Without it, the epoch that reaches `max_epoch`
-  runs *full* one-step and full-trajectory rollout validation over all nine valid splits (≈ 378 k
-  windows, ≈ 2 200 trajectories) and then the same over the `test` split. That costs hours at fullDims,
+  runs *full* one-step and full-trajectory rollout validation over all nine valid splits ($\approx 378$ k
+  windows, $\approx 2\,200$ trajectories) and then the same over the `test` split. That costs hours at fullDims,
   distorts the 3-epoch roofline timings, and touches the `test` split on every run, contrary to
   §3.5. Full-split scores come from re-evaluating chosen checkpoints instead (§3.4 spot-check, §5.3b).
 
 **Allowed to vary, for engineering reasons only and never numerics:** `distribution`
 (`fsdp`/`hsdp`), `model.gradient_checkpointing_freq`, `data_workers`, `trainer.log_interval`,
-`checkpoint.checkpoint_frequency`, and node count when it is *not* being used as a `T_seen` knob.
+`checkpoint.checkpoint_frequency`, and node count when it is *not* being used as a $T_\text{seen}$ knob.
 Each is recorded per run so it can be ruled out as an explanation. Avoid `ddp` (§5.1: under it,
 unseeded ranks would not share weights; seeding fixes it, but `fsdp` never had the problem).
 
@@ -706,23 +603,23 @@ The generators enforce this.
 
 ### 4.2 Storage
 
-- **$WORK (datasets):** Euler added 5.34 TB (both variants, all splits). `cinQuota` on 2026-10-02,
+- **`$WORK` (datasets):** Euler added 5.34 TB (both variants, all splits). `cinQuota` on 2026-10-02,
   with every download complete: **9.58 TB of the 20 TB** quota on `/leonardo_work/ICT26_MHPC_0`.
   Re-check before any further download.
-- **$FAST (logs, checkpoints):** 321 GB of 1 TB on `/leonardo_scratch/fast/ICT26_MHPC`
+- **`$FAST` (logs, checkpoints):** 321 GB of 1 TB on `/leonardo_scratch/fast/ICT26_MHPC`
   (2026-10-02). This is the binding storage constraint. A sharded AdamW checkpoint costs roughly
-  `12–16 bytes × params`: ≈ 15 GB for fullDims, ≈ 4 GB for a 400 M star point. Eighteen star runs
-  at three retained checkpoints each would be ≈ 220 GB.
+  $12\text{–}16\ \text{bytes} \times \text{params}$: $\approx 15$ GB for fullDims, $\approx 4$ GB for a 400 M star point. Eighteen star runs
+  at three retained checkpoints each would be $\approx 220$ GB.
 
 **Checkpoint economy: the scaling-law fit needs the W&B metric history, not the weights.** So:
 
 - sparse weights, dense metrics on every sweep run: `checkpoint.checkpoint_frequency` 20–25, but
   `trainer.val_frequency=2`. Metrics are what we fit;
 - dense weight checkpoints only on the few runs used for the cooldown-branching check (§7.3) and
-  on the noise floor, whose `checkpoint_frequency=10` adds ≈ 18 GB per seed (§5.4);
+  on the noise floor, whose `checkpoint_frequency=10` adds $\approx 18$ GB per seed (§5.4);
 - after each tier completes and its metrics are synced, delete `step_*` directories with
   `LeonardoRunScripts/cleanup_run.sh`;
-- Tier 7 adds finetuned checkpoints: keep only their final weights, and delete them after `f_down`
+- Tier 7 adds finetuned checkpoints: keep only their final weights, and delete them after $f_\text{down}$
   is extracted.
 
 ### 4.3 W&B
@@ -760,7 +657,7 @@ what makes chains of 24 h-limited jobs usable as continuous scaling curves.
 4. Each micro-batch is priced from that geometry with the cached closed form (the first
    micro-batch of each `(dataset, resolution, shape)` evaluates it; every later one is a dict
    lookup).
-5. At epoch end the totals are all-reduced across ranks (exact, not `rank 0 × world_size`) and
+5. At epoch end the totals are all-reduced across ranks (exact, not $\text{rank 0} \times \mathtt{world\_size}$) and
    merged into the logged metrics. The run-long counters are saved in each checkpoint's
    `metadata.pt` and restored on auto-resume.
 
@@ -778,9 +675,9 @@ validity envelope are in
 | `tests/test_flops.py` (24 tests, CPU) | encoder + decoder closed form **exactly** equal to `FlopCounterMode` on a real forward; token-grid rule; recompute surcharge; per-micro-batch accumulation; counter round trip. Not the processor: CPU SDPA counts as zero |
 | A100 job `57434063` ([`flop_counter_backend_test.py`](../flop_counter_backend_test.py)) | processor attention terms exact on GPU (table below) |
 | [`validate_flops_pt9.py`](validate_flops_pt9.py) | encoder/decoder exact on a real batch of each of the nine PT9 datasets (below) |
-| GPU end-to-end test, 2026-10-06 (`LeonardoRunScripts/flopcounter/`) | 3 chained `fsdp` jobs, 1 node × 4 GPUs, gradient checkpointing on: every logged epoch's FLOPs, tokens and splits equal the analytical replay to 1e-9 relative, and the counters continue exactly across both resumes; all 70 checks pass |
+| GPU end-to-end test, 2026-10-06 (`LeonardoRunScripts/flopcounter/`) | 3 chained `fsdp` jobs, 1 node $\times$ 4 GPUs, gradient checkpointing on: every logged epoch's FLOPs, tokens and splits equal the analytical replay to 1e-9 relative, and the counters continue exactly across both resumes; all 70 checks pass |
 
-**Attention-backend check on GPU** (A100, 3 shapes × 2 dtypes × 2 modules): 11 of 12 exact.
+**Attention-backend check on GPU** (A100, 3 shapes $\times$ 2 dtypes $\times$ 2 modules): 11 of 12 exact.
 
 | shape | module | dtype | backend dispatched | residual/attn | verdict |
 |---|---|---|---|---|---|
@@ -793,7 +690,7 @@ validity envelope are in
 
 The one AMBIGUOUS row is exactly +20 % of that case's attention term. It isolates to
 `head_dim = 320/16 = 20`, which is not a multiple of 8: flash attention's tensor-core kernels pad
-it to 24, and the registered formula counts the padded width (`24/20 = 1.2`). This is the kernel
+it to 24, and the registered formula counts the padded width ($24/20 = 1.2$). This is the kernel
 counting real, if wasted, padding compute, and only occurs in bf16. Under the pinned
 `enable_amp=False`, every shape dispatched to `efficient_attention` and counted exactly, so
 **`FlopCounterMode` is a valid GPU cross-check for this study.** Time attention passes an additive
@@ -803,10 +700,10 @@ MFU optimisation, orthogonal to this study).
 
 **Encoder/decoder findings that shaped the counter**, all now exact and pinned by tests: the
 encoder convolves only over the current dataset's fields (`proj1.weight[:, field_indices]`); a
-uniform-`n_states` assumption would overestimate encoder cost by 1.4×–3.1×. The decoder swaps the
+uniform-`n_states` assumption would overestimate encoder cost by $1.4\times$–$3.1\times$. The decoder swaps the
 encoder's `(stride1, stride2)` pair per axis, slices `proj2`'s output by `state_labels`
-(`field_indices` minus the 3 BC flags), and on periodic axes circularly pads by `(k − s) // s`
-before the transposed conv and crops `k − s` after
+(`field_indices` minus the 3 BC flags), and on periodic axes circularly pads by `(k - s) // s`
+before the transposed conv and crops $k - s$ after
 ([vstride_decoder.py:213-238](../../walrus/models/decoders/vstride_decoder.py#L213-L238)), so it runs on
 more positions than the token grid implies. On a 384-pixel axis (stride 6, e.g. TRL2) the decoder
 returns 394 where the encoder consumed 398 (the case `vstride_decoder.py:225` flags with a TODO):
@@ -818,7 +715,7 @@ the FLOP count is still exact; it is the reconstruction that is lossy.
 all three of which the training path draws from (torch for weight init, dropout and the jitterer's
 rolls; numpy for the periodic roll in `isotropic_model.py`; `random` for
 `choose_kernel_size_random`). Two `seed=0` runs give a bit-identical train loss; `seed=1` differs.
-After construction the seed is re-derived per rank (`cfg.seed + 1_000_003 · rank`), and at the
+After construction the seed is re-derived per rank (`cfg.seed + 1_000_003 * rank`), and at the
 top of **every epoch** all RNGs are re-seeded from `(cfg.seed, rank, epoch)` (`Trainer.train`, via
 `seed_from` in `experiment_utils.py`). Every random stream of an epoch is therefore a function of
 the seed, the rank and the epoch, so a resumed epoch draws exactly what the uninterrupted run
@@ -840,7 +737,7 @@ coherent but unreproducible random init). This study uses `fsdp`.
 
 The sampling rank is 0 on every GPU under fsdp, so all GPUs share the dataset sequence; the
 global rank keeps their windows independent. Before this change (commit `656c00c` and earlier) the
-dataset-choice seed was `100·epoch + 10·0 + rank`, so the **dataset-selection pattern was
+dataset-choice seed was `100*epoch + 10*0 + rank`, so the **dataset-selection pattern was
 identical across seeds**, and the window permutations drew their seeds from the global generator,
 so they depended on every earlier forward pass.
 
@@ -853,16 +750,16 @@ so they depended on every earlier forward pass.
   §4.1 substrate itself (`override_dimensionality=3`, `n_steps_input=6`, the acoustic density
   transforms), so each dataset is checked with the geometry, field list and encoder routing that
   training uses. Results: encoder **and** decoder FLOPs exact against `FlopCounterMode` on all
-  nine; observed token grids equal `analytic_token_shape` (33×33 for open/wall 2D, 32×32 fully
-  periodic, 33×32 for PS and RB); `n_states = 67`; one encoder key, `"3"`. This covers EMQ-O/EMQ-P
-  (512², open and fully periodic), RB (512×128, periodic + wall), SF (256×512) and AI/AM, which had
+  nine; observed token grids equal `analytic_token_shape` ($33\times33$ for open/wall 2D, $32\times32$ fully
+  periodic, $33\times32$ for PS and RB); `n_states = 67`; one encoder key, `"3"`. This covers EMQ-O/EMQ-P
+  ($512^2$, open and fully periodic), RB ($512\times128$, periodic + wall), SF ($256\times512$) and AI/AM, which had
   never been checked on real data, including the decoder's periodic-padding path. Processor terms
   are covered by the GPU backend test above (CPU SDPA has no FLOP formula).
-  The run takes ≈ 4 min on a login node, most of it datamodule construction.
+  The run takes $\approx 4$ min on a login node, most of it datamodule construction.
 
 ### 5.2 Roofline: is cost FLOP-proportional or dataloader-bound?
 
-**The single most important unknown.** SoViT's GFLOPs ↔ core-hours proxy holds only if cost is
+**The single most important unknown.** SoViT's GFLOPs $\leftrightarrow$ core-hours proxy holds only if cost is
 FLOP-proportional. If small models instead sit on a dataloader floor, the grid sweep becomes
 unaffordable and FLOP-based scaling recipes mis-price small models on this system.
 
@@ -870,30 +767,30 @@ unaffordable and FLOP-based scaling recipes mis-price small models on this syste
 
 | run | nodes | median s/epoch |
 |---|---|---|
-| `smallest7_2d_PT_BS2000_E100_N1` (fullDims, 7×2D) | 1 | 6981 |
-| `smallest7_2d_PT_BS2000_E100_N4` (fullDims, 7×2D) | 4 | 7503 |
+| `smallest7_2d_PT_BS2000_E100_N1` (fullDims, $7\times2$D) | 1 | 6981 |
+| `smallest7_2d_PT_BS2000_E100_N4` (fullDims, $7\times2$D) | 4 | 7503 |
 | `fullDims_6DS` | 1 | 7488 |
 | `fullDims_6DS_N4` | 4 | 7633 |
 
-≈ 1.95 h/epoch ⇒ **≈ 7.8 GPU-h per epoch at 1 node**; 100 epochs ≈ 780 GPU-h (N1) / 3 120 GPU-h
-(N4). N1 ≈ N4 confirms `max_samples` is per-rank. ≈ 26 TFLOP/s per GPU of processor FLOPs is
+$\approx 1.95$ h/epoch $\Rightarrow$ **$\approx 7.8$ GPU-h per epoch at 1 node**; 100 epochs $\approx 780$ GPU-h (N1) / 3 120 GPU-h
+(N4). N1 $\approx$ N4 confirms `max_samples` is per-rank. $\approx 26$ TFLOP/s per GPU of processor FLOPs is
 plausible for TF32 with `enable_amp=False` and gradient checkpointing, i.e. *probably*
-compute-bound. But ≈ 3.5 s per micro-batch is also slow enough to be an I/O floor, and **no
+compute-bound. But $\approx 3.5$ s per micro-batch is also slow enough to be an I/O floor, and **no
 small-model run has ever completed**, so the slope is unmeasured.
 
-**Experiment.** Three shapes × 3 epochs at N1, a `data_workers` variation at the smallest shape,
-and a staging test. Fit `sec/epoch = a + b·FLOPs` and report `a` (the floor) and the implied MFU.
+**Experiment.** Three shapes $\times$ 3 epochs at N1, a `data_workers` variation at the smallest shape,
+and a staging test. Fit $\text{sec/epoch} = a + b \cdot \text{FLOPs}$ and report $a$ (the floor) and the implied MFU.
 The scripts are **generated and ready to submit** in [`Roofline/`](Roofline/) (generator
 `gen_pt9_roofline_runs.py`). Every point runs the §4.1 substrate for 3 epochs at N1, `seed=0`;
 only shape and `data_workers` vary:
 
 | script | shape | `data_workers` | time cap | role |
 |---|---|---:|---|---|
-| `p9_roofline_run_0.sh` | fullDims `1408/40/5632` (GC 2) | 10 | 10 h | main family, `sec/epoch = a + b·FLOPs` fit |
-| `p9_roofline_run_1.sh` | 200 M anchor `768/12/2048` | 10 | 5 h | main family |
+| `p9_roofline_run_0.sh` | fullDims `1408/40/5632` (GC 2) | 10 | 10 h | main family, $\text{sec/epoch} = a + b \cdot \text{FLOPs}$ fit |
+| `p9_roofline_run_1.sh` | 200M `768/12/2048` | 10 | 5 h | main family |
 | `p9_roofline_run_2.sh` | small `464/10/1120` | 10 | 5 h | main family |
 | `p9_roofline_run_3.sh` / `_4.sh` | small | 8 / 16 | 5 h | dataloader-worker sensitivity |
-| `p9_roofline_pair_unstaged.sh` | small, GS + PS only, read from $WORK | 10 | 6 h | paired staging test |
+| `p9_roofline_pair_unstaged.sh` | small, GS + PS only, read from `$WORK` | 10 | 6 h | paired staging test |
 | `p9_roofline_pair_staged.sh` | identical, GS + PS first copied to `/scratch_local` | 10 | 6 h | paired staging test |
 
 Submit with `run_p9_roofline_all.sh` (the main five) and `run_p9_roofline_pair.sh` (the pair,
@@ -905,8 +802,8 @@ composes every script's full override list before writing it.
 Design points specific to this mixture:
 
 - **The dataloader-floor risk is high.** The mixture's largest per-window read is Euler's:
-  7 frames × 512² × 5 stored channels × 4 B ≈ 37 MB per window, drawn 2/9 of the time from ≈ 212–215 GB
-  HDF5 files. SF (≈ 15 MB) and PS (≈ 11 MB) are also mid-sized. Random access into very large files
+  7 frames $\times$ $512^2$ $\times$ 5 stored channels $\times$ 4 B $\approx 37$ MB per window, drawn 2/9 of the time from $\approx 212$–215 GB
+  HDF5 files. SF ($\approx 15$ MB) and PS ($\approx 11$ MB) are also mid-sized. Random access into very large files
   may behave differently from anything the storage benchmarks
   (`storage_bench_walrus.sh`) measured. The roofline must report sec/epoch **and** per-dataset
   data-wait time, not just the aggregate.
@@ -926,9 +823,9 @@ Design points specific to this mixture:
   third epoch would run full valid and test passes over all nine datasets, which would overrun the
   time caps and pollute the timing.
 - **Staging the whole mixture is infeasible.** The 7-dataset plan copied its whole mixture
-  (~653 GB) to node-local `/scratch_local` first. This mixture's train splits total ≈ 1.56 TB
-  without Euler and ≈ 5.8 TB with it. Staging is instead tested with a **paired staged-vs-unstaged
-  test on a two-dataset sub-mixture**: GS (cheap encoder tier, 128²) + PS (≥512 tier, 256×512).
+  (~653 GB) to node-local `/scratch_local` first. This mixture's train splits total $\approx 1.56$ TB
+  without Euler and $\approx 5.8$ TB with it. Staging is instead tested with a **paired staged-vs-unstaged
+  test on a two-dataset sub-mixture**: GS (cheap encoder tier, $128^2$) + PS ($\ge 512$ tier, $256\times512$).
   That is 264 GB of train data and 330 GB copied, since the staging copies whole dataset
   directories (GS + SF would copy 699 GB). The pair runs the exact PT9 config minus seven entries
   (Hydra `~` deletions), at the roofline-small shape. The staging effect is the difference between
@@ -936,15 +833,15 @@ Design points specific to this mixture:
   not advertise node-local capacity (SLURM `TmpDisk=0`), so the staged arm checks free space
   itself and aborts cleanly if the pair does not fit with 10 % headroom; it logs
   `STAGING_SECONDS` separately, since that cost is paid once and not per epoch.
-- Time caps are set generously above the ≈ 7.8 GPU-h/epoch fullDims estimate (10 h for 3 epochs);
+- Time caps are set generously above the $\approx 7.8$ GPU-h/epoch fullDims estimate (10 h for 3 epochs);
   auto-resume covers an overflow.
 
 **Decision gate (GATE A):**
 
 | outcome | consequence |
 |---|---|
-| `a` small (cost ≈ FLOP-proportional) | Proceed with the full plan as budgeted in §11. SoViT's GFLOPs↔core-hours proxy holds; show it with our own version of their Fig. 4 (right). |
-| `a` large (dataloader floor dominates for small models) | The 64-point grid sweep becomes unaffordable (64 × 40 × 7.8 ≈ 20 k GPU-h). Contingency: shrink the grid to 3×3×3 = 27, cut grid epochs to 25, stage hot data to node-local disk, and **report the FLOPs↔hours decoupling as a finding**: published FLOP-based recipes mis-price small models on this system. |
+| $a$ small (cost $\approx$ FLOP-proportional) | Proceed with the full plan as budgeted in §11. SoViT's GFLOPs$\leftrightarrow$core-hours proxy holds; show it with our own version of their Fig. 4 (right). |
+| $a$ large (dataloader floor dominates for small models) | The 64-point grid sweep becomes unaffordable ($64 \times 40 \times 7.8 \approx 20$ k GPU-h). Contingency: shrink the grid to $3\times3\times3 = 27$, cut grid epochs to 25, stage hot data to node-local disk, and **report the FLOPs$\leftrightarrow$hours decoupling as a finding**: published FLOP-based recipes mis-price small models on this system. |
 
 Also record whether `enable_amp=True` (bf16) is a large win. It is not adopted mid-study (it must
 be identical across all points), but it is a legitimate lever if decided *before* Tier 1. If it is
@@ -964,14 +861,14 @@ and asserts its dataset list, shape, seed and duration before writing the script
 
 ### 5.3b Re-evaluating a checkpoint: what repeats can and cannot tell you
 
-This applies to both `f_up` and `f_down`. **A forward pass is stochastic even in `eval()`**:
+This applies to both $f_\text{up}$ and $f_\text{down}$. **A forward pass is stochastic even in `eval()`**:
 `PatchJitterer` is not gated on training mode, and its random roll
 (`patch_jitterers.py:148`) is the sole source of the randomness. Measured on real data, with the
 model in `eval()`:
 
 | what was done | result |
 |---|---|
-| same checkpoint, same input, two forward passes, no reseeding | **differ**, max element delta ≈ 0.20–0.30 |
+| same checkpoint, same input, two forward passes, no reseeding | **differ**, max element delta $\approx 0.20$–0.30 |
 | same checkpoint, both passes reseeded to the same value | **bit-identical** |
 | same checkpoint, passes reseeded to different values | differ, same magnitude as above |
 | same checkpoint, `model.jitter_patches=False` | identical under *any* seed |
@@ -984,14 +881,14 @@ wrong: it measures the determinism of the code, not the uncertainty of the numbe
 the first is obtainable from one checkpoint:
 
 1. **Eval-path noise** (how much the metric moves under the jitterer's draw). Re-run the same
-   checkpoint with *explicitly different* `seed` values (`seed=0,1,2,…`) and take the spread.
-   Hold `world_size` fixed while doing it: the per-rank offset `seed + 1_000_003·rank` and the data
+   checkpoint with *explicitly different* `seed` values (`seed=0,1,2,...`) and take the spread.
+   Hold `world_size` fixed while doing it: the per-rank offset `seed + 1_000_003 * rank` and the data
    sharding both change with node count, so "same seed, different node count" is not a controlled
    repeat.
 2. **Sample uncertainty** (how much the metric depends on *which* validation samples were drawn).
    Seeds cannot give this, because the validation loader uses a fixed generator (§3.4). Bootstrap
-   over the per-sample metrics instead (over trajectories, for `f_down`, §3.5).
-3. **Run-to-run noise `ε_noise`** (§5.4). Not recoverable from a checkpoint at all: it needs
+   over the per-sample metrics instead (over trajectories, for $f_\text{down}$, §3.5).
+3. **Run-to-run noise $\varepsilon_\text{noise}$** (§5.4). Not recoverable from a checkpoint at all: it needs
    separate *training* runs. Eval-path noise is a **lower bound** on it, so it can never justify a
    claim that two shapes differ.
 
@@ -1001,9 +898,9 @@ stochastic passes, reducing quantity 1 rather than measuring it. `jitter_patches
 removes it, but it changes model behaviour, so it belongs in a diagnostic, never in a run whose
 number is compared with others.
 
-### 5.4 Noise floor `ε_noise`
+### 5.4 Noise floor $\varepsilon_\text{noise}$
 
-Three seeds (0, 1, 2) of the 200 M anchor `768/12/2048` on the §4.1 substrate, identical except
+Three seeds (0, 1, 2) of the 200M `768/12/2048` on the §4.1 substrate, identical except
 for `seed`. The scripts are **generated and ready to submit** in [`NoiseFloor/`](NoiseFloor/)
 (`p9_noise_floor_run_{0,1,2}.sh`, generator `gen_pt9_noise_floor_runs.py`, submit with
 `run_p9_noise_floor_all.sh`). Report the spread in field-time-averaged VRMSE (and every secondary
@@ -1017,47 +914,47 @@ longer add noise of their own: a resumed epoch is identical to the uninterrupted
 seed also share their dataset order, so comparisons between them are not affected by dataset-order
 noise; comparisons across seeds are.
 
-**Sequencing: all three seeds run to `max_epoch=100` and are read at the same epoch `E ≤ 90`.**
+**Sequencing: all three seeds run to `max_epoch=100` and are read at the same epoch $E \le 90$.**
 The noise floor must be measured at the duration the sweeps will use, which is not yet known
 (§7.0), and seed 0's curve is also the small-model saturation pilot that helps fix it. Running
-seed 0 to 100 epochs, fixing `E` from it, and then capping seeds 1–2 at `max_epoch = E` would be
-wrong: with `cooldown_epochs=10` the schedule differs from epoch `E − 10` on, so seed 0's
-*un-cooled* epoch `E` would be compared with seeds 1–2's *cooled* epoch `E`, and the "noise" would
+seed 0 to 100 epochs, fixing $E$ from it, and then capping seeds 1–2 at `max_epoch = E` would be
+wrong: with `cooldown_epochs=10` the schedule differs from epoch $E - 10$ on, so seed 0's
+*un-cooled* epoch $E$ would be compared with seeds 1–2's *cooled* epoch $E$, and the "noise" would
 include a schedule difference. `inv_sqrt_w_sqrt_ramps` does not depend on run length until the
-cooldown starts at `max_epoch − 10 = 90`, so an uncapped run's epoch-`E` metrics and checkpoint
+cooldown starts at $\mathtt{max\_epoch} - 10 = 90$, so an uncapped run's epoch-$E$ metrics and checkpoint
 are exactly what a run capped at a later `max_epoch` would have produced. Seed 0 continues to 100
-as the saturation pilot; seeds 1–2 are cancelled once they pass `E`. They can all be submitted at
+as the saturation pilot; seeds 1–2 are cancelled once they pass $E$. They can all be submitted at
 once, since the results are identical either way.
 
-- `checkpoint.checkpoint_frequency=10` (default 20). The `f_down` noise floor below finetunes each
-  seed's epoch-`E` checkpoint and `E` is not yet known, so any multiple of 10 is usable (≈ 18 GB per
+- `checkpoint.checkpoint_frequency=10` (default 20). The $f_\text{down}$ noise floor below finetunes each
+  seed's epoch-$E$ checkpoint and $E$ is not yet known, so any multiple of 10 is usable ($\approx 18$ GB per
   seed).
-- **24 h wall clock.** There is no 200 M-anchor timing yet. At ≈ 0.2–0.5 h per epoch, depending on the
+- **24 h wall clock.** There is no 200 M-anchor timing yet. At $\approx 0.2$–0.5 h per epoch, depending on the
   data floor, 100 epochs is 20–50 h. The submit wrapper queues each seed as a chain of **3 jobs with
   `--dependency=singleton`**: SLURM runs at most one job per name at a time, so the links run back
   to back and each auto-resumes from the last checkpoint. A surplus link resumes past `max_epoch`,
   skips the epoch loop ([training.py:1317](../../walrus/trainer/training.py#L1317)) and exits within
   minutes. To stop a seed early, cancel the chain by name (`scancel -n <job_name>`).
 - End-of-run validation is capped like every other (`debug_mode`, §4.1), so all three seeds' metric
-  at `E` is the same logged quantity.
+  at $E$ is the same logged quantity.
 
-**`ε_noise` for `f_down` too.** Finetune each of the three seed checkpoints on each held-out
+**$\varepsilon_\text{noise}$ for $f_\text{down}$ too.** Finetune each of the three seed checkpoints on each held-out
 target under the Tier 7 protocol (12 short runs at the anchor shape). Without it, no RQ5 shape
 comparison can be judged against noise.
 
 **Why this is non-negotiable.** Every tier past Tier 0 makes an "is this actually different"
 claim:
 
-- **The grid sweep picks `x⁽⁰⁾` as the argmin over 64 points** (§7.1). If seed noise is comparable
+- **The grid sweep picks $x^{(0)}$ as the argmin over 64 points** (§7.1). If seed noise is comparable
   to the gaps between grid points, the "minimum" is as likely to be the luckiest seed as the
-  compute-optimal shape. A bad `x⁽⁰⁾` does not look wrong; it silently biases every exponent fit
+  compute-optimal shape. A bad $x^{(0)}$ does not look wrong; it silently biases every exponent fit
   downstream.
 - **GATE C and the validity checks of §12 use "acceptable ARE"/"agreement" as pass conditions**,
-  which are undefined until there is a number to compare against. `ε_noise` is that number.
-- **The deviation checks (§8.3) are explicitly gated on it**: they are only worth ≈ 3 100 GPU-h if
-  the expected differences exceed `ε_noise`.
+  which are undefined until there is a number to compare against. $\varepsilon_\text{noise}$ is that number.
+- **The deviation checks (§8.3) are explicitly gated on it**: they are only worth $\approx 3\,100$ GPU-h if
+  the expected differences exceed $\varepsilon_\text{noise}$.
 - **The head-to-head runs both arms at one shared seed**, so its single number is only informative
-  relative to how much it would have moved on a different seed. Without `ε_noise`, "SoWalrus
+  relative to how much it would have moved on a different seed. Without $\varepsilon_\text{noise}$, "SoWalrus
   matches fullDims at less compute" and "SoWalrus got a lucky draw" are indistinguishable.
 
 Choshen §4 finds seed variation alone moves loss by up to 4 %, while many published pretraining
@@ -1065,7 +962,7 @@ interventions claim gains of only 4–50 %. Choshen §7 also recommends spending
 *more distinct shapes* rather than more seeds per shape, so this is deliberately the **only**
 place in the study where seeds are replicated. It cannot be obtained more cheaply from a checkpoint
 already in hand: re-evaluating one checkpoint under different seeds only re-samples the eval path
-(§5.3b), a lower bound on `ε_noise`.
+(§5.3b), a lower bound on $\varepsilon_\text{noise}$.
 
 ---
 
@@ -1077,23 +974,23 @@ artefact of one end of the range being under- or over-tuned.
 
 ### 6.0 The premise: this is not "SoViT's recipe"
 
-SoViT's per-shape LR/WD sweep (their App. C: LR ∈ {1e−3, 3e−4, 1e−4}, WD ∈ {3e−4, 1e−4, 3e−5}
+SoViT's per-shape LR/WD sweep (their App. C: $\text{LR} \in \{10^{-3}, 3\times10^{-4}, 10^{-4}\}$, $\text{WD} \in \{3\times10^{-4}, 10^{-4}, 3\times10^{-5}\}$
 at the largest and smallest architectures) belongs to their multitask-decoder experiment (§4.2,
 captioning/VQA), not to shape scaling. Their actual star/grid sweeps (Table 5, App. B.1) used **one
-fixed** `(lr = 8e-4, wd = 0.03 × 8e-4)` across the entire shape range, 320-wide to 1968-wide,
+fixed** $(\text{lr} = 8\times10^{-4},\ \text{wd} = 0.03 \times 8\times10^{-4})$ across the entire shape range, 320-wide to 1968-wide,
 with no per-shape tuning.
 
 So there is no SoViT precedent for spending compute on this. The reason to do it anyway is our own:
 `lr=2e-4`/`weight_decay=1e-4` ([adam.yaml](../../walrus/configs/optimizer/adam.yaml)) has only ever
 been exercised at or near fullDims scale, never at the grid sweep's `hidden_dim=320` floor, and
-without µP the optimal LR is known to shift with width.
+without $\mu$P the optimal LR is known to shift with width.
 
 ### 6.1 What is actually a candidate for being size-dependent
 
 | knob | risk | disposition |
 |---|---|---|
-| `optimizer.lr` | known to shift with width without µP | **checked below** |
-| `weight_decay` | couples with LR via effective regularisation strength (`lr × wd`, even decoupled) | **checked below** |
+| `optimizer.lr` | known to shift with width without $\mu$P | **checked below** |
+| `weight_decay` | couples with LR via effective regularisation strength ($\text{lr} \times \text{wd}$, even decoupled) | **checked below** |
 | `trainer.clip_gradient=10` | raw grad norms scale with parameter count | watched for free from the same runs (§6.2) |
 | `lr_scheduler.warmup_epochs=10` | fixed across a 6–40 block range; deeper nets typically want more warmup | watched for free from the same runs' early epochs (below) |
 | `drop_path=0.05` | depth-dependent regulariser, fixed across depth | not re-opened: a stated confound (§4.1), quantified by the sensitivity ablation |
@@ -1107,9 +1004,9 @@ grad-norm spike as warmup ends would show in the same trace. This catches warmup
 not a needlessly long warmup; it is a deliberately cheaper substitute for a warmup sweep, not an
 equivalent of one.
 
-*Why not µP.* Maximal update parametrisation would let LR transfer across width by construction,
+*Why not $\mu$P.* Maximal update parametrisation would let LR transfer across width by construction,
 which is better science. But WALRUS's fused `ff/qkv` projection, `RMSGroupNorm`, QK-norm and conv
-encoders each need their own µP treatment, and getting one wrong silently breaks equivalence with
+encoders each need their own $\mu$P treatment, and getting one wrong silently breaks equivalence with
 the released checkpoint, without any error. That is too much implementation risk for a thesis
 timeline. The checks below are the deliberate, cheaper substitute.
 
@@ -1129,34 +1026,34 @@ with `gradient_log_level=1`.
 
 **Design: local sensitivity around the pin, not a search for a new optimum.** One factor at a time,
 sharing the centre point: 5 runs per extreme instead of a 9-run grid. Decoupled AdamW's WD is
-designed to weaken the LR×WD interaction that would justify the missing 4 combinations.
+designed to weaken the LR$\times$WD interaction that would justify the missing 4 combinations.
 
-- LR ∈ {1e-4, 2e-4, 4e-4} at `wd=1e-4` (half / pin / double).
-- WD ∈ {3e-5, 3e-4} at `lr=2e-4` (≈ 3.3× either side of the pin).
+- $\text{LR} \in \{10^{-4}, 2\times10^{-4}, 4\times10^{-4}\}$ at `wd=1e-4` (half / pin / double).
+- $\text{WD} \in \{3\times10^{-5}, 3\times10^{-4}\}$ at `lr=2e-4` ($\approx 3.3\times$ either side of the pin).
 
 **Small extreme: `320/6/768`**, the grid sweep's actual smallest corner (all three axes at their
 floor), not a width-only proxy. It is the cheapest shape in the study, so it gets the check
-outright: 5 runs × 20 epochs (10 warmup + 10 steady state: long enough for the warmup read, short
+outright: 5 runs $\times$ 20 epochs (10 warmup + 10 steady state: long enough for the warmup read, short
 enough that divergence, which shows early, is still caught). `gradient_log_level=1`.
 
 **Large extreme: only if §6.2 is inconclusive, using HalfWalrus `1088/30/4352` as a stand-in for
-the star centre.** fullDims costs ≈ 7.8 GPU-h per epoch however few epochs are run, so even a
-10-epoch fullDims check across 5 runs would cost ≈ 390 GPU-h. HalfWalrus is the lever that makes
+the star centre.** fullDims costs $\approx 7.8$ GPU-h per epoch however few epochs are run, so even a
+10-epoch fullDims check across 5 runs would cost $\approx 390$ GPU-h. HalfWalrus is the lever that makes
 this cheap; a shorter run is a second, smaller lever. Same 5-run design, 20 epochs,
 `gradient_log_level=1`.
 
 **Selection criterion**, adapted from SoViT: at both extremes, `(2e-4, 1e-4)`'s loss curve and
 gradient-norm trace must be smooth and *not visibly worse* than its neighbours. This validates a
 pin; it does not search for a replacement. If an extreme looks unstable, report the
-LR-sensitivity ablation (loss difference between adjacent LR values, compared with `ε_noise`)
+LR-sensitivity ablation (loss difference between adjacent LR values, compared with $\varepsilon_\text{noise}$)
 rather than silently re-picking a global LR, which would invalidate runs already in flight.
 
 *Known residual confound, whatever the outcome.* A single frozen LR across the width range is not
 scale-invariant; the widest points may be slightly under-tuned even if nothing looks unstable.
 SoViT accepted the same limitation. The sensitivity ablation quantifies it rather than hides it.
 
-**Cost.** Small-extreme leg: 5 runs × 20 epochs at the cheapest shape. Large-extreme leg: 0 GPU-h
-if §6.2 is conclusive, otherwise 5 runs × 20 epochs at HalfWalrus. Exact figures await the
+**Cost.** Small-extreme leg: 5 runs $\times$ 20 epochs at the cheapest shape. Large-extreme leg: 0 GPU-h
+if §6.2 is conclusive, otherwise 5 runs $\times$ 20 epochs at HalfWalrus. Exact figures await the
 roofline's small-shape timings (§5.2); §11 budgets the pessimistic case.
 
 ---
@@ -1169,19 +1066,19 @@ Neither sweep's `max_epoch` can be borrowed from SoViT: their 500 K / 1 M / 2 M 
 *their* FLOP targets into *their* step counts on an effectively unlimited corpus. Duration is
 derived here from WALRUS's own structure.
 
-**Why a fixed compute budget is required at all.** `x⁽⁰⁾ = argmin_x f(x, t)` is only well-posed
-relative to a stated `t`: narrower/shallower shapes win at small `t`, wider/deeper ones at large
-`t`. Both sweeps need target compute levels `t₁ < … < tₖ` fixed before shapes are compared.
+**Why a fixed compute budget is required at all.** $x^{(0)} = \arg\min_x f(x, t)$ is only well-posed
+relative to a stated $t$: narrower/shallower shapes win at small $t$, wider/deeper ones at large
+$t$. Both sweeps need target compute levels $t_1 < \dots < t_k$ fixed before shapes are compared.
 
-**Getting several `tᵢ` without training to each separately.** Run each shape once, long enough to
-pass through several `tᵢ`, and read the loss at each from that one trajectory. SoViT do this
+**Getting several $t_i$ without training to each separately.** Run each shape once, long enough to
+pass through several $t_i$, and read the loss at each from that one trajectory. SoViT do this
 informally;
 [Hägele et al., *Scaling Laws and Compute-Optimal Training Beyond Fixed Training Durations*](https://arxiv.org/abs/2405.18392)
 (NeurIPS 2024) formalise it for WSD-style schedules: one long stable-phase run, with cooldowns read
-or branched from intermediate checkpoints at each `tᵢ`. That is §7.3's protocol.
+or branched from intermediate checkpoints at each $t_i$. That is §7.3's protocol.
 
-**Lower bound on `t₁` — LR warmup.** Only infinite-phase checkpoints are mutually comparable
-across eventual run lengths (§1.3c). With `warmup_epochs = 10`, the earliest usable `tᵢ` needs real
+**Lower bound on $t_1$ — LR warmup.** Only infinite-phase checkpoints are mutually comparable
+across eventual run lengths (§1.3c). With `warmup_epochs = 10`, the earliest usable $t_i$ needs real
 margin past epoch 10: **epoch 15–18**.
 
 **Upper bound 1 — cooldown fraction.** Hägele et al. find the cooldown should be **~10–20 % of the
@@ -1195,85 +1092,87 @@ total run** (too short loses the cooldown gain; too long wastes stable-phase com
 | 60 | 16.7 % | yes, comfortably |
 | 100 | 10 % | edge, ok |
 
-So `max_epoch ∈ [50, 100]`. The same paper also implies that a raw infinite-phase checkpoint at
-`tᵢ` **understates** what that compute level can achieve, because cooldown recovers additional
+So $\mathtt{max\_epoch} \in [50, 100]$. The same paper also implies that a raw infinite-phase checkpoint at
+$t_i$ **understates** what that compute level can achieve, because cooldown recovers additional
 gains. §7.3 step 2 (cooldown branches, checking the gain is shape-independent) is the control for
 exactly this, which is why it is required rather than optional.
 
 **Upper bound 2 — small-model capacity saturation.** At fixed model size, loss approaches a
-capacity-limited floor as compute grows (`L(N, D) = E + A/N^α + B/D^β`; Kaplan/Hoffmann, reaffirmed
+capacity-limited floor as compute grows ($L(N, D) = E + A/N^\alpha + B/D^\beta$; Kaplan/Hoffmann, reaffirmed
 by [*Scaling Laws in the Tiny Regime*](https://arxiv.org/pdf/2603.07365) and
 [*Reusing Overtrained Language Models Saturates Scaling*](https://arxiv.org/pdf/2510.06548)).
-Smaller grid shapes hit that floor first. If `t_max` is so large that the shapes competitive for
-`x⁽⁰⁾` are already flat, the argmin reads noise off a plateau. (Seeing the *smallest* shapes
+Smaller grid shapes hit that floor first. If $t_\text{max}$ is so large that the shapes competitive for
+$x^{(0)}$ are already flat, the argmin reads noise off a plateau. (Seeing the *smallest* shapes
 saturate first is signal, not a bug: it is where the frontier curls away from them.) There is no
-WALRUS-specific `α`/`β` yet, so this bound is empirical: **noise-floor seed 0** (§5.4) runs to
+WALRUS-specific $\alpha$/$\beta$ yet, so this bound is empirical: **noise-floor seed 0** (§5.4) runs to
 100 epochs, comfortably past the whole [50, 100] window, and its loss curve doubles as the
-saturation pilot. The 200 M anchor sits just above the grid region (§1.4), so it is a reasonable
+saturation pilot. The 200M sits just above the grid region (§1.4), so it is a reasonable
 but imperfect stand-in for where that scale saturates. The roofline's 3-epoch runs are too short to
 show saturation.
 
 **Upper bound 3 — data repetition ceiling: no longer binding.** Muennighoff et al.
 ([*Scaling Data-Constrained Language Models*](https://arxiv.org/abs/2305.16264), NeurIPS 2023)
-give landmarks for repeated data: **≤ 4×** negligible degradation, **~16×** a "half-life" of
-diminishing returns, **~40×** added compute close to worthless. In the 7-dataset mixture two
-datasets crossed 16× before warmup even finished, so no duration could both clear warmup and keep
-every dataset informative. In this mixture the worst dataset (PS) is at 6.6× at epoch 60 and 11×
-at epoch 100 (§2.5): every dataset stays below the half-life across the entire `[50, 100]` window.
+give landmarks for repeated data: **$\le 4\times$** negligible degradation, **~$16\times$** a "half-life" of
+diminishing returns, **~$40\times$** added compute close to worthless. In the 7-dataset mixture two
+datasets crossed $16\times$ before warmup even finished, so no duration could both clear warmup and keep
+every dataset informative. In this mixture the worst dataset (PS) is at $6.6\times$ at epoch 60 and $11\times$
+at epoch 100 (§2.5): every dataset stays below the half-life across the entire $[50, 100]$ window.
 **`max_epoch` is therefore set by the cooldown fraction and the saturation pilot alone.** Every
 shape runs the identical schedule, so whatever repetition there is would be a shared bias across
 sweep points, not point-to-point noise.
 
-**Synthesis — current status.** `t₁` ≈ epoch 15–18. `t_max` is bounded by the cooldown fraction
-(`max_epoch ∈ [50, 100]`) and by wherever the saturation pilot shows saturation, whichever is
-tighter. Use 2–4 `tᵢ`, log-spaced between the bounds, each read via a §7.3 cooldown branch.
+**Synthesis — current status.** $t_1$ $\approx$ epoch 15–18. $t_\text{max}$ is bounded by the cooldown fraction
+($\mathtt{max\_epoch} \in [50, 100]$) and by wherever the saturation pilot shows saturation, whichever is
+tighter. Use 2–4 $t_i$, log-spaced between the bounds, each read via a §7.3 cooldown branch.
 🔲 **Pending:** submitting the pilot and reading its curve, then fixing **one** derived
 `max_epoch` for both sweeps. The current numbers are placeholders and mutually inconsistent: the
 grid generator uses 40, this plan's star-sweep cost uses 60, and the old
 `gen_star_search_runs.py` hardcodes 101. The noise floor is read at the same epoch (§5.4).
 
-### 7.1 Tier 2: grid sweep → `x⁽⁰⁾`
+### 7.1 Tier 2: grid sweep $\to$ $x^{(0)}$
 
 **Purpose** (SoViT §3): find a *small* architecture on the Pareto frontier at *small* compute. It
-absorbs the leading coefficients in `x*_k = O(t^(s_k))`, so the star sweep only has to estimate the
-exponents. SoViT warn that a bad `x⁽⁰⁾` "can significantly skew results".
+absorbs the leading coefficients in $x^*_k = O(t^{s_k})$, so the star sweep only has to estimate the
+exponents. SoViT warn that a bad $x^{(0)}$ "can significantly skew results".
 
-Grid (4 × 4 × 4 = 64 points, ≈ 20 % increments as SoViT prescribe, all widths divisible by 16):
+Grid ($4 \times 4 \times 4 = 64$ points, $\approx 20\%$ increments as SoViT prescribe, all widths divisible by 16):
 
-```
-hidden_dim       ∈ {320, 384, 464, 560}
-processor_blocks ∈ {6, 8, 10, 12}
-mlp_dim          ∈ {768, 928, 1120, 1344}
-```
+$$
+\begin{aligned}
+\mathtt{hidden\_dim} &\in \{320, 384, 464, 560\} \\
+\mathtt{processor\_blocks} &\in \{6, 8, 10, 12\} \\
+\mathtt{mlp\_dim} &\in \{768, 928, 1120, 1344\}
+\end{aligned}
+$$
 
 **Sizes and costs across the grid** (corners plus one interior point; all 64 rows from
 [`shape_cost_table.py`](../shape_cost_table.py), parameters with one encoder/decoder pair, disk at
-≈ 12.4 bytes × params). Parameter counts are mixture-independent. The GPU-h columns use a FLOP
+$\approx 12.4$ bytes $\times$ params). Parameter counts are mixture-independent. The GPU-h columns use a FLOP
 proxy calibrated on the 7-dataset mixture, at the 40-epoch placeholder: they are **provisional**
 pending GATE A and §7.0, and move only slightly with this mixture's enc+dec mix (§3.1).
 
 | shape `H/L/M` | total params | processor params | enc+dec share | ckpt size | GPU-h/epoch | GPU-h @ 40 ep | vs anchor (params) | vs anchor (FLOPs) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| 320/6/768 | 46 M | 7 M | 84 % | 0.6 GB | 0.05 | 2 | 0.32× | 0.09× |
-| 320/6/1344 | 47 M | 9 M | 81 % | 0.6 GB | 0.07 | 3 | 0.33× | 0.11× |
-| 320/12/768 | 53 M | 14 M | 73 % | 0.7 GB | 0.10 | 4 | 0.37× | 0.17× |
-| 320/12/1344 | 56 M | 18 M | 69 % | 0.7 GB | 0.13 | 5 | 0.39× | 0.22× |
-| 384/8/928 | 55 M | 14 M | 75 % | 0.7 GB | 0.10 | 4 | 0.38× | 0.17× |
-| 560/6/768 | 68 M | 19 M | 72 % | 0.8 GB | 0.13 | 5 | 0.48× | 0.22× |
-| 560/6/1344 | 71 M | 22 M | 69 % | 0.9 GB | 0.16 | 6 | 0.50× | 0.26× |
-| 560/12/768 | 87 M | 38 M | 57 % | 1.1 GB | 0.26 | 10 | 0.61× | 0.44× |
-| 560/12/1344 | 93 M | 44 M | 53 % | 1.2 GB | 0.30 | 12 | 0.65× | 0.52× |
+| 320/6/768 | 46 M | 7 M | 84 % | 0.6 GB | 0.05 | 2 | $0.32\times$ | $0.09\times$ |
+| 320/6/1344 | 47 M | 9 M | 81 % | 0.6 GB | 0.07 | 3 | $0.33\times$ | $0.11\times$ |
+| 320/12/768 | 53 M | 14 M | 73 % | 0.7 GB | 0.10 | 4 | $0.37\times$ | $0.17\times$ |
+| 320/12/1344 | 56 M | 18 M | 69 % | 0.7 GB | 0.13 | 5 | $0.39\times$ | $0.22\times$ |
+| 384/8/928 | 55 M | 14 M | 75 % | 0.7 GB | 0.10 | 4 | $0.38\times$ | $0.17\times$ |
+| 560/6/768 | 68 M | 19 M | 72 % | 0.8 GB | 0.13 | 5 | $0.48\times$ | $0.22\times$ |
+| 560/6/1344 | 71 M | 22 M | 69 % | 0.9 GB | 0.16 | 6 | $0.50\times$ | $0.26\times$ |
+| 560/12/768 | 87 M | 38 M | 57 % | 1.1 GB | 0.26 | 10 | $0.61\times$ | $0.44\times$ |
+| 560/12/1344 | 93 M | 44 M | 53 % | 1.2 GB | 0.30 | 12 | $0.65\times$ | $0.52\times$ |
 
-Sweep totals at 40 epochs: **≈ 365 GPU-h** if FLOP-proportional, **≈ 20 000 GPU-h** under the
+Sweep totals at 40 epochs: **$\approx 365$ GPU-h** if FLOP-proportional, **$\approx 20\,000$ GPU-h** under the
 dataloader floor (every shape at fullDims's 7.8 GPU-h/epoch, §5.2's GATE A contingency case). This
-is the tier most exposed to the floor risk. Disk at 3 retained checkpoints per run: ≈ 152 GB.
+is the tier most exposed to the floor risk. Disk at 3 retained checkpoints per run: $\approx 152$ GB.
 
 **Ballast, on both axes.** 53–84 % of *parameters* across the grid are the fixed encoder/decoder
 (the processor is 7 M of a 46 M model at the smallest corner), and 11–45 % of *forward FLOPs*
-(29–45 % at the smallest corner, depending on dataset; §3.1). Two consequences: (i) `x⁽⁰⁾` is
-chosen by comparing points whose `t` is dominated by a nearly constant term, which compresses the
+(29–45 % at the smallest corner, depending on dataset; §3.1). Two consequences: (i) $x^{(0)}$ is
+chosen by comparing points whose $t$ is dominated by a nearly constant term, which compresses the
 dynamic range the fit sees; (ii) SoViT's assumption that compute tracks the model is weakest here.
-**Fit `x⁽⁰⁾` and the exponents twice, once on total FLOPs and once on processor-only FLOPs, and
+**Fit $x^{(0)}$ and the exponents twice, once on total FLOPs and once on processor-only FLOPs, and
 report both.** Agreement is a robustness result; disagreement is a finding about conv-stem
 foundation models that ViT-derived recipes do not anticipate. If they disagree, the processor-only
 fit answers RQ1 (how should the *shape* scale) and the total-FLOP fit answers RQ2 (what should we
@@ -1281,23 +1180,23 @@ fit answers RQ1 (how should the *shape* scale) and the total-FLOP fit answers RQ
 
 **If AMP is ever adopted** (§5.2), only `hidden_dim = 384` of the four grid widths gives an exact
 bf16 `FlopCounterMode` reading: bf16 flash attention over-counts space attention by
-`(next multiple of 8)/head_dim` when `head_dim = hidden_dim/16` is not 8-aligned (`320→20`,
-`464→29`, `560→35`). Under the pinned `enable_amp=False` this does not apply. The analytical
+`(next multiple of 8)/head_dim` when `head_dim = hidden_dim/16` is not 8-aligned ($320 \to 20$,
+$464 \to 29$, $560 \to 35$). Under the pinned `enable_amp=False` this does not apply. The analytical
 counter that the study actually uses is unaffected either way.
 
 **SoViT's four cautions, applied:**
 
 1. **The optimum must lie strictly in the interior.** If the argmin lands on a boundary, we cannot
    tell whether it is optimal or merely the edge of the box. Extend the grid in that direction and
-   re-run those points: one extension round is budgeted (≈ 16 points, ≈ 120 GPU-h).
+   re-run those points: one extension round is budgeted ($\approx 16$ points, $\approx 120$ GPU-h).
 2. **It must be optimal over a compute *range*, not a point.** Read the argmin at several
    cumulative-FLOP levels along the training curves (free, from per-epoch logging) and pick the
-   shape that wins across a band. Where a range applies, take `t⁽⁰⁾` as the **least** compute it is
+   shape that wins across a band. Where a range applies, take $t^{(0)}$ as the **least** compute it is
    optimal for, erring towards larger models as we scale, as SoViT do.
-3. **The grid must be tightly packed** (≈ 20 % steps): satisfied above.
+3. **The grid must be tightly packed** ($\approx 20\%$ steps): satisfied above.
 4. **Compute must be large enough for power laws to have taken effect.** SoViT insisted on
    > 100 M examples in their grid sweep. At 40 epochs each grid run sees
-   `40 × 2000 × 4 × 2 × 6 × N_sp` ≈ 4.1 G tokens, ≈ 1.25× `T_unique_model`: less than two
+   $40 \times 2000 \times 4 \times 2 \times 6 \times N_\text{sp}$ $\approx 4.1$ G tokens, $\approx 1.25\times$ $T_{\text{unique},\text{model}}$: less than two
    aggregate passes, so comfortably met without leaning on repeated data. Re-check once §7.0
    fixes `max_epoch`, and confirm the loss curves are in power-law decay, neither still in the
    early transient nor already flat.
@@ -1306,52 +1205,54 @@ counter that the study actually uses is unaffected either way.
 
 [`ExampleRunScripts/gen_grid_search.py`](../../ExampleRunScripts/gen_grid_search.py) (and its
 `_gpuxl` twin) is the WALRUS authors' own shape grid search (`wandb_project_name="MPPX_Scaling_Grid"`).
-It emits exactly 64 scripts, a full 4×4×4 factorial:
+It emits exactly 64 scripts, a full $4\times4\times4$ factorial:
 
-```
-hidden_dim       ∈ {768, 928, 1088, 1360}
-processor_blocks ∈ {6, 8, 10, 12}
-mlp_dim          ∈ {416, 512, 608, 768}
-```
+$$
+\begin{aligned}
+\mathtt{hidden\_dim} &\in \{768, 928, 1088, 1360\} \\
+\mathtt{processor\_blocks} &\in \{6, 8, 10, 12\} \\
+\mathtt{mlp\_dim} &\in \{416, 512, 608, 768\}
+\end{aligned}
+$$
 
 It shares §7.1's `processor_blocks` set exactly, and its `mlp_dim` ceiling (768) is §7.1's floor.
 Where they differ is scale (same provenance and caveats as the §7.1 table):
 
 | shape `H/L/M` | total params | processor params | enc+dec share | ckpt size | GPU-h/epoch | GPU-h @ 40 ep | vs anchor (params) | vs anchor (FLOPs) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| 768/6/416 | 90 M | 31 M | 65 % | 1.1 GB | 0.21 | 8 | 0.63× | 0.35× |
-| 768/6/768 | 92 M | 34 M | 64 % | 1.1 GB | 0.23 | 9 | 0.64× | 0.38× |
-| 768/12/416 | 121 M | 62 M | 48 % | 1.5 GB | 0.41 | 16 | 0.84× | 0.69× |
-| 768/12/768 | 126 M | 67 M | 47 % | 1.6 GB | 0.45 | 18 | 0.88× | 0.76× |
-| 928/8/512 | 127 M | 61 M | 52 % | 1.6 GB | 0.40 | 16 | 0.88× | 0.67× |
-| 1360/6/416 | 179 M | 94 M | 48 % | 2.2 GB | 0.60 | 24 | 1.25× | 1.02× |
-| 1360/6/768 | 184 M | 98 M | 47 % | 2.3 GB | 0.64 | 25 | 1.28× | 1.08× |
-| 1360/12/416 | 273 M | 188 M | 31 % | 3.4 GB | 1.19 | 48 | 1.90× | 2.02× |
-| 1360/12/768 | 282 M | 197 M | 30 % | 3.5 GB | 1.26 | 50 | 1.96× | 2.14× |
+| 768/6/416 | 90 M | 31 M | 65 % | 1.1 GB | 0.21 | 8 | $0.63\times$ | $0.35\times$ |
+| 768/6/768 | 92 M | 34 M | 64 % | 1.1 GB | 0.23 | 9 | $0.64\times$ | $0.38\times$ |
+| 768/12/416 | 121 M | 62 M | 48 % | 1.5 GB | 0.41 | 16 | $0.84\times$ | $0.69\times$ |
+| 768/12/768 | 126 M | 67 M | 47 % | 1.6 GB | 0.45 | 18 | $0.88\times$ | $0.76\times$ |
+| 928/8/512 | 127 M | 61 M | 52 % | 1.6 GB | 0.40 | 16 | $0.88\times$ | $0.67\times$ |
+| 1360/6/416 | 179 M | 94 M | 48 % | 2.2 GB | 0.60 | 24 | $1.25\times$ | $1.02\times$ |
+| 1360/6/768 | 184 M | 98 M | 47 % | 2.3 GB | 0.64 | 25 | $1.28\times$ | $1.08\times$ |
+| 1360/12/416 | 273 M | 188 M | 31 % | 3.4 GB | 1.19 | 48 | $1.90\times$ | $2.02\times$ |
+| 1360/12/768 | 282 M | 197 M | 30 % | 3.5 GB | 1.26 | 50 | $1.96\times$ | $2.14\times$ |
 
 | | §7.1 grid | authors' grid |
 |---|---|---|
-| params range | 46 → 93 M | 90 → 282 M |
-| vs. the 200 M anchor | 0.32×–0.65×, entirely **below** it | 0.63×–1.96×, **brackets** it |
+| params range | 46 $\to$ 93 M | 90 $\to$ 282 M |
+| vs. the 200M | $0.32\times$–$0.65\times$, entirely **below** it | $0.63\times$–$1.96\times$, **brackets** it |
 | enc+dec parameter ballast | 53–84 % | 30–65 % |
-| GPU-h, FLOP-proportional | ≈ 365 | ≈ 1 473 (**4×**) |
-| GPU-h, dataloader floor | ≈ 20 000 | ≈ 20 000 (**identical**) |
-| disk @ 3 ckpts/run | ≈ 152 GB | ≈ 380 GB |
+| GPU-h, FLOP-proportional | $\approx 365$ | $\approx 1\,473$ (**$4\times$**) |
+| GPU-h, dataloader floor | $\approx 20\,000$ | $\approx 20\,000$ (**identical**) |
+| disk @ 3 ckpts/run | $\approx 152$ GB | $\approx 380$ GB |
 
 Four things decide between them:
 
 1. **The cost difference only exists in one GATE A outcome.** FLOP-proportional: the authors'
-   grid is 4× dearer. Dataloader floor: both cost the same, because cost stops depending on shape.
+   grid is $4\times$ dearer. Dataloader floor: both cost the same, because cost stops depending on shape.
    So the choice cannot be made before GATE A.
-2. **Disk may bind before GPU-h.** 380 GB is a large share of $FAST, which must also hold 18 star
+2. **Disk may bind before GPU-h.** 380 GB is a large share of `$FAST`, which must also hold 18 star
    runs (§4.2).
-3. **SoViT want `x⁽⁰⁾` at *small* compute, which favours §7.1's grid.** `t⁽⁰⁾` sets the
-   extrapolation base; moving `x⁽⁰⁾` into the authors' range raises `t⁽⁰⁾` by roughly the FLOP
-   ratio and cuts `τ` (§8.1) from ≈ 355 to order 100, a weaker extrapolation claim.
+3. **SoViT want $x^{(0)}$ at *small* compute, which favours §7.1's grid.** $t^{(0)}$ sets the
+   extrapolation base; moving $x^{(0)}$ into the authors' range raises $t^{(0)}$ by roughly the FLOP
+   ratio and cuts $\tau$ (§8.1) from $\approx 355$ to order 100, a weaker extrapolation claim.
 4. **But the authors' grid has better-conditioned shape signal.** At 30–65 % ballast versus
    53–84 %, more of each point's compute is the processor being varied. It also probes `mlp/hidden`
-   ratios of 0.31×–1.0×, far narrower than any WALRUS reference config (fullDims and HalfWalrus
-   4.0×, the anchor 2.67×) and narrower than §7.1's 1.4×–4.2×. That matters because SoViT found
+   ratios of $0.31\times$–$1.0\times$, far narrower than any WALRUS reference config (fullDims and HalfWalrus
+   $4.0\times$, the anchor $2.67\times$) and narrower than §7.1's $1.4\times$–$4.2\times$. That matters because SoViT found
    `mlp_dim` carries the *largest* exponent (0.60), so small-compute-optimal shapes are expected to
    have relatively narrow MLPs.
 
@@ -1359,37 +1260,37 @@ Four things decide between them:
 on its upper boundary (caution 1), the authors' grid is the natural extension region, since it
 starts where §7.1's `mlp_dim` ends and shares its `processor_blocks` set.
 
-### 7.2 Tier 3: star sweep → `s_k`
+### 7.2 Tier 3: star sweep $\to$ $s_k$
 
-**Star centre** `x⁽ᶜ⁾ = (1408, 40, 5632)` = fullDims. As in SoViT, the centre is **never used to
+**Star centre** $x^{(c)} = (1408, 40, 5632)$ = fullDims. As in SoViT, the centre is **never used to
 fit**: it is the held-out extrapolation check (their violet point).
 
 Grids at the relative offsets SoViT used (0.2–0.85 of the centre, exponentially spaced, ratio
-≈ 1.22), with the other two dimensions **pinned at the centre value** so they cannot bottleneck
+$\approx 1.22$), with the other two dimensions **pinned at the centre value** so they cannot bottleneck
 (parameters with one encoder/decoder pair; GPU-h provisional, from the 7-dataset FLOP proxy):
 
 | axis | grid | others pinned at | params range | GPU-h @ 60 ep, N1 |
 |---|---|---|---|---|
-| `hidden_dim` | 448, 544, 672, 816, 992, 1184 | `L=40, M=5632` | 260 M → 927 M | 97 → 361 |
-| `processor_blocks` | 8, 10, 12, 15, 19, 24 | `H=1408, M=5632` | 310 M → 754 M | 94 → 281 |
-| `mlp_dim` | 1024, 1280, 1600, 2000, 2432, 2816 | `H=1408, L=40` | 809 M → 961 M | 319 → 377 |
+| `hidden_dim` | 448, 544, 672, 816, 992, 1184 | $L = 40,\ M = 5632$ | 260 M $\to$ 927 M | 97 $\to$ 361 |
+| `processor_blocks` | 8, 10, 12, 15, 19, 24 | $H = 1408,\ M = 5632$ | 310 M $\to$ 754 M | 94 $\to$ 281 |
+| `mlp_dim` | 1024, 1280, 1600, 2000, 2432, 2816 | $H = 1408,\ L = 40$ | 809 M $\to$ 961 M | 319 $\to$ 377 |
 
-18 runs × `max_epoch` (60 is the current placeholder, §7.0) at N1 ≈ **4 343 GPU-h**. These are large
+18 runs $\times$ `max_epoch` (60 is the current placeholder, §7.0) at N1 $\approx$ **4 343 GPU-h**. These are large
 models by design; that is the expensive part of SoViT's method, since two of the three dimensions
 are always at full scale. Note how flat the `mlp_dim` row is: the fused `ff/qkv` projection is
-only one of several `O(H²)` terms, so shrinking `M` from 5632 to 1024 removes only ~32 % of the
-FLOPs. That compresses the dynamic range on that axis and risks the precision of `s_mlp` (§12).
+only one of several $O(H^2)$ terms, so shrinking $M$ from 5632 to 1024 removes only ~32 % of the
+FLOPs. That compresses the dynamic range on that axis and risks the precision of $s_\text{mlp}$ (§12).
 
 **Durations.** Many compute levels are read from each single long run's per-epoch metric history
 (§7.3): SoViT's *structure* (several compute levels per point) with the Choshen economy, not their
 specific step counts. At a 60-epoch `max_epoch` the usable infinite-phase band is epochs ~15–50, a
-≈ 3.3× range in `t`, similar to SoViT's 4×; treat both band and cost as provisional until §7.0
+$\approx 3.3\times$ range in $t$, similar to SoViT's $4\times$; treat both band and cost as provisional until §7.0
 resolves.
 
 **GATE C's held-out centre point is not free.** The existing fullDims runs (`fullDims_6DS*`,
 `smallest7_2d_PT_*`) trained on other mixtures and cannot be compared with star points trained on
 this one. **A fullDims run on `Leonardo_pretrain9_2d` to the star sweep's `max_epoch` is
-required**: ≈ 7.8 GPU-h/epoch × 60 ≈ **470 GPU-h at N1** (old-mixture timing, provisional). It
+required**: $\approx 7.8$ GPU-h/epoch $\times$ 60 $\approx$ **470 GPU-h at N1** (old-mixture timing, provisional). It
 doubles as Arm A's early trajectory if the head-to-head is run at N1, and as the fullDims point for
 Tier 7.
 
@@ -1400,8 +1301,8 @@ just fully trained models"*, with two provisos: **drop the earliest part of trai
 first-10B-tokens cut moved ARE from > 15 % to 4–10 %), and beware that LR-schedule effects are
 unmodelled. Protocol:
 
-1. **Fit only on infinite-phase points:** `epoch ∈ [warmup + 5, max_epoch − cooldown]`, i.e.
-   `[15, 50]` at a 60-epoch `max_epoch` (recompute once §7.0 settles it). This drops the warmup
+1. **Fit only on infinite-phase points:** $\text{epoch} \in [\text{warmup} + 5,\ \mathtt{max\_epoch} - \text{cooldown}]$, i.e.
+   $[15, 50]$ at a 60-epoch `max_epoch` (recompute once §7.0 settles it). This drops the warmup
    ramp, Choshen's early transient *and* the cooldown, so every fitted point comes from the same
    length-independent LR trajectory (§1.3c). That property is what makes the
    intermediate-checkpoint shortcut defensible here rather than merely convenient.
@@ -1410,10 +1311,10 @@ unmodelled. Protocol:
    range, via `experiment.checkpoint_override` pointed at `checkpoints/<name>/step_N`, with
    `trainer.max_epoch` set so the run starts immediately in the off-ramp. Those runs need
    `checkpoint_frequency` dense enough to have the fork points (§4.2). If the gain
-   `Δ = L_cooled(E) − L_infinite(E)` is approximately shape-independent, the *argmin over shape*,
-   which is all `x*_k` depends on, is unaffected. ≈ 12 short runs, ≈ 250 GPU-h. Hägele et al. show
+   $\Delta = L_\text{cooled}(E) - L_\text{infinite}(E)$ is approximately shape-independent, the *argmin over shape*,
+   which is all $x^*_k$ depends on, is unaffected. $\approx 12$ short runs, $\approx 250$ GPU-h. Hägele et al. show
    raw infinite-phase checkpoints systematically understate what a cooldown would reach, so this
-   check is what licenses comparing shapes on uncooled checkpoints at all. If `Δ` turns out to be
+   check is what licenses comparing shapes on uncooled checkpoints at all. If $\Delta$ turns out to be
    shape-*dependent*, fall back to end-of-run-only fitting: less precise, still valid.
    > Functional check first: verify on the debug config that resuming from an arbitrary `step_N`
    > with a modified `max_epoch` restores the scheduler state and enters the off-ramp.
@@ -1427,40 +1328,40 @@ unmodelled. Protocol:
 
 ### 8.1 Deriving the shape
 
-With `s_k` from §7.2 and `x⁽⁰⁾, t⁽⁰⁾` from §7.1:
+With $s_k$ from §7.2 and $x^{(0)}, t^{(0)}$ from §7.1:
 
-```
-τ = t_target / t⁽⁰⁾ ;    x_k(t_target) = x⁽⁰⁾_k · τ^(s_k / 3)
-```
+$$
+\tau = \frac{t_\text{target}}{t^{(0)}}, \qquad x_k(t_\text{target}) = x^{(0)}_k \, \tau^{s_k/3}
+$$
 
-**`t_target` = the FLOPs consumed by fullDims trained for 100 epochs on 4 nodes**
-(`world_size = 16`, ≈ 3 120 GPU-h), the largest paper-faithful run the budget supports. Matching
+**$t_\text{target}$ = the FLOPs consumed by fullDims trained for 100 epochs on 4 nodes**
+(`world_size = 16`, $\approx 3\,120$ GPU-h), the largest paper-faithful run the budget supports. Matching
 is on **total** FLOPs, not processor FLOPs: fullDims carries 1.4–1.7 % enc+dec, the predicted
 SoWalrus shape 3.9–5.6 % (§3.1). Matching on processor FLOPs alone would hand the SoWalrus arm a few
 percent more real compute at nominal parity, a bias in favour of the arm we hope wins, which is
-the one direction RQ2 cannot afford. `t_target` is stated on measured total FLOPs (`cumulative_flops`)
-and τ solved accordingly.
+the one direction RQ2 cannot afford. $t_\text{target}$ is stated on measured total FLOPs (`cumulative_flops`)
+and $\tau$ solved accordingly.
 
 **Worked example**, using SoViT's *own* exponents (0.22 / 0.45 / 0.60) as placeholders to show
 what the machinery produces and check feasibility. Shapes depend only on the exponents and on
-`τ`; parameters are with one encoder/decoder pair:
+$\tau$; parameters are with one encoder/decoder pair:
 
-| `t_target` | τ | predicted shape | params | FLOPs/µb vs fullDims | epochs at matched FLOPs |
+| $t_\text{target}$ | $\tau$ | predicted shape | params | FLOPs/$\mu$b vs fullDims | epochs at matched FLOPs |
 |---|---|---|---|---|---|
-| fullDims 100 ep N1 | 89 | (640, 20, 2752) | 172 M | 0.12× | 847 |
-| **fullDims 100 ep N4** | **355** | **(720, 24, 3616)** | **250 M** | **0.19×** | **536** |
-| fullDims 200 ep N4 | 709 | (752, 27, 4160) | 307 M | 0.24× | 844 |
+| fullDims 100 ep N1 | 89 | (640, 20, 2752) | 172 M | $0.12\times$ | 847 |
+| **fullDims 100 ep N4** | **355** | **(720, 24, 3616)** | **250 M** | **$0.19\times$** | **536** |
+| fullDims 200 ep N4 | 709 | (752, 27, 4160) | 307 M | $0.24\times$ | 844 |
 
-So the recipe's prior expectation is a **~4× smaller model trained ~5× longer**, structurally the
-same finding as SoViT-400m/14 vs ViT-g/14. `τ ≈ 355` is an extrapolation of comparable audacity to
-SoViT's (their SoViT-400m sits ≈ 750× above their `x⁽⁰⁾`). Our measured `s_k` will differ: WALRUS's
+So the recipe's prior expectation is a **~$4\times$ smaller model trained ~$5\times$ longer**, structurally the
+same finding as SoViT-400m/14 vs ViT-g/14. $\tau \approx 355$ is an extrapolation of comparable audacity to
+SoViT's (their SoViT-400m sits $\approx 750\times$ above their $x^{(0)}$). Our measured $s_k$ will differ: WALRUS's
 factorised space/time processor and conv encoder/decoder have no ViT counterpart.
 
 ### 8.2 The repetition confound
 
-At matched FLOPs the small arm runs ~5× more epochs, so it sees ~5× more *repeated* data:
-aggregate `R` ≈ 12 for the fullDims arm vs ≈ 66 for a ≈ 5.4×-longer SoWalrus arm, and the most
-repeated dataset, PS, goes from ≈ 44× to ≈ 236× (§2.5). If SoWalrus loses, we cannot immediately
+At matched FLOPs the small arm runs ~$5\times$ more epochs, so it sees ~$5\times$ more *repeated* data:
+aggregate $R \approx 12$ for the fullDims arm vs $\approx 66$ for a $\approx 5.4\times$-longer SoWalrus arm, and the most
+repeated dataset, PS, goes from $\approx 44\times$ to $\approx 236\times$ (§2.5). If SoWalrus loses, we cannot immediately
 tell whether the shape recipe is wrong or the extra repetition stopped paying. SoViT never face
 this, because JFT-3B is effectively inexhaustible.
 
@@ -1470,24 +1371,24 @@ Mitigations, in order of preference:
    SoWalrus arm's repetition, the confound is quantified away. If not, report the compute-optimal
    shape *subject to the measured data constraint*, a more honest and arguably more interesting
    result than SoViT's.
-2. **Cap `t_target`.** If RQ3 shows decay biting first, fall back to the `fullDims 100 ep N1` target
-   (τ = 89, 847 epochs at N1 for the small arm: aggregate `R` ≈ 26, PS ≈ 93×) and accept the
+2. **Cap $t_\text{target}$.** If RQ3 shows decay biting first, fall back to the `fullDims 100 ep N1` target
+   ($\tau = 89$, 847 epochs at N1 for the small arm: aggregate $R \approx 26$, PS $\approx 93\times$) and accept the
    shorter extrapolation.
-3. **Report `R` and `R_d` on every point**, so a reader can re-derive the comparison under their own
+3. **Report $R$ and $R_d$ on every point**, so a reader can re-derive the comparison under their own
    assumptions.
 
-The ordering is deliberate: RQ3 must report *before* `t_target` is fixed (GATE B).
+The ordering is deliberate: RQ3 must report *before* $t_\text{target}$ is fixed (GATE B).
 
 ### 8.3 The experiment
 
-- **Arm A:** fullDims `(1408, 40, 5632)`, 100 epochs, N4. ≈ 3 120 GPU-h.
-- **Arm B:** SoWalrus `(H*, L*, M*)` from §8.1, epochs set so total FLOPs match Arm A exactly (not
-  approximately: computed from the §5.1 counter). ≈ 3 120 GPU-h.
+- **Arm A:** fullDims `(1408, 40, 5632)`, 100 epochs, N4. $\approx 3\,120$ GPU-h.
+- **Arm B:** SoWalrus $(H^*, L^*, M^*)$ from §8.1, epochs set so total FLOPs match Arm A exactly (not
+  approximately: computed from the §5.1 counter). $\approx 3\,120$ GPU-h.
 - Both from the same seed; both evaluated on the `test` split with full validation, reporting
   per-dataset one-step and rollout VRMSE/NRMSE, plus GPU-hours and inference cost per sample
   (SoViT's Fig. 2 also sells the inference win).
 - **Plus the downstream arm:** finetune both final checkpoints on all four held-out targets under
-  the Tier 7 protocol (§10), in both data regimes, and report `f_down` per target with bootstrap
+  the Tier 7 protocol (§10), in both data regimes, and report $f_\text{down}$ per target with bootstrap
   CIs. RQ2 is answered twice. "SoWalrus wins upstream but loses on held-out physics" is a
   publishable, not a failed, outcome.
 
@@ -1496,54 +1397,54 @@ fitted law at HalfWalrus-equivalent compute and check that its prediction is con
 star centre's held-out performance. If the law cannot predict the star centre to within a few
 percent ARE, do not proceed: refit or extend the sweeps instead.
 
-**Deviation check (SoViT Fig. 6; optional, budget permitting, ≈ 3 100 GPU-h).** From the derived
-SoWalrus shape, perturb one dimension at a time by −33 % / +33 % / +200 %, holding total FLOPs fixed
+**Deviation check (SoViT Fig. 6; optional, budget permitting, $\approx 3\,100$ GPU-h).** From the derived
+SoWalrus shape, perturb one dimension at a time by $-33\%$ / $+33\%$ / $+200\%$, holding total FLOPs fixed
 by adjusting training duration, and retrain. SoViT found width most sensitive (it has the smallest
-exponent). Only worth running if the expected differences exceed `ε_noise` (§5.4); check that
+exponent). Only worth running if the expected differences exceed $\varepsilon_\text{noise}$ (§5.4); check that
 *before* spending.
 
 ---
 
 ## 9. Tier 6 — RQ3: the repeated-data sub-study
 
-**Question:** over what range does `T_seen` behave like unique data?
+**Question:** over what range does $T_\text{seen}$ behave like unique data?
 
-**Design.** Fix the shape at the 200 M anchor `768/12/2048`, and vary unique data independently of
+**Design.** Fix the shape at the 200M `768/12/2048`, and vary unique data independently of
 compute by restricting the training set, which subsets deterministically given
-`restriction_seed`. At full data the anchor sees aggregate `R` ≈ 1.9 at 60 epochs and per-dataset
-`R_d` ≤ 6.6. Restricting by fractions 1 → 1/8 would only reach `R_d` ≈ 50 on PS, below the
-head-to-head's ≈ 236×, which is the regime the answer is needed for. The restriction has to go
+`restriction_seed`. At full data the anchor sees aggregate $R \approx 1.9$ at 60 epochs and per-dataset
+$R_d \le 6.6$. Restricting by fractions 1 $\to$ 1/8 would only reach $R_d \approx 50$ on PS, below the
+head-to-head's $\approx 236\times$, which is the regime the answer is needed for. The restriction has to go
 deeper.
 
 **Granularity floor.** `restrict_train_num_trajectories` applies **per sub-dataset**
-([multidatamodule.py:155-158](../../walrus/data/multidatamodule.py#L155-L158) → each
+([multidatamodule.py:155-158](../../walrus/data/multidatamodule.py#L155-L158) $\to$ each
 `BatchInflatedWellDataset`). PS has only 96 train trajectories: 1/16 leaves 6, 1/64 leaves 1–2,
 which is no longer "the same dataset, less of it". For the deepest level use
 `restrict_train_num_samples` (window-level) instead. It keeps trajectory diversity and thins
 windows, which is a *different* kind of restriction. Before relying on it, confirm from
 `multidataset.py` how the samples are chosen (random windows vs contiguous blocks).
 
-| level | knob | fraction | aggregate `R` at 60 ep | PS `R_d` | GS `R_d` |
+| level | knob | fraction | aggregate $R$ at 60 ep | PS $R_d$ | GS $R_d$ |
 |---|---|---|---:|---:|---:|
-| 0 | — | 1 | ≈ 1.9 | 6.6 | 0.7 |
-| 1 | trajectories | 1/4 | ≈ 7.4 | 26 | 2.7 |
-| 2 | trajectories | 1/16 | ≈ 30 | 106 | 11 |
-| 3 | samples | 1/64 | ≈ 119 | 423 | 44 |
+| 0 | — | 1 | $\approx 1.9$ | 6.6 | 0.7 |
+| 1 | trajectories | 1/4 | $\approx 7.4$ | 26 | 2.7 |
+| 2 | trajectories | 1/16 | $\approx 30$ | 106 | 11 |
+| 3 | samples | 1/64 | $\approx 119$ | 423 | 44 |
 
 Each level is run at 30 and 60 epochs, giving 8 runs at the anchor shape and a
-`(T_seen, T_unique)` grid at fixed `N` (≈ 320 GPU-h, provisional).
+$(T_\text{seen}, T_\text{unique})$ grid at fixed $N$ ($\approx 320$ GPU-h, provisional).
 
 **Analysis.** Fit a Muennighoff-style repeated-token model (effective tokens decaying with repeat
 count) and report the repetition count at which a token's marginal value has halved. That number
 is what §8.2 consumes, and it is the answer to RQ3. Also break it down per dataset, with no new
 runs: the trainer already logs every metric split by dataset (`{dataset}/full_VRMSE_T=all`, further
 split by field and rollout-time interval), so the per-dataset curves across the four levels are a
-W&B history query against the same 8 runs. Per-dataset `R_d` spans a 10× range at each level, so
+W&B history query against the same 8 runs. Per-dataset $R_d$ spans a $10\times$ range at each level, so
 every dataset contributes points across the whole curve. A dataset whose curve is already flat at
-level 0 is saturated throughout, and its contribution to the sweeps' aggregate `f` should be
+level 0 is saturated throughout, and its contribution to the sweeps' aggregate $f$ should be
 flagged as a flat floor rather than scaling signal (§12).
 
-*Ordering constraint:* RQ3 reports before `t_target` is fixed (GATE B). It is cheap, so run it
+*Ordering constraint:* RQ3 reports before $t_\text{target}$ is fixed (GATE B). It is cheap, so run it
 concurrently with the star sweep.
 
 ---
@@ -1564,11 +1465,11 @@ Pinned identically across every finetune in the study:
 - the §4.1 substrate, except `model.drop_path=0.0` and `optimizer.lr=1e-4` (the choices made and
   documented in `fullDims_FT_ActiveMatter.sh`), with `data/field_index_map_override=full_well_field_index`
 - **a fixed finetuning budget in micro-batches**, the same for every shape: default 20 epochs at
-  `max_samples=500` = 10 000 micro-batches ≈ 5 standard epochs
+  `max_samples=500` = 10 000 micro-batches $\approx 5$ standard epochs
 - `++trainer.skip_spectral_metrics=False`, full validation at the end (§3.5)
 - **two data regimes per target**:
-  - *scarce*: `restrict_train_num_trajectories` = 16 trajectories per target (≈ 22 % of TRL2's
-    72, ≈ 4 % of HS's 416). This is the regime where pretraining effects are largest and where
+  - *scarce*: `restrict_train_num_trajectories` = 16 trajectories per target ($\approx 22\%$ of TRL2's
+    72, $\approx 4\%$ of HS's 416). This is the regime where pretraining effects are largest and where
     shapes are most likely to separate. For VE, restrict per regime file rather than over the
     whole dataset: a random 16 of its 213 trajectories would often contain no AH trajectory at all
     (AH has 16 train trajectories).
@@ -1582,24 +1483,24 @@ Pinned identically across every finetune in the study:
 
 | set | checkpoints | regimes | purpose |
 |---|---|---|---|
-| 7a — core | 6 grid-sweep points on the Pareto frontier around `x⁽⁰⁾`; per star axis the smallest, middle and largest point (9) + the centre; both head-to-head arms | scarce | is the upstream-optimal shape also downstream-optimal? (rank agreement) |
+| 7a — core | 6 grid-sweep points on the Pareto frontier around $x^{(0)}$; per star axis the smallest, middle and largest point (9) + the centre; both head-to-head arms | scarce | is the upstream-optimal shape also downstream-optimal? (rank agreement) |
 | 7a — core | star centre + both head-to-head arms | full | RQ2's downstream arm |
-| 7a — core | 2 scratch baselines (the anchor shape and SoWalrus, no pretraining) | scarce + full | transfer gain `g = 1 − VRMSE(ft) / VRMSE(scratch)` |
-| 7b — optional | the remaining 9 star points, at end of run and at one intermediate `tᵢ` | scarce | enough points to **fit `s_k` on `f_down`** and compare with `f_up`'s |
+| 7a — core | 2 scratch baselines (the anchor shape and SoWalrus, no pretraining) | scarce + full | transfer gain $g = 1 - \mathrm{VRMSE}(\text{ft}) / \mathrm{VRMSE}(\text{scratch})$ |
+| 7b — optional | the remaining 9 star points, at end of run and at one intermediate $t_i$ | scarce | enough points to **fit $s_k$ on $f_\text{down}$** and compare with $f_\text{up}$'s |
 
-7a answers RQ5 as a *ranking* question: does the shape order by `f_down` agree with the order by
-`f_up`, within CIs and `ε_noise`? 7b answers it as an *exponent* question, as SoViT's Fig. 5 does,
-and costs roughly as much again. The choice between them is made at GATE B, once `f_up`'s exponents
+7a answers RQ5 as a *ranking* question: does the shape order by $f_\text{down}$ agree with the order by
+$f_\text{up}$, within CIs and $\varepsilon_\text{noise}$? 7b answers it as an *exponent* question, as SoViT's Fig. 5 does,
+and costs roughly as much again. The choice between them is made at GATE B, once $f_\text{up}$'s exponents
 and their CIs are known.
 
 ### 10.3 Analysis
 
-- Report `f_down` per target, and aggregated over the three in-family targets (HS, TRL2, VE)
+- Report $f_\text{down}$ per target, and aggregated over the three in-family targets (HS, TRL2, VE)
   separately from the out-of-family one (ACT). The two may disagree, and the disagreement is the
   result.
 - For each target, test whether the upstream argmin shape is within noise of the downstream argmin
   at matched pretraining FLOPs.
-- For 7b, fit SoViT Eq. 2 with `f_down` as `f` and compare `s_k` with the upstream fit's bootstrap
+- For 7b, fit SoViT Eq. 2 with $f_\text{down}$ as $f$ and compare $s_k$ with the upstream fit's bootstrap
   CIs.
 - Relate the results to the categorisation axes only descriptively: four targets are enough to
   *illustrate* axis effects, not to estimate them. The crossover designs in the categorisation doc
@@ -1610,35 +1511,35 @@ and their CIs are known.
 ## 11. Budget and sequencing
 
 Costs assume the FLOP-proportional regime; the right column is the pessimistic dataloader-floor
-regime (every run pinned at ≈ 7.8 GPU-h/epoch whatever its shape), which §5.2 will discriminate.
+regime (every run pinned at $\approx 7.8$ GPU-h/epoch whatever its shape), which §5.2 will discriminate.
 All GPU-h figures are provisional: several were first derived at a 20-step validation rollout (now
 60, §3.4) or on the 7-dataset mixture, and the roofline re-measures them.
 
 | tier | content | runs | GPU-h (FLOP-prop.) | GPU-h (floor) |
 |---|---|---:|---:|---:|
 | 0 | FLOP re-validation, roofline (incl. paired staging test) | ~12 short | 400 | 500 |
-| 0 | Noise floor, 3 seeds × 60 ep, + 12 `f_down` finetunes | 3 + 12 | 170 | 1 450 |
-| 1 | LR × WD sensitivity | 5–10 | 630 | 2 340 |
-| 2 | Grid sweep 4×4×4 @ 40 ep (+1 extension round) | 64 (+16) | 580 | 20 000 ✗ |
-| 3 | Star sweep 18 × 60 ep | 18 | 4 343 | 8 424 |
+| 0 | Noise floor, 3 seeds $\times$ 60 ep, + 12 $f_\text{down}$ finetunes | 3 + 12 | 170 | 1 450 |
+| 1 | LR $\times$ WD sensitivity | 5–10 | 630 | 2 340 |
+| 2 | Grid sweep $4\times4\times4$ @ 40 ep (+1 extension round) | 64 (+16) | 580 | 20 000 ✗ |
+| 3 | Star sweep 18 $\times$ 60 ep | 18 | 4 343 | 8 424 |
 | 3 | **Star-centre re-run on the new mixture** (GATE C) | 1 | **470** | 470 |
 | 3 | Cooldown-branch validation (RQ4) | 12 short | 250 | 900 |
-| 6 | Repetition sub-study (RQ3), 4 levels × 2 durations | 8 | 320 | 3 744 |
+| 6 | Repetition sub-study (RQ3), 4 levels $\times$ 2 durations | 8 | 320 | 3 744 |
 | 5 | Head-to-head, 2 arms at matched FLOPs | 2 | 6 240 | 6 240 |
-| 7a | **Downstream core** (≈ 20 checkpoints × 4 targets, scarce; 3 × 4 full; scratch) | ≈ 110 short | **≈ 1 500** | ≈ 3 000 |
-| — | **Core total** | | **≈ 14 900** | **≈ 47 000** |
-| 7b | Downstream exponent fit (optional, GATE B) | ≈ 72 short | ≈ 1 300 | ≈ 2 800 |
+| 7a | **Downstream core** ($\approx 20$ checkpoints $\times$ 4 targets, scarce; 3 $\times$ 4 full; scratch) | $\approx 110$ short | **$\approx 1\,500$** | $\approx 3\,000$ |
+| — | **Core total** | | **$\approx 14\,900$** | **$\approx 47\,000$** |
+| 7b | Downstream exponent fit (optional, GATE B) | $\approx 72$ short | $\approx 1\,300$ | $\approx 2\,800$ |
 | 5 | Deviation checks (optional) | 4 | 3 120 | 3 120 |
 | — | Contingency / reruns (~25 %) | | 3 700 | — |
-| — | **Planned total** | | **≈ 23 000** | — |
+| — | **Planned total** | | **$\approx 23\,000$** | — |
 
-The Tier 7a estimate uses the star points' per-epoch costs (≈ 1.6–6.3 GPU-h/epoch at N1),
-5 epoch-equivalents per finetune, the grid points at ≈ 0.1–0.3 GPU-h/epoch, and fullDims at 7.8.
+The Tier 7a estimate uses the star points' per-epoch costs ($\approx 1.6$–6.3 GPU-h/epoch at N1),
+5 epoch-equivalents per finetune, the grid points at $\approx 0.1$–0.3 GPU-h/epoch, and fullDims at 7.8.
 It is dominated by the fullDims-scale checkpoints (star centre, Arm A).
 
-≈ 23 k GPU-h sits inside the ~30 k budget with room for failures. Under the floor regime the plan
-does **not** fit, and the pre-committed contingency is: grid sweep → 3×3×3 = 27 points at 25
-epochs, noise floor → 30 epochs, RQ3 → 4 runs, deviation checks and Tier 7b dropped.
+$\approx 23$ k GPU-h sits inside the ~30 k budget with room for failures. Under the floor regime the plan
+does **not** fit, and the pre-committed contingency is: grid sweep $\to$ $3\times3\times3 = 27$ points at 25
+epochs, noise floor $\to$ 30 epochs, RQ3 $\to$ 4 runs, deviation checks and Tier 7b dropped.
 
 ### Sequencing and gates
 
@@ -1650,7 +1551,7 @@ T0 roofline ──[GATE A: cost model]──► T1 HP sensitivity
                                               │
                            ┌──────────────────┴──────────────────┐
                            ▼                                     ▼
-                 T2 grid sweep → x⁽⁰⁾                   T6 repetition (RQ3)
+                 T2 grid sweep → x^(0)                  T6 repetition (RQ3)
                            │                                     │
                            ▼                                     │
                  T3 star sweep → s_k  +  star-centre re-run      │
@@ -1673,30 +1574,30 @@ soon as their pretraining runs finish; they do not wait for GATE C.
   readable, the re-survey replacing every estimated figure (§2.1), and `validate_flops_pt9.py`
   exact on all nine datasets (§5.1). The roofline and noise floor can be submitted.
 - **GATE A** — cost model known; sweep sizes and contingency chosen (§5.2).
-- **GATE B** — `s_k` fitted, `x⁽⁰⁾` interior-verified, repetition decay measured; `t_target` fixed
+- **GATE B** — $s_k$ fitted, $x^{(0)}$ interior-verified, repetition decay measured; $t_\text{target}$ fixed
   (§8.2); Tier 7b decided (§10.2).
 - **GATE C** — the fitted law predicts the *held-out star centre's* performance to acceptable ARE,
-  judged against `ε_noise`. Do not spend 6 240 GPU-h on a law that cannot predict a point we
+  judged against $\varepsilon_\text{noise}$. Do not spend 6 240 GPU-h on a law that cannot predict a point we
   already have. SoViT's Fig. 4 (left) is exactly this check.
 
 **Practical scheduling.** `boost_usr_prod` caps jobs at 24 h. Long runs are chains of jobs with
 `--dependency=singleton` (one job per name at a time), relying on `auto_resume=True` and
 `wandb_run_id.txt` to join the history (§4.3); the 60-epoch star runs need 2–6 links each. The
-≈ 536-epoch SoWalrus arm is ≈ 8 days of N4 wall clock (~9 chained links): confirm the
+$\approx 536$-epoch SoWalrus arm is $\approx 8$ days of N4 wall clock (~9 chained links): confirm the
 resume-and-continue path end to end (`test_resume_wandb.sh`) before starting it.
 
 ---
 
 ## 12. Analysis protocol and deliverables
 
-**Fitting.** For each axis `k`, fit SoViT Eq. 2 by minimising *relative* error (as SoViT do, not
-absolute), over all `(x_k, t, f)` triples from the infinite-phase intermediate checkpoints of that
-axis's six star runs. Report `a_k, b_k, c, ξ_k, ε_k` and the derived `s_k = c/(b_k + a_k)`, each
-with bootstrap confidence intervals over runs. In Tier 7b the same applies to `f_down`, with the
+**Fitting.** For each axis $k$, fit SoViT Eq. 2 by minimising *relative* error (as SoViT do, not
+absolute), over all $(x_k, t, f)$ triples from the infinite-phase intermediate checkpoints of that
+axis's six star runs. Report $a_k, b_k, c, \xi_k, \varepsilon_k$ and the derived $s_k = c/(b_k + a_k)$, each
+with bootstrap confidence intervals over runs. In Tier 7b the same applies to $f_\text{down}$, with the
 trajectory-bootstrap CIs of §3.5 in place of window-level ones.
 
 **Fit hygiene: screen for saturation before fitting.** Some checkpoints, especially the smallest
-grid shapes at the largest `tᵢ`, may already be flat against their own capacity floor (§7.0).
+grid shapes at the largest $t_i$, may already be flat against their own capacity floor (§7.0).
 [*(Mis)Fitting: A Survey of Scaling Laws*](https://proceedings.iclr.cc/paper_files/paper/2025/file/7f77492bb8070a5c825a87c0c5181da2-Paper-Conference.pdf)
 (ICLR 2025) documents this as a routine failure mode: the best fit over *all* observed points is
 often not the best fit for the region being extrapolated to. Before fitting, plot each shape's loss
@@ -1706,27 +1607,27 @@ flagged as already saturated by RQ3 (§9) are noted alongside the fits.
 
 **Three pre-registered validity checks**, mirroring the source papers:
 
-1. **Metric robustness** (SoViT Fig. 5). Refit `s_k` under each secondary metric of §3.4, and under
-   the family-balanced `f_up`. SoViT found `a_k, b_k, c` move but `s_k` — a ratio — stays put. If
+1. **Metric robustness** (SoViT Fig. 5). Refit $s_k$ under each secondary metric of §3.4, and under
+   the family-balanced $f_\text{up}$. SoViT found $a_k, b_k, c$ move but $s_k$ — a ratio — stays put. If
    ours does not, that is a finding, and it undermines the single-metric choice.
-2. **`c` should be shape-independent** (SoViT §4.1: `c = Θ(1/d)` for intrinsic data-manifold
-   dimension `d`). SoViT got `c ≈ 0.65 ± 0.06` across all three axes. Agreement across our axes is
+2. **$c$ should be shape-independent** (SoViT §4.1: $c = \Theta(1/d)$ for intrinsic data-manifold
+   dimension $d$). SoViT got $c \approx 0.65 \pm 0.06$ across all three axes. Agreement across our axes is
    strong evidence the functional form suits this modality; disagreement is evidence it does not.
-   For a physics mixture with a plausibly low-dimensional attractor, the value of `c` is
+   For a physics mixture with a plausibly low-dimensional attractor, the value of $c$ is
    independently interesting.
 3. **Held-out extrapolation to the star centre** (SoViT Fig. 4 left), using the re-run fullDims
    point of §7.2. This is GATE C.
 
-**Known precision risk.** The `mlp_dim` axis spans only ≈ 0.68–0.81× of the centre's FLOPs (§7.2),
-because `M` is one of several `O(H²)` terms, versus ≈ 0.21–0.77× for `hidden_dim`. A narrow
-compute range makes `b_mlp`, and hence `s_mlp`, the least well-determined exponent. If its bootstrap
-CI is too wide to be useful, extend that grid downward (`M ∈ {512, 640, 800}`) rather than
+**Known precision risk.** The `mlp_dim` axis spans only $\approx 0.68$–$0.81\times$ of the centre's FLOPs (§7.2),
+because $M$ is one of several $O(H^2)$ terms, versus $\approx 0.21$–$0.77\times$ for `hidden_dim`. A narrow
+compute range makes $b_\text{mlp}$, and hence $s_\text{mlp}$, the least well-determined exponent. If its bootstrap
+CI is too wide to be useful, extend that grid downward ($M \in \{512, 640, 800\}$) rather than
 over-claim.
 
-**Reporting.** Every table carries: shape, total and processor params, `T_seen`, aggregate `R`
-and max `R_d`, measured FLOPs (total and processor-only), GPU-hours, `f_up` with its `ε_noise`
-band, and — where measured — `f_down` per target with its CI. Every claim of a difference is
-stated relative to `ε_noise`.
+**Reporting.** Every table carries: shape, total and processor params, $T_\text{seen}$, aggregate $R$
+and max $R_d$, measured FLOPs (total and processor-only), GPU-hours, $f_\text{up}$ with its $\varepsilon_\text{noise}$
+band, and — where measured — $f_\text{down}$ per target with its CI. Every claim of a difference is
+stated relative to $\varepsilon_\text{noise}$.
 
 **Deliverables — status in this pass:**
 
@@ -1751,7 +1652,7 @@ stated relative to `ε_noise`.
 - 🔲 `gen_downstream_runs.py` — Tier 7 finetune generator (§10), parameterised by checkpoint path,
   target, regime and embedding policy.
 - 🔲 `gen_repetition_runs.py` — Tier 6 with the levels of §9.
-- 🔲 `analysis/` — W&B history export, Eq. 2 fitting, bootstrap CIs, `f_down` extraction with
+- 🔲 `analysis/` — W&B history export, Eq. 2 fitting, bootstrap CIs, $f_\text{down}$ extraction with
   trajectory bootstrap, and the figure set.
 
 **Figures** (each an intentional counterpart to a source figure):
@@ -1760,14 +1661,14 @@ stated relative to `ε_noise`.
 2. Predicted vs actual, with the held-out star centre marked — SoViT Fig. 4 (left).
 3. Measured FLOPs vs GPU-hours — SoViT Fig. 4 (right); it may or may not show their 0.99
    correlation, and either way it is a result.
-4. Exponents `a, b, c, s` per axis across metrics — SoViT Fig. 5.
+4. Exponents $a, b, c, s$ per axis across metrics — SoViT Fig. 5.
 5. The efficiency frontier: width / depth / MLP / params vs compute for WALRUS — SoViT Fig. 1.
 6. ARE vs fraction of training used and number of models — Choshen Fig. 4, replicated on a PDE
    foundation model.
-7. Repetition decay: loss vs `R` at fixed `N`, aggregate and per dataset — the answer to RQ3.
+7. Repetition decay: loss vs $R$ at fixed $N$, aggregate and per dataset — the answer to RQ3.
 8. Head-to-head at matched FLOPs, with per-dataset breakdown — SoViT Fig. 2 / Fig. 6.
 9. Upstream vs downstream shape ranking at matched FLOPs, per held-out target (RQ5, Tier 7a).
-10. `s_k` from `f_up` vs `s_k` from `f_down` with CIs, in-family vs out-of-family (RQ5, Tier 7b).
+10. $s_k$ from $f_\text{up}$ vs $s_k$ from $f_\text{down}$ with CIs, in-family vs out-of-family (RQ5, Tier 7b).
 11. Head-to-head per held-out target, both data regimes (RQ2's downstream arm).
 
 ---
@@ -1777,25 +1678,25 @@ stated relative to `ε_noise`.
 | risk | mitigation |
 |---|---|
 | Cost is dataloader-bound, not FLOP-bound | GATE A; pre-committed contingency (§11); staging tested (§5.2); reported as a finding |
-| Euler's large per-window reads from ≈ 212–215 GB files raise the dataloader floor | Roofline reports per-dataset data-wait via `parse_roofline_logs.py` (§5.2); if Euler alone is the floor, report it, and consider staging only Euler's hot files as a targeted fix |
-| Seed variance swamps shape effects | `ε_noise` measured first, for `f_up` and `f_down`; every claim stated against it (§5.4). Seeds are explicit and reproducible (§5.1), so a suspicious point can be re-run exactly |
+| Euler's large per-window reads from $\approx 212$–215 GB files raise the dataloader floor | Roofline reports per-dataset data-wait via `parse_roofline_logs.py` (§5.2); if Euler alone is the floor, report it, and consider staging only Euler's hot files as a targeted fix |
+| Seed variance swamps shape effects | $\varepsilon_\text{noise}$ measured first, for $f_\text{up}$ and $f_\text{down}$; every claim stated against it (§5.4). Seeds are explicit and reproducible (§5.1), so a suspicious point can be re-run exactly |
 | Zero-spread error bars from same-seed repeats | Evaluation is stochastic (the jitterer runs in `eval()`), but a same-seed repeat is bit-identical. §5.3b's protocol: vary `seed` explicitly, hold `world_size` fixed, never quote eval-path spread as run-to-run noise |
 | Frozen LR under-tunes the widest shapes | LR-sensitivity ablation quantifies it (§6); acknowledged limitation |
 | Grid-sweep optimum lands on a boundary | Budgeted extension round (§7.1); the authors' grid as the natural extension region (§7.1b) |
-| `s_mlp` poorly determined by a narrow compute range | Extend the `mlp_dim` grid downward (§12) |
+| $s_\text{mlp}$ poorly determined by a narrow compute range | Extend the `mlp_dim` grid downward (§12) |
 | Cooldown gain turns out shape-*dependent* | Fall back to end-of-run-only fitting; costs precision, not validity (§7.3) |
 | Sweep `max_epoch` not yet derived (placeholders 40 / 60 / 101 disagree) | §7.0 derives it from the warmup floor, the cooldown fraction and the saturation pilot; one value for both sweeps |
 | Enc/dec FLOP ballast biases the grid-sweep exponents (29–45 % of forward FLOPs at the smallest corner) | Dual fit on total vs processor-only FLOPs, both logged per epoch (§1.3f, §3.1, §7.1) |
-| Capped mid-training validation covers 0.03–0.3 % of each valid split | Deterministic subset keeps `ε_noise` clean; full-validation spot-check on saved checkpoints, prioritising GS and Euler (§3.4) |
+| Capped mid-training validation covers 0.03–0.3 % of each valid split | Deterministic subset keeps $\varepsilon_\text{noise}$ clean; full-validation spot-check on saved checkpoints, prioritising GS and Euler (§3.4) |
 | GPU-h estimates predate the 60-step validation horizon and this mixture | Treated as provisional until the roofline re-measures (§3.4, §11) |
 | `n_states` changes with what is on disk | `full_well_field_index` pin, `n_states = 67` checked as a post-condition (§1.3b, §5.3) |
 | End-of-run full validation/test inflates cost and touches `test` | `++trainer.debug_mode=True` on every run; full-split scores only via checkpoint re-evaluation (§4.1) |
 | 24 h wall-clock limit vs an 8-day run | Chained `--dependency=singleton` submissions; resume path verified before starting (§11) |
-| $FAST (1 TB) fills with checkpoints | Sparse weights, dense metrics; delete `step_*` after each tier (§4.2) |
+| `$FAST` (1 TB) fills with checkpoints | Sparse weights, dense metrics; delete `step_*` after each tier (§4.2) |
 | Historical fullDims runs no longer usable as GATE C's centre | Budgeted re-run (§7.2) |
-| Tiny held-out evaluation sets (TRL2 9 valid trajectories, VE-AH 2) | Full validation, trajectory bootstrap, per-regime VE scoring; claim a shape effect only above both CI and `ε_noise` (§3.5) |
+| Tiny held-out evaluation sets (TRL2 9 valid trajectories, VE-AH 2) | Full validation, trajectory bootstrap, per-regime VE scoring; claim a shape effect only above both CI and $\varepsilon_\text{noise}$ (§3.5) |
 | Shared field names give a transfer channel that is not "physics" | Stated explicitly (§2.6); embedding-reinit ablation (§10.1) |
-| Mixture overweights acoustics and compressible flow (3/9 each) | Family-balanced `f_up` reported alongside the dataset-balanced one (§3.4) |
+| Mixture overweights acoustics and compressible flow (3/9 each) | Family-balanced $f_\text{up}$ reported alongside the dataset-balanced one (§3.4) |
 | Deep RQ3 restriction collapses PS to 1–2 trajectories | Window-level restriction for the deepest level, with its different semantics stated (§9) |
 | A held-out dataset leaks into pretraining via an override | §5.3 post-condition: resolved dataset list must equal the nine exactly |
 | Four targets cannot estimate per-axis transfer effects | Stated as illustrative only; the categorisation doc's crossover study is the instrument for that (§10.3) |
