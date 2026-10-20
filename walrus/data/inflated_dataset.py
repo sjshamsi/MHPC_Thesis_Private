@@ -1,8 +1,10 @@
 import dataclasses
 import itertools
 import logging
+import os
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple, cast
 
+import numpy as np
 import torch
 from hydra.utils import get_method
 from the_well.data import WellDataset
@@ -15,6 +17,48 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 CARTESIAN_DIMS = ["x", "y", "z"]
+
+# Optional per-sample draw log (diagnostic, off unless WALRUS_DRAW_LOG names a directory). Each
+# DataLoader worker appends one CSV row per training sample: which window, dt and 90-degree
+# rotation it drew. Used by LeonardoRunScripts/PT9_2d/Determinism/flopsonly_repetition.ipynb.
+_DRAW_LOG = os.environ.get("WALRUS_DRAW_LOG")
+_draw_file = None
+_draw_seq = 0
+
+
+def _peek_rotation(dataset) -> int:
+    """The RandomRotation90 index the transform is about to draw (-1: no rotation drawn).
+
+    Read from a copy of numpy's global state, so the real draw is untouched.
+    """
+    from the_well.data.augmentation import PROPER_2D_ROTATIONS, PROPER_3D_ROTATIONS, RandomRotation90
+
+    t = getattr(dataset, "_raw_transform", None)
+    if not isinstance(t, RandomRotation90) or t.hardcoded_rotation_index is not None or t.p < 1.0:
+        return -1
+    if dataset.metadata.grid_type != "cartesian":  # the transform skips non-Cartesian grids
+        return -1
+    state = np.random.RandomState()
+    state.set_state(np.random.get_state())
+    # n_spatial_dims is 3 once 2D data is padded to 3D, so the transform draws a 3D rotation.
+    rotations = PROPER_2D_ROTATIONS if dataset.n_spatial_dims == 2 else PROPER_3D_ROTATIONS
+    return int(state.choice(len(rotations)))
+
+
+def _log_draws(dataset, idxes, files, trajs, t0s, dts, rotation) -> None:
+    global _draw_file, _draw_seq
+    info = torch.utils.data.get_worker_info()
+    if _draw_file is None:
+        os.makedirs(_DRAW_LOG, exist_ok=True)
+        rank = os.environ.get("RANK", "0")
+        _draw_file = open(f"{_DRAW_LOG}/rank{rank}_ppid{os.getppid()}_pid{os.getpid()}.csv", "a", buffering=1)
+        _draw_file.write("launch,rank,epoch,worker,n_workers,seq,dataset,index,file,traj,t0,dt,rotation\n")
+    worker, n_workers = (info.id, info.num_workers) if info is not None else (0, 1)
+    head = (f"{os.getppid()},{os.environ.get('RANK', '0')},{os.environ.get('WALRUS_DRAW_EPOCH', '-1')},"
+            f"{worker},{n_workers},{_draw_seq},{dataset.dataset_name}")
+    for row in zip(idxes, files, trajs, t0s, dts):
+        _draw_file.write(head + "," + ",".join(str(int(v)) for v in row) + f",{rotation}\n")
+    _draw_seq += 1
 
 
 class InflatedWellDataset(WellDataset):
@@ -251,6 +295,7 @@ class BatchInflatedWellDataset(InflatedWellDataset):
         self._preprocess_data = torch.vmap(
             self._preprocess_data, in_dims=(0, None), randomness="same"
         )
+        self._raw_transform = self.transform  # unwrapped, for the draw log's rotation peek
         if self.transform is not None:
             self.transform = torch.vmap(
                 self.transform, in_dims=(0, None), randomness="same"
@@ -334,6 +379,8 @@ class BatchInflatedWellDataset(InflatedWellDataset):
         )
         # Apply any type of pre-processing that needs to be applied before augmentation
         data = self._preprocess_data(data, traj_metadata)
+        if _DRAW_LOG and self.data_path.rstrip("/").endswith("/train"):
+            _log_draws(self, idxes, file_idxes, sample_idxes, time_idxes, dts, _peek_rotation(self))
         # Apply augmentations and other transformations
         if self.transform is not None:
             data = self.transform(data, traj_metadata)

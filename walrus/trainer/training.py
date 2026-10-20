@@ -1293,6 +1293,9 @@ class Trainer:
             # NOTE - only update train sampler because we want to sample same valid data every time
             if self.is_distributed:
                 train_dataloader.sampler.set_epoch(epoch)
+            if os.environ.get("WALRUS_DRAW_LOG"):
+                # DataLoader workers fork at iter(), so they inherit this; the draw log reads it.
+                os.environ["WALRUS_DRAW_EPOCH"] = str(epoch)
             # Empty mem caches before train loop
             torch.cuda.empty_cache()
             gc.collect()
